@@ -1,0 +1,751 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum UserRole {
+  SUPER_ADMIN
+  OWNER
+  MANAGER
+  STAFF
+  WAITER
+  KITCHEN
+  CUSTOMER
+}
+
+enum StoreRole {
+  MANAGER
+  STAFF
+  WAITER
+  KITCHEN
+}
+
+enum IngredientTypeName {
+  VEGETABLE
+  FRUIT
+  MEAT
+  DAIRY
+  GRAIN
+  SPICE
+  SEAFOOD
+  BEVERAGE
+  OTHER
+}
+
+enum TableStatus {
+  AVAILABLE
+  OCCUPIED
+  RESERVED
+  OUT_OF_SERVICE
+}
+
+enum SessionStatus {
+  ACTIVE
+  CLOSED
+}
+
+enum OrderStatus {
+  DRAFT
+  PENDING
+  CONFIRMED
+  PREPARING
+  READY
+  SERVED
+  CANCELLED
+}
+
+enum OrderItemStatus {
+  PENDING
+  PREPARING
+  READY
+  SERVED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  CREDIT_CARD
+  ONLINE
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum PaymentProvider {
+  IYZICO
+  CASH
+}
+
+enum NotificationType {
+  WAITER_CALL
+  NEW_ORDER
+  ORDER_READY
+  ORDER_STATUS
+  PAYMENT
+  LOW_STOCK
+}
+
+enum CampaignType {
+  PERCENTAGE
+  FIXED_AMOUNT
+  BUY_X_GET_Y
+  HAPPY_HOUR
+}
+
+enum StockMovementType {
+  IN
+  OUT
+  ADJUSTMENT
+}
+
+enum ReportType {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+// ============================================================
+// ORGANIZATION & STORE (Çoklu Şube)
+// ============================================================
+
+model Organization {
+  id              String   @id @default(cuid())
+  name            String
+  slug            String   @unique
+  logo            String?
+  defaultCurrency String   @default("TRY") @map("default_currency")
+  ownerId         String   @map("owner_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  owner  User    @relation("OrganizationOwner", fields: [ownerId], references: [id])
+  stores Store[]
+  users  User[]  @relation("OrganizationUsers")
+
+  @@map("organizations")
+}
+
+model Store {
+  id              String   @id @default(cuid())
+  organizationId  String   @map("organization_id")
+  name            String
+  slug            String   @unique
+  address         String?
+  phone           String?
+  email           String?
+  logo            String?
+  timezone        String   @default("Europe/Istanbul")
+  defaultLanguage String   @default("tr") @map("default_language")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userStores     UserStore[]
+  categories     Category[]
+  units          Unit[]
+  ingredients    Ingredient[]
+  products       Product[]
+  menus          Menu[]
+  tables         RestaurantTable[]
+  orders         Order[]
+  notifications  Notification[]
+  customerVisits CustomerVisit[]
+  campaigns      Campaign[]
+  stockMovements StockMovement[]
+  reports        Report[]
+
+  @@map("stores")
+}
+
+// ============================================================
+// USER & AUTH
+// ============================================================
+
+model User {
+  id             String    @id @default(cuid())
+  email          String    @unique
+  phone          String?
+  passwordHash   String    @map("password_hash")
+  name           String
+  avatar         String?
+  role           UserRole  @default(CUSTOMER)
+  organizationId String?   @map("organization_id")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  organization      Organization?  @relation("OrganizationUsers", fields: [organizationId], references: [id])
+  ownedOrganizations Organization[] @relation("OrganizationOwner")
+  userStores        UserStore[]
+  tableSessions     TableSession[]
+  customerVisits    CustomerVisit[]
+  readNotifications Notification[] @relation("NotificationReader")
+  stockMovements    StockMovement[]
+
+  @@map("users")
+}
+
+model UserStore {
+  id      String    @id @default(cuid())
+  userId  String    @map("user_id")
+  storeId String    @map("store_id")
+  role    StoreRole
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, storeId])
+  @@map("user_stores")
+}
+
+// ============================================================
+// LANGUAGE & I18N
+// ============================================================
+
+model Language {
+  id        String  @id @default(cuid())
+  code      String  @unique
+  name      String
+  isDefault Boolean @default(false) @map("is_default")
+
+  categoryTranslations CategoryTranslation[]
+  allergenTranslations AllergenTranslation[]
+  productTranslations  ProductTranslation[]
+
+  @@map("languages")
+}
+
+// ============================================================
+// CATEGORY (Hiyerarşik)
+// ============================================================
+
+model Category {
+  id        String   @id @default(cuid())
+  storeId   String   @map("store_id")
+  parentId  String?  @map("parent_id")
+  slug      String
+  image     String?
+  sortOrder Int      @default(0) @map("sort_order")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  store        Store                 @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  parent       Category?             @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children     Category[]            @relation("CategoryHierarchy")
+  translations CategoryTranslation[]
+  products     Product[]
+  menuCategories MenuCategory[]
+  campaignCategories CampaignCategory[]
+
+  @@unique([storeId, slug])
+  @@map("categories")
+}
+
+model CategoryTranslation {
+  id          String @id @default(cuid())
+  categoryId  String @map("category_id")
+  languageId  String @map("language_id")
+  name        String
+  description String?
+
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  language Language @relation(fields: [languageId], references: [id], onDelete: Cascade)
+
+  @@unique([categoryId, languageId])
+  @@map("category_translations")
+}
+
+// ============================================================
+// UNIT (Birim)
+// ============================================================
+
+model Unit {
+  id           String   @id @default(cuid())
+  storeId      String   @map("store_id")
+  name         String
+  abbreviation String
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  store              Store               @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  products           Product[]
+  productIngredients ProductIngredient[]
+  ingredients        Ingredient[]        @relation("IngredientStockUnit")
+  stockMovements     StockMovement[]
+
+  @@unique([storeId, name])
+  @@map("units")
+}
+
+// ============================================================
+// INGREDIENT (Malzeme)
+// ============================================================
+
+model Ingredient {
+  id            String             @id @default(cuid())
+  storeId       String             @map("store_id")
+  name          String
+  type          IngredientTypeName
+  isAllergen    Boolean            @default(false) @map("is_allergen")
+  stockQuantity Float?             @map("stock_quantity")
+  stockUnitId   String?            @map("stock_unit_id")
+  minStockLevel Float?             @map("min_stock_level")
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+
+  store              Store               @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  stockUnit          Unit?               @relation("IngredientStockUnit", fields: [stockUnitId], references: [id])
+  productIngredients ProductIngredient[]
+  stockMovements     StockMovement[]
+
+  @@unique([storeId, name])
+  @@map("ingredients")
+}
+
+// ============================================================
+// ALLERGEN (Standart EU 14 Alerjen)
+// ============================================================
+
+model Allergen {
+  id   String  @id @default(cuid())
+  code String  @unique
+  icon String?
+
+  translations    AllergenTranslation[]
+  productAllergens ProductAllergen[]
+
+  @@map("allergens")
+}
+
+model AllergenTranslation {
+  id          String @id @default(cuid())
+  allergenId  String @map("allergen_id")
+  languageId  String @map("language_id")
+  name        String
+  description String?
+
+  allergen Allergen @relation(fields: [allergenId], references: [id], onDelete: Cascade)
+  language Language @relation(fields: [languageId], references: [id], onDelete: Cascade)
+
+  @@unique([allergenId, languageId])
+  @@map("allergen_translations")
+}
+
+// ============================================================
+// PRODUCT (Ürün)
+// ============================================================
+
+model Product {
+  id              String   @id @default(cuid())
+  storeId         String   @map("store_id")
+  categoryId      String   @map("category_id")
+  unitId          String   @map("unit_id")
+  slug            String
+  costPrice       Float    @map("cost_price")
+  taxRate         Float    @default(0) @map("tax_rate")
+  salePrice       Float    @map("sale_price")
+  currency        String   @default("TRY")
+  isActive        Boolean  @default(true) @map("is_active")
+  sortOrder       Int      @default(0) @map("sort_order")
+  preparationTime Int?     @map("preparation_time")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  store            Store               @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  category         Category            @relation(fields: [categoryId], references: [id])
+  unit             Unit                @relation(fields: [unitId], references: [id])
+  translations     ProductTranslation[]
+  images           ProductImage[]
+  model3d          Product3DModel?
+  ingredients      ProductIngredient[]
+  allergens        ProductAllergen[]
+  menuProducts     MenuProduct[]
+  orderItems       OrderItem[]
+  campaignProducts CampaignProduct[]
+
+  @@unique([storeId, slug])
+  @@map("products")
+}
+
+model ProductTranslation {
+  id          String @id @default(cuid())
+  productId   String @map("product_id")
+  languageId  String @map("language_id")
+  name        String
+  description String?
+
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  language Language @relation(fields: [languageId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, languageId])
+  @@map("product_translations")
+}
+
+model ProductImage {
+  id        String   @id @default(cuid())
+  productId String   @map("product_id")
+  url       String
+  thumbnailUrl String? @map("thumbnail_url")
+  isCover   Boolean  @default(false) @map("is_cover")
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("product_images")
+}
+
+model Product3DModel {
+  id           String   @id @default(cuid())
+  productId    String   @unique @map("product_id")
+  modelUrl     String   @map("model_url")
+  thumbnailUrl String?  @map("thumbnail_url")
+  fileSize     Int?     @map("file_size")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("product_3d_models")
+}
+
+model ProductIngredient {
+  id           String  @id @default(cuid())
+  productId    String  @map("product_id")
+  ingredientId String  @map("ingredient_id")
+  quantity     Float?
+  unitId       String? @map("unit_id")
+  isRemovable  Boolean @default(false) @map("is_removable")
+
+  product    Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  unit       Unit?      @relation(fields: [unitId], references: [id])
+
+  @@unique([productId, ingredientId])
+  @@map("product_ingredients")
+}
+
+model ProductAllergen {
+  id         String @id @default(cuid())
+  productId  String @map("product_id")
+  allergenId String @map("allergen_id")
+
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  allergen Allergen @relation(fields: [allergenId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, allergenId])
+  @@map("product_allergens")
+}
+
+// ============================================================
+// MENU
+// ============================================================
+
+model Menu {
+  id          String   @id @default(cuid())
+  storeId     String   @map("store_id")
+  name        String
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  qrCodeUrl   String?  @map("qr_code_url")
+  qrToken     String   @unique @map("qr_token")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  store          Store          @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  menuCategories MenuCategory[]
+  menuProducts   MenuProduct[]
+
+  @@map("menus")
+}
+
+model MenuCategory {
+  id         String  @id @default(cuid())
+  menuId     String  @map("menu_id")
+  categoryId String  @map("category_id")
+  sortOrder  Int     @default(0) @map("sort_order")
+  isActive   Boolean @default(true) @map("is_active")
+
+  menu     Menu     @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([menuId, categoryId])
+  @@map("menu_categories")
+}
+
+model MenuProduct {
+  id          String @id @default(cuid())
+  menuId      String @map("menu_id")
+  productId   String @map("product_id")
+  isActive    Boolean @default(true) @map("is_active")
+  customPrice Float?  @map("custom_price")
+
+  menu    Menu    @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([menuId, productId])
+  @@map("menu_products")
+}
+
+// ============================================================
+// TABLE & SESSION (Masa Yönetimi)
+// ============================================================
+
+model RestaurantTable {
+  id               String      @id @default(cuid())
+  storeId          String      @map("store_id")
+  name             String
+  number           Int
+  capacity         Int         @default(4)
+  section          String?
+  qrCodeUrl        String?     @map("qr_code_url")
+  status           TableStatus @default(AVAILABLE)
+  currentSessionId String?     @unique @map("current_session_id")
+  createdAt        DateTime    @default(now()) @map("created_at")
+  updatedAt        DateTime    @updatedAt @map("updated_at")
+
+  store          Store          @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  currentSession TableSession?  @relation("CurrentSession", fields: [currentSessionId], references: [id])
+  sessions       TableSession[] @relation("TableSessions")
+  notifications  Notification[]
+
+  @@unique([storeId, number])
+  @@map("restaurant_tables")
+}
+
+model TableSession {
+  id            String        @id @default(cuid())
+  tableId       String        @map("table_id")
+  customerId    String?       @map("customer_id")
+  customerName  String?       @map("customer_name")
+  customerPhone String?       @map("customer_phone")
+  status        SessionStatus @default(ACTIVE)
+  openedAt      DateTime      @default(now()) @map("opened_at")
+  closedAt      DateTime?     @map("closed_at")
+  totalAmount   Float         @default(0) @map("total_amount")
+  discountAmount Float        @default(0) @map("discount_amount")
+  finalAmount   Float         @default(0) @map("final_amount")
+
+  table          RestaurantTable? @relation("CurrentSession")
+  tableRef       RestaurantTable  @relation("TableSessions", fields: [tableId], references: [id], onDelete: Cascade)
+  customer       User?            @relation(fields: [customerId], references: [id])
+  orders         Order[]
+  payments       Payment[]
+
+  @@map("table_sessions")
+}
+
+// ============================================================
+// ORDER (Sipariş)
+// ============================================================
+
+model Order {
+  id              String      @id @default(cuid())
+  tableSessionId  String      @map("table_session_id")
+  storeId         String      @map("store_id")
+  orderNumber     Int         @map("order_number")
+  status          OrderStatus @default(DRAFT)
+  totalAmount     Float       @default(0) @map("total_amount")
+  taxAmount       Float       @default(0) @map("tax_amount")
+  discountAmount  Float       @default(0) @map("discount_amount")
+  notes           String?
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+
+  tableSession TableSession @relation(fields: [tableSessionId], references: [id], onDelete: Cascade)
+  store        Store        @relation(fields: [storeId], references: [id])
+  items        OrderItem[]
+  payments     Payment[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id                 String          @id @default(cuid())
+  orderId            String          @map("order_id")
+  productId          String          @map("product_id")
+  quantity           Int             @default(1)
+  unitPrice          Float           @map("unit_price")
+  totalPrice         Float           @map("total_price")
+  notes              String?
+  status             OrderItemStatus @default(PENDING)
+  removedIngredients Json?           @map("removed_ingredients")
+  createdAt          DateTime        @default(now()) @map("created_at")
+  updatedAt          DateTime        @updatedAt @map("updated_at")
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("order_items")
+}
+
+// ============================================================
+// PAYMENT (Ödeme)
+// ============================================================
+
+model Payment {
+  id                    String          @id @default(cuid())
+  orderId               String?         @map("order_id")
+  tableSessionId        String          @map("table_session_id")
+  amount                Float
+  method                PaymentMethod
+  status                PaymentStatus   @default(PENDING)
+  provider              PaymentProvider
+  providerTransactionId String?         @map("provider_transaction_id")
+  providerResponse      Json?           @map("provider_response")
+  createdAt             DateTime        @default(now()) @map("created_at")
+  updatedAt             DateTime        @updatedAt @map("updated_at")
+
+  order        Order?       @relation(fields: [orderId], references: [id])
+  tableSession TableSession @relation(fields: [tableSessionId], references: [id])
+
+  @@map("payments")
+}
+
+// ============================================================
+// NOTIFICATION (Bildirim)
+// ============================================================
+
+model Notification {
+  id        String           @id @default(cuid())
+  storeId   String           @map("store_id")
+  type      NotificationType
+  tableId   String?          @map("table_id")
+  message   String
+  data      Json?
+  isRead    Boolean          @default(false) @map("is_read")
+  readById  String?          @map("read_by_id")
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  store  Store            @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  table  RestaurantTable? @relation(fields: [tableId], references: [id])
+  readBy User?            @relation("NotificationReader", fields: [readById], references: [id])
+
+  @@map("notifications")
+}
+
+// ============================================================
+// CUSTOMER & LOYALTY (Müşteri Sadakat)
+// ============================================================
+
+model CustomerVisit {
+  id         String   @id @default(cuid())
+  storeId    String   @map("store_id")
+  customerId String   @map("customer_id")
+  visitDate  DateTime @map("visit_date")
+  totalSpent Float    @default(0) @map("total_spent")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  store    Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  customer User  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@map("customer_visits")
+}
+
+// ============================================================
+// CAMPAIGN (Kampanya/İndirim)
+// ============================================================
+
+model Campaign {
+  id             String       @id @default(cuid())
+  storeId        String       @map("store_id")
+  name           String
+  description    String?
+  type           CampaignType
+  discountValue  Float        @map("discount_value")
+  minOrderAmount Float?       @map("min_order_amount")
+  startDate      DateTime     @map("start_date")
+  endDate        DateTime     @map("end_date")
+  startTime      String?      @map("start_time")
+  endTime        String?      @map("end_time")
+  isActive       Boolean      @default(true) @map("is_active")
+  usageLimit     Int?         @map("usage_limit")
+  usedCount      Int          @default(0) @map("used_count")
+  conditions     Json?
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  store              Store              @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  campaignProducts   CampaignProduct[]
+  campaignCategories CampaignCategory[]
+
+  @@map("campaigns")
+}
+
+model CampaignProduct {
+  id         String @id @default(cuid())
+  campaignId String @map("campaign_id")
+  productId  String @map("product_id")
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, productId])
+  @@map("campaign_products")
+}
+
+model CampaignCategory {
+  id         String @id @default(cuid())
+  campaignId String @map("campaign_id")
+  categoryId String @map("category_id")
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, categoryId])
+  @@map("campaign_categories")
+}
+
+// ============================================================
+// STOCK (Stok Takibi)
+// ============================================================
+
+model StockMovement {
+  id           String            @id @default(cuid())
+  ingredientId String            @map("ingredient_id")
+  storeId      String            @map("store_id")
+  type         StockMovementType
+  quantity     Float
+  unitId       String            @map("unit_id")
+  reason       String?
+  referenceId  String?           @map("reference_id")
+  createdById  String            @map("created_by_id")
+  createdAt    DateTime          @default(now()) @map("created_at")
+
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  store      Store      @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  unit       Unit       @relation(fields: [unitId], references: [id])
+  createdBy  User       @relation(fields: [createdById], references: [id])
+
+  @@map("stock_movements")
+}
+
+// ============================================================
+// REPORT (Rapor Cache)
+// ============================================================
+
+model Report {
+  id        String     @id @default(cuid())
+  storeId   String     @map("store_id")
+  type      ReportType
+  date      DateTime
+  data      Json
+  createdAt DateTime   @default(now()) @map("created_at")
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, type, date])
+  @@map("reports")
+}
