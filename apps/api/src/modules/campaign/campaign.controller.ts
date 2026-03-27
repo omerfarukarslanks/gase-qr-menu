@@ -54,6 +54,26 @@ export class CampaignController {
     return this.campaignService.validateCoupon(storeId, couponCode);
   }
 
+  @Public()
+  @Post('store/:storeId/calculate-discount')
+  @ApiOperation({ summary: 'Calculate discount for order items' })
+  calculateDiscount(
+    @Param('storeId') storeId: string,
+    @Body()
+    dto: {
+      orderTotal: number;
+      items: Array<{ productId: string; quantity: number; unitPrice: number }>;
+      couponCode?: string;
+    },
+  ) {
+    return this.campaignService.calculateDiscount(
+      storeId,
+      dto.orderTotal,
+      dto.items,
+      dto.couponCode,
+    );
+  }
+
   @Get(':id')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)

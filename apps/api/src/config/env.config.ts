@@ -1,6 +1,4 @@
-import { registerAs } from '@nestjs/config';
-
-export default registerAs('app', () => ({
+export default () => ({
   // Application
   port: parseInt(process.env.PORT || '4000', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
@@ -40,4 +38,4 @@ export default registerAs('app', () => ({
     secretKey: process.env.IYZICO_SECRET_KEY || '',
     baseUrl: process.env.IYZICO_BASE_URL || 'https://sandbox-api.iyzipay.com',
   },
-}));
+});

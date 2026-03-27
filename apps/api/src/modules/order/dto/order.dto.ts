@@ -42,6 +42,11 @@ export class CreateOrderDto {
   @ValidateNested({ each: true })
   @Type(() => OrderItemDto)
   items: OrderItemDto[];
+
+  @ApiPropertyOptional({ description: 'Coupon code for discount' })
+  @IsOptional()
+  @IsString()
+  couponCode?: string;
 }
 
 export class UpdateOrderStatusDto {

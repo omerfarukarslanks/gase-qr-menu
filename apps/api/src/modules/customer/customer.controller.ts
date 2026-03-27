@@ -18,17 +18,12 @@ import { Public } from '../../common/decorators/public.decorator';
 export class CustomerController {
   constructor(private readonly customerService: CustomerService) {}
 
-  @Public()
   @Post('visit')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Track a customer visit' })
   trackVisit(
-    @Body()
-    dto: {
-      storeId: string;
-      customerSessionId: string;
-      tableId?: string;
-      deviceInfo?: any;
-    },
+    @Body() dto: { storeId: string; customerId: string; totalSpent?: number },
   ) {
     return this.customerService.trackVisit(dto);
   }
@@ -41,11 +36,35 @@ export class CustomerController {
     return this.customerService.getVisits(storeId, query);
   }
 
-  @Public()
-  @Get('session/:sessionId/history')
-  @ApiOperation({ summary: 'Get customer history by session' })
-  getHistory(@Param('sessionId') sessionId: string) {
-    return this.customerService.getCustomerHistory(sessionId);
+  @Get(':customerId/history')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Get customer history' })
+  getHistory(@Param('customerId') customerId: string) {
+    return this.customerService.getCustomerHistory(customerId);
+  }
+
+  @Get(':userId/loyalty/:storeId')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Get customer loyalty points' })
+  getLoyaltyPoints(
+    @Param('userId') userId: string,
+    @Param('storeId') storeId: string,
+  ) {
+    return this.customerService.getLoyaltyPoints(userId, storeId);
+  }
+
+  @Post(':userId/loyalty/:storeId/redeem')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Redeem loyalty points' })
+  redeemPoints(
+    @Param('userId') userId: string,
+    @Param('storeId') storeId: string,
+    @Body() dto: { points: number },
+  ) {
+    return this.customerService.redeemPoints(userId, storeId, dto.points);
   }
 
   @Get('store/:storeId/loyalty')

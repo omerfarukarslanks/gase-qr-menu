@@ -1,52 +1,33 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { prisma } from '@gase/database';
-import { CreatePaymentDto, ProcessCardPaymentDto } from './dto/payment.dto';
-
-// Abstract payment provider interface
-export interface PaymentProvider {
-  createPayment(params: any): Promise<any>;
-  checkPaymentStatus(paymentId: string): Promise<any>;
-  refund(paymentId: string, amount: number): Promise<any>;
-}
-
-// Iyzico implementation stub
-class IyzicoProvider implements PaymentProvider {
-  constructor(private config: { apiKey: string; secretKey: string; baseUrl: string }) {}
-
-  async createPayment(params: any): Promise<any> {
-    // TODO: Implement actual iyzico API call
-    // const Iyzipay = require('iyzipay');
-    // const iyzipay = new Iyzipay({ apiKey: this.config.apiKey, secretKey: this.config.secretKey, uri: this.config.baseUrl });
-    return {
-      status: 'success',
-      paymentId: `iyz_${Date.now()}`,
-      message: 'Payment processed (stub)',
-    };
-  }
-
-  async checkPaymentStatus(paymentId: string): Promise<any> {
-    return { status: 'success', paymentId };
-  }
-
-  async refund(paymentId: string, amount: number): Promise<any> {
-    return { status: 'success', paymentId, refundedAmount: amount };
-  }
-}
+import {
+  CreatePaymentDto,
+  Initiate3DSecureDto,
+  Complete3DSecureCallbackDto,
+} from './dto/payment.dto';
+import { IyzicoProvider, PaymentProvider } from './providers/iyzico.provider';
+import { EventsGateway } from '../../gateway/events.gateway';
 
 @Injectable()
 export class PaymentService {
   private provider: PaymentProvider;
 
-  constructor(private configService: ConfigService) {
-    const iyzicoConfig = this.configService.get('app.iyzico');
-    this.provider = new IyzicoProvider(iyzicoConfig || {});
+  constructor(
+    private configService: ConfigService,
+    private eventsGateway: EventsGateway,
+  ) {
+    const iyzicoConfig = this.configService.get('iyzico') || {};
+    this.provider = new IyzicoProvider(iyzicoConfig);
   }
 
+  // Cash / simple payment
   async createPayment(dto: CreatePaymentDto) {
-    const order = await prisma.order.findUnique({ where: { id: dto.orderId } });
+    const order = await prisma.order.findUnique({
+      where: { id: dto.orderId },
+      include: { store: true },
+    });
     if (!order) throw new NotFoundException('Order not found');
-
     if (order.status === 'CANCELLED') {
       throw new BadRequestException('Cannot pay for a cancelled order');
     }
@@ -57,66 +38,168 @@ export class PaymentService {
         storeId: order.storeId,
         amount: dto.amount,
         currency: dto.currency || 'TRY',
-        method: dto.method,
+        method: dto.method as any,
+        provider: dto.method === 'CASH' ? 'CASH' : 'IYZICO',
         status: dto.method === 'CASH' ? 'COMPLETED' : 'PENDING',
       },
     });
 
     if (dto.method === 'CASH') {
       await this.markOrderPaid(dto.orderId);
+      this.eventsGateway.sendToStore(order.storeId, 'paymentCompleted', {
+        orderId: order.id,
+        paymentId: payment.id,
+        method: 'CASH',
+        amount: dto.amount,
+      });
     }
 
     return payment;
   }
 
-  async processCardPayment(dto: ProcessCardPaymentDto) {
-    const order = await prisma.order.findUnique({ where: { id: dto.orderId } });
+  // 3D Secure - Step 1: Initiate
+  async initiate3DSecure(dto: Initiate3DSecureDto) {
+    const order = await prisma.order.findUnique({
+      where: { id: dto.orderId },
+      include: {
+        store: true,
+        items: { include: { product: { include: { translations: true } } } },
+      },
+    });
     if (!order) throw new NotFoundException('Order not found');
+    if (order.isPaid) throw new BadRequestException('Order is already paid');
+
+    const amount = order.finalAmount || order.totalAmount - order.discountAmount;
 
     const payment = await prisma.payment.create({
       data: {
         orderId: dto.orderId,
         storeId: order.storeId,
-        amount: dto.amount,
+        amount,
         currency: dto.currency || 'TRY',
         method: 'CREDIT_CARD',
+        provider: 'IYZICO',
         status: 'PENDING',
+        callbackUrl: dto.callbackUrl,
       },
     });
 
-    try {
-      const result = await this.provider.createPayment({
-        paymentId: payment.id,
-        amount: dto.amount,
-        card: {
-          cardHolderName: dto.cardHolderName,
-          cardNumber: dto.cardNumber,
-          expireMonth: dto.expireMonth,
-          expireYear: dto.expireYear,
-          cvc: dto.cvc,
+    const result = await this.provider.initiate3DSecurePayment({
+      paymentId: payment.id,
+      amount,
+      currency: dto.currency || 'TRY',
+      callbackUrl: dto.callbackUrl,
+      buyer: {
+        id: dto.buyerId || 'guest',
+        name: dto.buyerName || 'Misafir',
+        surname: dto.buyerSurname || 'Musteri',
+        email: dto.buyerEmail || 'guest@example.com',
+        phone: dto.buyerPhone || '+905000000000',
+        ip: dto.buyerIp || '127.0.0.1',
+        city: dto.buyerCity || 'Istanbul',
+        country: 'Turkey',
+        address: dto.buyerAddress || 'Istanbul, Turkey',
+      },
+      card: {
+        cardHolderName: dto.cardHolderName,
+        cardNumber: dto.cardNumber,
+        expireMonth: dto.expireMonth,
+        expireYear: dto.expireYear,
+        cvc: dto.cvc,
+      },
+      items: order.items.map((item) => ({
+        id: item.productId,
+        name: item.product.translations[0]?.name || item.product.slug,
+        category: 'Food',
+        price: item.totalPrice.toFixed(2),
+      })),
+    });
+
+    if (result.status === 'failure') {
+      await prisma.payment.update({
+        where: { id: payment.id },
+        data: { status: 'FAILED', providerResponse: { error: result.errorMessage } },
+      });
+      throw new BadRequestException(result.errorMessage || 'Payment initiation failed');
+    }
+
+    await prisma.payment.update({
+      where: { id: payment.id },
+      data: {
+        providerPaymentId: result.paymentId,
+        threeDSecureHtmlContent: result.htmlContent,
+      },
+    });
+
+    return {
+      paymentId: payment.id,
+      htmlContent: result.htmlContent,
+    };
+  }
+
+  // 3D Secure - Step 2: Callback
+  async complete3DSecureCallback(dto: Complete3DSecureCallbackDto) {
+    const payment = await prisma.payment.findFirst({
+      where: {
+        OR: [
+          { id: dto.paymentId },
+          { providerPaymentId: dto.paymentId },
+        ],
+      },
+      include: { order: true },
+    });
+
+    if (!payment) throw new NotFoundException('Payment not found');
+
+    if (dto.status !== 'success' || dto.mdStatus !== '1') {
+      await prisma.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: 'FAILED',
+          providerResponse: { mdStatus: dto.mdStatus, status: dto.status },
         },
       });
+      return { success: false, message: 'Payment verification failed' };
+    }
 
+    const result = await this.provider.complete3DSecurePayment({
+      paymentId: dto.paymentId,
+    });
+
+    if (result.status === 'success') {
       await prisma.payment.update({
         where: { id: payment.id },
         data: {
           status: 'COMPLETED',
-          providerPaymentId: result.paymentId,
-          providerResponse: result,
+          providerTransactionId: result.transactionId,
+          providerResponse: result.rawResponse || { completed: true },
         },
       });
 
-      await this.markOrderPaid(dto.orderId);
+      if (payment.orderId) {
+        await this.markOrderPaid(payment.orderId);
+        if (payment.order) {
+          this.eventsGateway.sendToStore(payment.order.storeId, 'paymentCompleted', {
+            orderId: payment.orderId,
+            paymentId: payment.id,
+            method: 'CREDIT_CARD',
+            amount: payment.amount,
+          });
+        }
+      }
 
-      return { payment, providerResult: result };
-    } catch (error: any) {
-      await prisma.payment.update({
-        where: { id: payment.id },
-        data: { status: 'FAILED', providerResponse: { error: error.message } },
-      });
-
-      throw new BadRequestException('Payment failed: ' + error.message);
+      return { success: true, paymentId: payment.id };
     }
+
+    await prisma.payment.update({
+      where: { id: payment.id },
+      data: {
+        status: 'FAILED',
+        providerResponse: { error: result.errorMessage },
+      },
+    });
+
+    return { success: false, message: result.errorMessage };
   }
 
   async findByOrder(orderId: string) {
@@ -124,6 +207,12 @@ export class PaymentService {
       where: { orderId },
       orderBy: { createdAt: 'desc' },
     });
+  }
+
+  async findOne(id: string) {
+    const payment = await prisma.payment.findUnique({ where: { id } });
+    if (!payment) throw new NotFoundException('Payment not found');
+    return payment;
   }
 
   async refund(paymentId: string) {
@@ -135,14 +224,28 @@ export class PaymentService {
     }
 
     const result = await this.provider.refund(
-      payment.providerPaymentId || paymentId,
+      payment.providerPaymentId || payment.providerTransactionId || paymentId,
       Number(payment.amount),
     );
 
-    return prisma.payment.update({
+    if (result.status === 'failure') {
+      throw new BadRequestException(result.errorMessage || 'Refund failed');
+    }
+
+    const updatedPayment = await prisma.payment.update({
       where: { id: paymentId },
       data: { status: 'REFUNDED', providerResponse: result },
     });
+
+    // Mark order as unpaid
+    if (payment.orderId) {
+      await prisma.order.update({
+        where: { id: payment.orderId },
+        data: { isPaid: false },
+      });
+    }
+
+    return updatedPayment;
   }
 
   private async markOrderPaid(orderId: string) {

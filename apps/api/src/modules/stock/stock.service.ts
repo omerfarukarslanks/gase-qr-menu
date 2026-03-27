@@ -1,17 +1,21 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { prisma } from '@gase/database';
 import { CreateStockMovementDto } from './dto/stock.dto';
 import { PaginationQueryDto } from '../../common/dto/pagination.dto';
+import { EventsGateway } from '../../gateway/events.gateway';
 
 @Injectable()
 export class StockService {
+  private logger = new Logger('StockService');
+
+  constructor(private readonly eventsGateway: EventsGateway) {}
+
   async createMovement(dto: CreateStockMovementDto) {
     const ingredient = await prisma.ingredient.findUnique({
       where: { id: dto.ingredientId },
     });
     if (!ingredient) throw new NotFoundException('Ingredient not found');
 
-    // Calculate new stock level
     let quantityChange = dto.quantity;
     if (dto.type === 'OUT' || dto.type === 'WASTE') {
       quantityChange = -Math.abs(dto.quantity);
@@ -23,7 +27,7 @@ export class StockService {
       data: {
         ingredientId: dto.ingredientId,
         storeId: dto.storeId,
-        type: dto.type,
+        type: dto.type as any,
         quantity: dto.quantity,
         unitCost: dto.unitCost,
         notes: dto.notes,
@@ -32,8 +36,7 @@ export class StockService {
       include: { ingredient: true },
     });
 
-    // Update ingredient stock
-    await prisma.ingredient.update({
+    const updatedIngredient = await prisma.ingredient.update({
       where: { id: dto.ingredientId },
       data: {
         currentStock: dto.type === 'ADJUSTMENT'
@@ -42,7 +45,79 @@ export class StockService {
       },
     });
 
+    // Check low stock and emit alert
+    if (updatedIngredient.currentStock <= updatedIngredient.lowStockThreshold) {
+      this.eventsGateway.sendToStore(dto.storeId, 'stockLow', {
+        ingredientId: updatedIngredient.id,
+        name: updatedIngredient.name,
+        currentStock: updatedIngredient.currentStock,
+        threshold: updatedIngredient.lowStockThreshold,
+      });
+    }
+
     return movement;
+  }
+
+  // Auto-deduct stock when order is confirmed
+  async deductStockForOrder(order: any) {
+    const orderWithItems = await prisma.order.findUnique({
+      where: { id: order.id },
+      include: {
+        items: {
+          include: {
+            product: {
+              include: {
+                ingredients: {
+                  include: { ingredient: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!orderWithItems) return;
+
+    for (const item of orderWithItems.items) {
+      for (const pi of item.product.ingredients) {
+        if (!pi.quantity) continue;
+
+        const deductQty = pi.quantity * item.quantity;
+
+        try {
+          await prisma.stockMovement.create({
+            data: {
+              ingredientId: pi.ingredientId,
+              storeId: orderWithItems.storeId,
+              type: 'OUT',
+              quantity: deductQty,
+              notes: `Siparis #${orderWithItems.orderNumber} - ${item.product.slug}`,
+              referenceId: orderWithItems.id,
+            },
+          });
+
+          const updatedIngredient = await prisma.ingredient.update({
+            where: { id: pi.ingredientId },
+            data: { currentStock: { decrement: deductQty } },
+          });
+
+          // Low stock alert
+          if (updatedIngredient.currentStock <= updatedIngredient.lowStockThreshold) {
+            this.eventsGateway.sendToStore(orderWithItems.storeId, 'stockLow', {
+              ingredientId: updatedIngredient.id,
+              name: updatedIngredient.name,
+              currentStock: updatedIngredient.currentStock,
+              threshold: updatedIngredient.lowStockThreshold,
+            });
+          }
+        } catch (error) {
+          this.logger.error(
+            `Failed to deduct stock for ingredient ${pi.ingredientId}: ${error}`,
+          );
+        }
+      }
+    }
   }
 
   async getMovements(storeId: string, query: PaginationQueryDto & { ingredientId?: string; type?: string }) {

@@ -18,4 +18,9 @@ export class CreateOrderFromCartDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @ApiPropertyOptional({ description: 'Coupon code for discount' })
+  @IsOptional()
+  @IsString()
+  couponCode?: string;
 }

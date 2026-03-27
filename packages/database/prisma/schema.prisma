@@ -108,6 +108,7 @@ enum StockMovementType {
   IN
   OUT
   ADJUSTMENT
+  WASTE
 }
 
 enum ReportType {
@@ -168,6 +169,8 @@ model Store {
   customerVisits CustomerVisit[]
   campaigns      Campaign[]
   stockMovements StockMovement[]
+  payments       Payment[]
+  loyaltyPoints  LoyaltyPoints[]
   reports        Report[]
 
   @@map("stores")
@@ -196,6 +199,7 @@ model User {
   customerVisits    CustomerVisit[]
   readNotifications Notification[] @relation("NotificationReader")
   stockMovements    StockMovement[]
+  loyaltyPoints     LoyaltyPoints[]
 
   @@map("users")
 }
@@ -298,19 +302,20 @@ model Unit {
 // ============================================================
 
 model Ingredient {
-  id            String             @id @default(cuid())
-  storeId       String             @map("store_id")
-  name          String
-  type          IngredientTypeName
-  isAllergen    Boolean            @default(false) @map("is_allergen")
-  stockQuantity Float?             @map("stock_quantity")
-  stockUnitId   String?            @map("stock_unit_id")
-  minStockLevel Float?             @map("min_stock_level")
-  createdAt     DateTime           @default(now()) @map("created_at")
-  updatedAt     DateTime           @updatedAt @map("updated_at")
+  id                String             @id @default(cuid())
+  storeId           String             @map("store_id")
+  name              String
+  type              IngredientTypeName
+  isAllergen        Boolean            @default(false) @map("is_allergen")
+  currentStock      Float              @default(0) @map("current_stock")
+  lowStockThreshold Float              @default(0) @map("low_stock_threshold")
+  cost              Float              @default(0)
+  stockUnitId       String?            @map("stock_unit_id")
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
 
   store              Store               @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  stockUnit          Unit?               @relation("IngredientStockUnit", fields: [stockUnitId], references: [id])
+  unit               Unit?               @relation("IngredientStockUnit", fields: [stockUnitId], references: [id])
   productIngredients ProductIngredient[]
   stockMovements     StockMovement[]
 
@@ -563,12 +568,17 @@ model Order {
   totalAmount     Float       @default(0) @map("total_amount")
   taxAmount       Float       @default(0) @map("tax_amount")
   discountAmount  Float       @default(0) @map("discount_amount")
+  finalAmount     Float       @default(0) @map("final_amount")
+  isPaid          Boolean     @default(false) @map("is_paid")
+  campaignId      String?     @map("campaign_id")
+  couponCode      String?     @map("coupon_code")
   notes           String?
   createdAt       DateTime    @default(now()) @map("created_at")
   updatedAt       DateTime    @updatedAt @map("updated_at")
 
   tableSession TableSession @relation(fields: [tableSessionId], references: [id], onDelete: Cascade)
   store        Store        @relation(fields: [storeId], references: [id])
+  campaign     Campaign?    @relation(fields: [campaignId], references: [id])
   items        OrderItem[]
   payments     Payment[]
 
@@ -601,18 +611,24 @@ model OrderItem {
 model Payment {
   id                    String          @id @default(cuid())
   orderId               String?         @map("order_id")
-  tableSessionId        String          @map("table_session_id")
+  tableSessionId        String?         @map("table_session_id")
+  storeId               String          @map("store_id")
   amount                Float
+  currency              String          @default("TRY")
   method                PaymentMethod
   status                PaymentStatus   @default(PENDING)
-  provider              PaymentProvider
+  provider              PaymentProvider @default(CASH)
+  providerPaymentId     String?         @map("provider_payment_id")
   providerTransactionId String?         @map("provider_transaction_id")
   providerResponse      Json?           @map("provider_response")
+  threeDSecureHtmlContent String?       @map("three_d_secure_html") @db.Text
+  callbackUrl           String?         @map("callback_url")
   createdAt             DateTime        @default(now()) @map("created_at")
   updatedAt             DateTime        @updatedAt @map("updated_at")
 
-  order        Order?       @relation(fields: [orderId], references: [id])
-  tableSession TableSession @relation(fields: [tableSessionId], references: [id])
+  order        Order?        @relation(fields: [orderId], references: [id])
+  tableSession TableSession? @relation(fields: [tableSessionId], references: [id])
+  store        Store         @relation(fields: [storeId], references: [id])
 
   @@map("payments")
 }
@@ -644,17 +660,35 @@ model Notification {
 // ============================================================
 
 model CustomerVisit {
-  id         String   @id @default(cuid())
-  storeId    String   @map("store_id")
-  customerId String   @map("customer_id")
-  visitDate  DateTime @map("visit_date")
-  totalSpent Float    @default(0) @map("total_spent")
-  createdAt  DateTime @default(now()) @map("created_at")
+  id            String   @id @default(cuid())
+  storeId       String   @map("store_id")
+  customerId    String   @map("customer_id")
+  visitDate     DateTime @map("visit_date")
+  totalSpent    Float    @default(0) @map("total_spent")
+  pointsEarned  Int      @default(0) @map("points_earned")
+  createdAt     DateTime @default(now()) @map("created_at")
 
   store    Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
   customer User  @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
   @@map("customer_visits")
+}
+
+model LoyaltyPoints {
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id")
+  storeId    String   @map("store_id")
+  points     Int      @default(0)
+  totalEarned Int     @default(0) @map("total_earned")
+  totalSpent  Int     @default(0) @map("total_spent")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, storeId])
+  @@map("loyalty_points")
 }
 
 // ============================================================
@@ -669,6 +703,11 @@ model Campaign {
   type           CampaignType
   discountValue  Float        @map("discount_value")
   minOrderAmount Float?       @map("min_order_amount")
+  buyQuantity    Int?         @map("buy_quantity")
+  getQuantity    Int?         @map("get_quantity")
+  happyHourStart String?      @map("happy_hour_start")
+  happyHourEnd   String?      @map("happy_hour_end")
+  couponCode     String?      @map("coupon_code")
   startDate      DateTime     @map("start_date")
   endDate        DateTime     @map("end_date")
   startTime      String?      @map("start_time")
@@ -683,6 +722,7 @@ model Campaign {
   store              Store              @relation(fields: [storeId], references: [id], onDelete: Cascade)
   campaignProducts   CampaignProduct[]
   campaignCategories CampaignCategory[]
+  orders             Order[]
 
   @@map("campaigns")
 }
@@ -721,16 +761,18 @@ model StockMovement {
   storeId      String            @map("store_id")
   type         StockMovementType
   quantity     Float
-  unitId       String            @map("unit_id")
+  unitCost     Float?            @map("unit_cost")
+  unitId       String?           @map("unit_id")
   reason       String?
+  notes        String?
   referenceId  String?           @map("reference_id")
-  createdById  String            @map("created_by_id")
+  createdById  String?           @map("created_by_id")
   createdAt    DateTime          @default(now()) @map("created_at")
 
   ingredient Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
   store      Store      @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  unit       Unit       @relation(fields: [unitId], references: [id])
-  createdBy  User       @relation(fields: [createdById], references: [id])
+  unit       Unit?      @relation(fields: [unitId], references: [id])
+  createdBy  User?      @relation(fields: [createdById], references: [id])
 
   @@map("stock_movements")
 }

@@ -5,6 +5,8 @@ import { CreateOrderFromCartDto } from './dto/create-order-from-cart.dto';
 import { PaginationQueryDto } from '../../common/dto/pagination.dto';
 import { EventsGateway } from '../../gateway/events.gateway';
 import { CartService } from '../cart/cart.service';
+import { CampaignService } from '../campaign/campaign.service';
+import { StockService } from '../stock/stock.service';
 
 const STATUS_FLOW: Record<string, string[]> = {
   DRAFT: ['PENDING', 'CANCELLED'],
@@ -21,12 +23,13 @@ export class OrderService {
   constructor(
     private readonly eventsGateway: EventsGateway,
     private readonly cartService: CartService,
+    private readonly campaignService: CampaignService,
+    private readonly stockService: StockService,
   ) {}
 
   async create(dto: CreateOrderDto) {
     const { items, ...orderData } = dto;
 
-    // Generate daily order number
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -39,9 +42,28 @@ export class OrderService {
     });
 
     const orderNumber = (lastOrder?.orderNumber || 0) + 1;
-
-    // Calculate totals
     const totalAmount = items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+
+    // Calculate campaign discount
+    let discountAmount = 0;
+    let campaignId: string | undefined;
+    let couponCode: string | undefined;
+
+    try {
+      const discount = await this.campaignService.calculateDiscount(
+        dto.storeId,
+        totalAmount,
+        items,
+        dto.couponCode,
+      );
+      if (discount) {
+        discountAmount = discount.discountAmount;
+        campaignId = discount.campaignId;
+        couponCode = dto.couponCode;
+      }
+    } catch {}
+
+    const finalAmount = Math.max(0, totalAmount - discountAmount);
 
     const order = await prisma.order.create({
       data: {
@@ -52,7 +74,10 @@ export class OrderService {
         status: 'PENDING',
         totalAmount,
         taxAmount: 0,
-        discountAmount: 0,
+        discountAmount,
+        finalAmount,
+        campaignId,
+        couponCode,
         items: {
           createMany: {
             data: items.map((item) => ({
@@ -71,21 +96,22 @@ export class OrderService {
       },
     });
 
-    // Emit WebSocket events for new order
-    this.eventsGateway.emitNewOrder(dto.storeId, order);
+    // Increment campaign usage
+    if (campaignId) {
+      await this.campaignService.incrementUsage(campaignId);
+    }
 
+    this.eventsGateway.emitNewOrder(dto.storeId, order);
     return order;
   }
 
   async createFromCart(dto: CreateOrderFromCartDto) {
-    // Get cart from Redis
     const cart = await this.cartService.getCart(dto.sessionId);
 
     if (!cart.items || cart.items.length === 0) {
       throw new BadRequestException('Cart is empty');
     }
 
-    // Generate daily order number
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -98,11 +124,33 @@ export class OrderService {
     });
 
     const orderNumber = (lastOrder?.orderNumber || 0) + 1;
-
     const totalAmount = cart.items.reduce(
       (sum: number, item: any) => sum + item.unitPrice * item.quantity,
       0,
     );
+
+    // Calculate campaign discount
+    let discountAmount = 0;
+    let campaignId: string | undefined;
+
+    try {
+      const discount = await this.campaignService.calculateDiscount(
+        dto.storeId,
+        totalAmount,
+        cart.items.map((item: any) => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+        })),
+        dto.couponCode,
+      );
+      if (discount) {
+        discountAmount = discount.discountAmount;
+        campaignId = discount.campaignId;
+      }
+    } catch {}
+
+    const finalAmount = Math.max(0, totalAmount - discountAmount);
 
     const order = await prisma.order.create({
       data: {
@@ -113,7 +161,10 @@ export class OrderService {
         status: 'PENDING',
         totalAmount,
         taxAmount: 0,
-        discountAmount: 0,
+        discountAmount,
+        finalAmount,
+        campaignId,
+        couponCode: dto.couponCode,
         items: {
           createMany: {
             data: cart.items.map((item: any) => ({
@@ -132,12 +183,13 @@ export class OrderService {
       },
     });
 
-    // Clear the cart after order creation
     await this.cartService.clearCart(dto.sessionId);
 
-    // Emit WebSocket events for new order
-    this.eventsGateway.emitNewOrder(dto.storeId, order);
+    if (campaignId) {
+      await this.campaignService.incrementUsage(campaignId);
+    }
 
+    this.eventsGateway.emitNewOrder(dto.storeId, order);
     return order;
   }
 
@@ -157,6 +209,8 @@ export class OrderService {
         include: {
           items: { include: { product: true } },
           tableSession: { include: { tableRef: true } },
+          campaign: true,
+          payments: true,
         },
       }),
       prisma.order.count({ where }),
@@ -179,6 +233,7 @@ export class OrderService {
       include: {
         items: { include: { product: true } },
         tableSession: { include: { tableRef: true } },
+        campaign: true,
         payments: true,
       },
     });
@@ -205,13 +260,12 @@ export class OrderService {
       },
     });
 
-    // Emit WebSocket events for status update
     this.eventsGateway.emitOrderStatusUpdate(order.storeId, updatedOrder);
 
-    // TODO: When status becomes CONFIRMED, auto-deduct stock via StockService
-    // if (dto.status === 'CONFIRMED') {
-    //   await this.stockService.deductStockForOrder(updatedOrder);
-    // }
+    // Auto-deduct stock when order is CONFIRMED
+    if (dto.status === 'CONFIRMED') {
+      await this.stockService.deductStockForOrder(updatedOrder);
+    }
 
     return updatedOrder;
   }

@@ -3,9 +3,11 @@ import { OrderController } from './order.controller';
 import { OrderService } from './order.service';
 import { EventsGateway } from '../../gateway/events.gateway';
 import { CartModule } from '../cart/cart.module';
+import { CampaignModule } from '../campaign/campaign.module';
+import { StockModule } from '../stock/stock.module';
 
 @Module({
-  imports: [CartModule],
+  imports: [CartModule, CampaignModule, StockModule],
   controllers: [OrderController],
   providers: [OrderService, EventsGateway],
   exports: [OrderService],

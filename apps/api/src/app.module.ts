@@ -28,7 +28,7 @@ import { EventsGateway } from './gateway/events.gateway';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [envConfig],
+      load: [envConfig as any],
     }),
     AuthModule,
     OrganizationModule,

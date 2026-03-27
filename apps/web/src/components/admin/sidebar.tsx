@@ -23,6 +23,7 @@ import {
   Settings,
   LogOut,
   Bell,
+  CreditCard,
 } from "lucide-react";
 
 const navItems = [
@@ -35,6 +36,7 @@ const navItems = [
   { href: "/admin/tables", label: "Masalar", icon: QrCode },
   { href: "/admin/orders", label: "Siparişler", icon: ClipboardList },
   { href: "/admin/kitchen", label: "Mutfak Ekranı", icon: ChefHat },
+  { href: "/admin/payments", label: "Ödemeler", icon: CreditCard },
   { href: "/admin/campaigns", label: "Kampanyalar", icon: Megaphone },
   { href: "/admin/customers", label: "Müşteriler", icon: Users },
   { href: "/admin/reports", label: "Raporlar", icon: BarChart3 },

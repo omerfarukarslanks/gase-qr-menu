@@ -8,7 +8,11 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { PaymentService } from './payment.service';
-import { CreatePaymentDto, ProcessCardPaymentDto } from './dto/payment.dto';
+import {
+  CreatePaymentDto,
+  Initiate3DSecureDto,
+  Complete3DSecureCallbackDto,
+} from './dto/payment.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { Public } from '../../common/decorators/public.decorator';
 
@@ -20,16 +24,23 @@ export class PaymentController {
   @Post()
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: 'Create a payment record' })
+  @ApiOperation({ summary: 'Create a payment record (cash, etc.)' })
   create(@Body() dto: CreatePaymentDto) {
     return this.paymentService.createPayment(dto);
   }
 
   @Public()
-  @Post('card')
-  @ApiOperation({ summary: 'Process card payment' })
-  processCard(@Body() dto: ProcessCardPaymentDto) {
-    return this.paymentService.processCardPayment(dto);
+  @Post('3d-secure/initiate')
+  @ApiOperation({ summary: 'Initiate 3D Secure payment (returns HTML form)' })
+  initiate3DSecure(@Body() dto: Initiate3DSecureDto) {
+    return this.paymentService.initiate3DSecure(dto);
+  }
+
+  @Public()
+  @Post('3d-secure/callback')
+  @ApiOperation({ summary: '3D Secure callback from iyzico' })
+  complete3DSecure(@Body() dto: Complete3DSecureCallbackDto) {
+    return this.paymentService.complete3DSecureCallback(dto);
   }
 
   @Get('order/:orderId')
@@ -38,6 +49,14 @@ export class PaymentController {
   @ApiOperation({ summary: 'Get payments for an order' })
   findByOrder(@Param('orderId') orderId: string) {
     return this.paymentService.findByOrder(orderId);
+  }
+
+  @Get(':id')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Get payment by ID' })
+  findOne(@Param('id') id: string) {
+    return this.paymentService.findOne(id);
   }
 
   @Post(':id/refund')
