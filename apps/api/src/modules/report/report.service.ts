@@ -33,9 +33,11 @@ export class ReportService {
       prisma.payment.groupBy({
         by: ['method'],
         where: {
-          storeId,
+          order: {
+            storeId,
+            createdAt: { gte: startDate, lte: endDate },
+          },
           status: 'COMPLETED',
-          createdAt: { gte: startDate, lte: endDate },
         },
         _sum: { amount: true },
         _count: true,
@@ -61,7 +63,12 @@ export class ReportService {
     const productIds = topProducts.map((p) => p.productId);
     const products = await prisma.product.findMany({
       where: { id: { in: productIds } },
-      select: { id: true, name: true, coverImage: true },
+      select: {
+        id: true,
+        slug: true,
+        translations: { select: { name: true, languageId: true } },
+        images: { where: { isCover: true }, take: 1, select: { url: true } },
+      },
     });
 
     const enrichedTopProducts = topProducts.map((tp) => ({
@@ -166,8 +173,13 @@ export class ReportService {
     const productIds = analytics.map((a) => a.productId);
     const products = await prisma.product.findMany({
       where: { id: { in: productIds } },
-      select: { id: true, name: true, coverImage: true, categoryId: true },
-      
+      select: {
+        id: true,
+        slug: true,
+        categoryId: true,
+        translations: { select: { name: true, languageId: true } },
+        images: { where: { isCover: true }, take: 1, select: { url: true } },
+      },
     });
 
     return analytics.map((a) => ({

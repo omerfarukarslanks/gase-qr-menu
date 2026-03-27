@@ -2,21 +2,20 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { prisma } from '@gase/database';
 import { AddToCartDto, UpdateCartItemDto } from './dto/cart.dto';
-import { createClient, RedisClientType } from 'redis';
+import Redis from 'ioredis';
 
 @Injectable()
 export class CartService {
-  private redis: RedisClientType;
+  private redis: Redis;
   private readonly CART_TTL = 3600; // 1 hour
 
   constructor(private configService: ConfigService) {
     const redisConfig = this.configService.get('app.redis');
-    this.redis = createClient({
-      socket: {
-        host: redisConfig?.host || 'localhost',
-        port: redisConfig?.port || 6379,
-      },
+    this.redis = new Redis({
+      host: redisConfig?.host || 'localhost',
+      port: redisConfig?.port || 6379,
       password: redisConfig?.password || undefined,
+      lazyConnect: true,
     });
     this.redis.connect().catch(console.error);
   }
@@ -31,11 +30,28 @@ export class CartService {
     // Verify product exists and get price
     const product = await prisma.product.findUnique({
       where: { id: dto.productId },
+      include: {
+        translations: true,
+        images: {
+          where: { isCover: true },
+          take: 1,
+        },
+      },
     });
 
-    if (!product || !product.isActive || !product.isAvailable) {
+    if (!product || !product.isActive) {
       throw new NotFoundException('Product not found or unavailable');
     }
+
+    // Get product name from first translation or slug as fallback
+    const productName =
+      product.translations.length > 0
+        ? product.translations[0].name
+        : product.slug;
+
+    // Get cover image from ProductImage relation
+    const coverImage =
+      product.images.length > 0 ? product.images[0].url : null;
 
     const cartData = await this.redis.get(key);
     const cart = cartData ? JSON.parse(cartData) : { storeId: dto.storeId, items: [] };
@@ -50,16 +66,16 @@ export class CartService {
     } else {
       cart.items.push({
         productId: dto.productId,
-        productName: product.name,
+        productName,
         quantity: dto.quantity,
-        unitPrice: Number(product.discountPrice || product.price),
+        unitPrice: Number(product.salePrice),
         notes: dto.notes,
         modifiers: dto.modifiers || [],
-        coverImage: product.coverImage,
+        coverImage,
       });
     }
 
-    await this.redis.setEx(key, this.CART_TTL, JSON.stringify(cart));
+    await this.redis.setex(key, this.CART_TTL, JSON.stringify(cart));
 
     return this.formatCart(cart);
   }
@@ -99,7 +115,7 @@ export class CartService {
       }
     }
 
-    await this.redis.setEx(key, this.CART_TTL, JSON.stringify(cart));
+    await this.redis.setex(key, this.CART_TTL, JSON.stringify(cart));
 
     return this.formatCart(cart);
   }

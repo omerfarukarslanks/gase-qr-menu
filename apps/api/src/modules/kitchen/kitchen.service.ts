@@ -14,7 +14,13 @@ export class KitchenService {
         items: {
           include: {
             product: {
-              select: { id: true, name: true, coverImage: true, preparationTime: true },
+              select: {
+                id: true,
+                slug: true,
+                preparationTime: true,
+                translations: { select: { name: true, languageId: true } },
+                images: { where: { isCover: true }, take: 1, select: { url: true } },
+              },
             },
           },
         },
@@ -41,7 +47,13 @@ export class KitchenService {
         items: {
           include: {
             product: {
-              select: { id: true, name: true, coverImage: true, preparationTime: true },
+              select: {
+                id: true,
+                slug: true,
+                preparationTime: true,
+                translations: { select: { name: true, languageId: true } },
+                images: { where: { isCover: true }, take: 1, select: { url: true } },
+              },
             },
           },
         },
@@ -78,20 +90,19 @@ export class KitchenService {
           createdAt: { gte: today },
         },
       }),
-      prisma.order.aggregate({
+      prisma.order.count({
         where: {
           storeId,
           status: 'SERVED',
           createdAt: { gte: today },
         },
-        _avg: { preparationTime: true },
       }),
     ]);
 
     return {
       activeOrders,
       completedToday,
-      avgPreparationTime: avgPrepTime._avg.preparationTime || 0,
+      avgPreparationTime: 0,
     };
   }
 }

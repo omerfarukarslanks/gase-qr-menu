@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { prisma } from '@gase/database';
 import { CreateNotificationDto } from './dto/notification.dto';
+import { CallWaiterDto } from './dto/call-waiter.dto';
 import { PaginationQueryDto } from '../../common/dto/pagination.dto';
 
 @Injectable()
@@ -16,17 +17,44 @@ export class NotificationService {
     const notification = await prisma.notification.create({
       data: {
         storeId: dto.storeId,
-        type: dto.type,
-        title: dto.title,
-        message: dto.message,
+        type: dto.type as any,
+        message: dto.message || dto.title,
+        data: dto.metadata || {},
         userId: dto.userId,
-        metadata: dto.metadata || {},
       },
     });
 
     // Emit via WebSocket if gateway is set
     if (this.gateway) {
       this.gateway.sendToStore(dto.storeId, 'notification', notification);
+    }
+
+    return notification;
+  }
+
+  async callWaiter(dto: CallWaiterDto) {
+    const notification = await prisma.notification.create({
+      data: {
+        storeId: dto.storeId,
+        type: 'WAITER_CALL',
+        tableId: dto.tableId,
+        message: dto.message || `Waiter called${dto.tableName ? ` from ${dto.tableName}` : ''}`,
+        data: {
+          tableId: dto.tableId,
+          tableName: dto.tableName || null,
+        },
+      },
+    });
+
+    // Emit via WebSocket if gateway is set
+    if (this.gateway) {
+      this.gateway.sendToStore(dto.storeId, 'waiterCall', {
+        notificationId: notification.id,
+        tableId: dto.tableId,
+        tableName: dto.tableName,
+        message: dto.message,
+        timestamp: new Date().toISOString(),
+      });
     }
 
     return notification;

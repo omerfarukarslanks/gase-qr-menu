@@ -166,11 +166,6 @@ export class UpdateProductDto {
   @IsBoolean()
   isActive?: boolean;
 
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsBoolean()
-  isAvailable?: boolean;
-
   @ApiPropertyOptional({ type: [String] })
   @IsOptional()
   @IsArray()

@@ -12,6 +12,7 @@ import {
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { MenuService } from './menu.service';
 import { CreateMenuDto, UpdateMenuDto } from './dto/menu.dto';
+import { PublicMenuFiltersDto } from './dto/public-menu-filters.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { Public } from '../../common/decorators/public.decorator';
 
@@ -34,6 +35,26 @@ export class MenuController {
   @ApiOperation({ summary: 'List menus for a store' })
   findAll(@Param('storeId') storeId: string) {
     return this.menuService.findAll(storeId);
+  }
+
+  @Public()
+  @Get('public/by-token/:qrToken')
+  @ApiOperation({ summary: 'Get public menu by QR token with filters' })
+  getMenuByToken(
+    @Param('qrToken') qrToken: string,
+    @Query() filters: PublicMenuFiltersDto,
+  ) {
+    return this.menuService.getMenuByToken(qrToken, filters);
+  }
+
+  @Public()
+  @Get('public/product/:productId')
+  @ApiOperation({ summary: 'Get public product detail' })
+  getPublicProduct(
+    @Param('productId') productId: string,
+    @Query('lang') lang?: string,
+  ) {
+    return this.menuService.getPublicProduct(productId, lang);
   }
 
   @Public()

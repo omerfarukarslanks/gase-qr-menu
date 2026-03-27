@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Menu | GASE QR Menu",
-  description: "Dijital menu - QR kodunuzla siparis verin",
+  title: "Menü | GASE QR Menu",
+  description: "Dijital menü - QR kodunuzla sipariş verin",
 };
 
 interface MenuLayoutProps {
@@ -17,6 +17,9 @@ export default function MenuLayout({ children, params }: MenuLayoutProps) {
       <div className="mx-auto max-w-lg">
         {children}
       </div>
+
+      {/* Bottom safe area for mobile browsers */}
+      <div className="h-safe-bottom" />
     </div>
   );
 }
