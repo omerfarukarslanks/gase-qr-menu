@@ -29,6 +29,8 @@ Thumbs.db
 # Prisma
 packages/database/prisma/*.db
 packages/database/prisma/migrations/*.sql.bak
+packages/database/package-lock.json
+packages/shared/package-lock.json
 
 # Uploads (local dev)
 uploads/
@@ -44,3 +46,9 @@ yarn-error.log*
 
 # MinIO data (local)
 minio-data/
+
+.tools/*
+.tools/
+
+.package-lock.json
+

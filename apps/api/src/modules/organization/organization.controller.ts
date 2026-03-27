@@ -16,6 +16,7 @@ import { PaginationQueryDto } from '../../common/dto/pagination.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
 @ApiTags('organizations')
 @ApiBearerAuth()
@@ -27,8 +28,8 @@ export class OrganizationController {
   @Post()
   @Roles('SUPER_ADMIN', 'OWNER')
   @ApiOperation({ summary: 'Create a new organization' })
-  create(@Body() dto: CreateOrganizationDto) {
-    return this.organizationService.create(dto);
+  create(@CurrentUser('id') ownerId: string, @Body() dto: CreateOrganizationDto) {
+    return this.organizationService.create(dto, ownerId);
   }
 
   @Get()

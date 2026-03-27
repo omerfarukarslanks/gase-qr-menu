@@ -8,6 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
 import { prisma } from '@gase/database';
 import { LoginDto, RegisterDto } from './dto/auth.dto';
+import { splitDisplayName } from '../../common/utils/language.util';
 
 @Injectable()
 export class AuthService {
@@ -26,13 +27,13 @@ export class AuthService {
     }
 
     const hashedPassword = await bcrypt.hash(dto.password, 12);
+    const fullName = [dto.firstName, dto.lastName].filter(Boolean).join(' ').trim();
 
     const user = await prisma.user.create({
       data: {
         email: dto.email,
         passwordHash: hashedPassword,
-        firstName: dto.firstName,
-        lastName: dto.lastName,
+        name: fullName || dto.email,
         phone: dto.phone,
         organizationId: dto.organizationId,
         role: 'OWNER',
@@ -40,13 +41,15 @@ export class AuthService {
     });
 
     const tokens = await this.generateTokens(user.id, user.email, user.role, user.organizationId);
+    const userName = splitDisplayName(user.name);
 
     return {
       user: {
         id: user.id,
         email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
+        firstName: userName.firstName,
+        lastName: userName.lastName,
+        name: user.name,
         role: user.role,
       },
       ...tokens,
@@ -68,18 +71,16 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    if (!user.isActive) {
-      throw new UnauthorizedException('Account is deactivated');
-    }
-
     const tokens = await this.generateTokens(user.id, user.email, user.role, user.organizationId);
+    const userName = splitDisplayName(user.name);
 
     return {
       user: {
         id: user.id,
         email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
+        firstName: userName.firstName,
+        lastName: userName.lastName,
+        name: user.name,
         role: user.role,
         organizationId: user.organizationId,
       },
@@ -90,15 +91,15 @@ export class AuthService {
   async refreshToken(refreshToken: string) {
     try {
       const payload = this.jwtService.verify(refreshToken, {
-        secret: this.configService.get<string>('app.jwt.refreshSecret'),
+        secret: this.configService.get<string>('jwt.refreshSecret'),
       });
 
       const user = await prisma.user.findUnique({
         where: { id: payload.sub },
       });
 
-      if (!user || !user.isActive) {
-        throw new UnauthorizedException('User not found or inactive');
+      if (!user) {
+        throw new UnauthorizedException('User not found');
       }
 
       return this.generateTokens(user.id, user.email, user.role, user.organizationId);
@@ -117,13 +118,13 @@ export class AuthService {
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
-        secret: this.configService.get<string>('app.jwt.secret'),
-        expiresIn: this.configService.get<string>('app.jwt.expiresIn') || '1h',
+        secret: this.configService.get<string>('jwt.secret'),
+        expiresIn: this.configService.get<string>('jwt.expiresIn') || '1h',
       }),
       this.jwtService.signAsync(payload, {
-        secret: this.configService.get<string>('app.jwt.refreshSecret'),
+        secret: this.configService.get<string>('jwt.refreshSecret'),
         expiresIn:
-          this.configService.get<string>('app.jwt.refreshExpiresIn') || '7d',
+          this.configService.get<string>('jwt.refreshExpiresIn') || '7d',
       }),
     ]);
 

@@ -128,7 +128,7 @@ const mockCategories: PublicCategory[] = [
   },
 ];
 
-const mockMenuData = {
+const mockMenuData: import("@/hooks/use-public-menu").PublicMenuData = {
   id: "mock-menu",
   name: "Ana Menü",
   slug: "demo",

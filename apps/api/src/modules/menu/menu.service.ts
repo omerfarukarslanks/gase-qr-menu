@@ -1,13 +1,115 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { prisma } from '@gase/database';
 import * as QRCode from 'qrcode';
+import { randomUUID } from 'crypto';
 import { CreateMenuDto, UpdateMenuDto } from './dto/menu.dto';
 import { PublicMenuFiltersDto } from './dto/public-menu-filters.dto';
-import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class MenuService {
-  constructor(private configService: ConfigService) {}
+  private pickTranslation(translations: any[], lang?: string, fallback = 'tr') {
+    const normalizedLang = lang?.toLowerCase();
+    const normalizedFallback = fallback.toLowerCase();
+
+    return (
+      translations.find((translation) => translation.language?.code?.toLowerCase() === normalizedLang) ??
+      translations.find(
+        (translation) => translation.language?.code?.toLowerCase() === normalizedFallback,
+      ) ??
+      translations[0]
+    );
+  }
+
+  private formatProduct(product: any, lang?: string, fallbackLanguage = 'tr') {
+    const translation = this.pickTranslation(product.translations, lang, fallbackLanguage);
+
+    return {
+      id: product.id,
+      name: translation?.name ?? product.slug,
+      description: translation?.description ?? null,
+      price: product.salePrice,
+      images: product.images.map((image: any) => ({
+        id: image.id,
+        url: image.url,
+        order: image.sortOrder,
+      })),
+      modelUrl: product.model3d?.modelUrl ?? null,
+      allergens: product.allergens.map((productAllergen: any) => {
+        const allergenTranslation = this.pickTranslation(
+          productAllergen.allergen.translations,
+          lang,
+          fallbackLanguage,
+        );
+
+        return {
+          id: productAllergen.allergen.id,
+          code: productAllergen.allergen.code,
+          name: allergenTranslation?.name ?? productAllergen.allergen.code,
+          icon: productAllergen.allergen.icon,
+        };
+      }),
+      ingredients: product.ingredients.map((ingredient: any) => ({
+        id: ingredient.ingredient.id,
+        name: ingredient.ingredient.name,
+        isRemovable: ingredient.isRemovable,
+      })),
+      categoryId: product.categoryId,
+      isAvailable: product.isActive,
+    };
+  }
+
+  private formatCategory(category: any, lang?: string, fallbackLanguage = 'tr') {
+    const translation = this.pickTranslation(category.translations, lang, fallbackLanguage);
+
+    return {
+      id: category.id,
+      name: translation?.name ?? category.slug,
+      description: translation?.description ?? null,
+      icon: undefined,
+      order: category.sortOrder,
+      products: category.products.map((product: any) =>
+        this.formatProduct(product, lang, fallbackLanguage),
+      ),
+    };
+  }
+
+  private applyProductFilters(products: any[], filters: PublicMenuFiltersDto) {
+    const excludedCodes = filters.excludeAllergens
+      ? filters.excludeAllergens
+          .split(',')
+          .map((code) => code.trim().toLowerCase())
+          .filter(Boolean)
+      : [];
+    const normalizedSearch = filters.search?.trim().toLowerCase();
+
+    return products.filter((product) => {
+      if (filters.minPrice !== undefined && product.price < filters.minPrice) {
+        return false;
+      }
+
+      if (filters.maxPrice !== undefined && product.price > filters.maxPrice) {
+        return false;
+      }
+
+      if (normalizedSearch) {
+        const haystack = `${product.name} ${product.description ?? ''}`.toLowerCase();
+        if (!haystack.includes(normalizedSearch)) {
+          return false;
+        }
+      }
+
+      if (
+        excludedCodes.length > 0 &&
+        product.allergens.some((allergen: any) =>
+          excludedCodes.includes(allergen.code.toLowerCase()),
+        )
+      ) {
+        return false;
+      }
+
+      return true;
+    });
+  }
 
   async create(dto: CreateMenuDto) {
     const { categoryIds, ...data } = dto;
@@ -15,7 +117,8 @@ export class MenuService {
     return prisma.menu.create({
       data: {
         ...data,
-        categories: categoryIds
+        qrToken: randomUUID(),
+        menuCategories: categoryIds
           ? {
               createMany: {
                 data: categoryIds.map((id, index) => ({
@@ -27,7 +130,7 @@ export class MenuService {
           : undefined,
       },
       include: {
-        categories: { include: { category: true }, orderBy: { sortOrder: 'asc' } },
+        menuCategories: { include: { category: true }, orderBy: { sortOrder: 'asc' } },
       },
     });
   }
@@ -36,7 +139,7 @@ export class MenuService {
     return prisma.menu.findMany({
       where: { storeId },
       include: {
-        categories: { include: { category: true }, orderBy: { sortOrder: 'asc' } },
+        menuCategories: { include: { category: true }, orderBy: { sortOrder: 'asc' } },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -46,20 +149,46 @@ export class MenuService {
     const menu = await prisma.menu.findUnique({
       where: { id },
       include: {
-        categories: {
+        menuCategories: {
           include: {
             category: {
               include: {
                 products: {
                   where: { isActive: true },
                   include: {
-                    translations: true,
-                    allergens: { include: { allergen: true } },
+                    translations: {
+                      include: {
+                        language: { select: { code: true } },
+                      },
+                    },
+                    allergens: {
+                      include: {
+                        allergen: {
+                          include: {
+                            translations: {
+                              include: {
+                                language: { select: { code: true } },
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
                     images: { orderBy: { sortOrder: 'asc' } },
+                    model3d: true,
+                    ingredients: {
+                      include: {
+                        ingredient: true,
+                      },
+                    },
                   },
                   orderBy: { sortOrder: 'asc' },
                 },
-                translations: true,
+                translations: {
+                  include: {
+                    language: { select: { code: true } },
+                  },
+                },
               },
             },
           },
@@ -79,31 +208,97 @@ export class MenuService {
   async getPublicMenu(storeId: string) {
     const menu = await prisma.menu.findFirst({
       where: { storeId, isActive: true },
+      select: { qrToken: true },
+    });
+
+    if (!menu) {
+      throw new NotFoundException('No active menu found for this store');
+    }
+
+    return this.getMenuByToken(menu.qrToken, {});
+  }
+
+  async getMenuByToken(qrToken: string, filters: PublicMenuFiltersDto) {
+    const menu = await prisma.menu.findUnique({
+      where: { qrToken },
       include: {
-        categories: {
+        store: {
+          select: { id: true, name: true, logo: true, slug: true, defaultLanguage: true },
+        },
+        menuCategories: {
           where: { isActive: true },
           include: {
             category: {
               include: {
+                translations: {
+                  include: {
+                    language: { select: { code: true } },
+                  },
+                },
                 products: {
                   where: { isActive: true },
                   include: {
-                    translations: true,
+                    translations: {
+                      include: {
+                        language: { select: { code: true } },
+                      },
+                    },
                     images: { orderBy: { sortOrder: 'asc' } },
-                    allergens: { include: { allergen: { include: { translations: true } } } },
+                    model3d: true,
+                    allergens: {
+                      include: {
+                        allergen: {
+                          include: {
+                            translations: {
+                              include: {
+                                language: { select: { code: true } },
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
+                    ingredients: {
+                      include: { ingredient: true },
+                    },
                   },
                   orderBy: { sortOrder: 'asc' },
                 },
-                translations: true,
                 children: {
                   where: { isActive: true },
+                  orderBy: { sortOrder: 'asc' },
                   include: {
-                    translations: true,
+                    translations: {
+                      include: {
+                        language: { select: { code: true } },
+                      },
+                    },
                     products: {
                       where: { isActive: true },
                       include: {
-                        translations: true,
+                        translations: {
+                          include: {
+                            language: { select: { code: true } },
+                          },
+                        },
                         images: { orderBy: { sortOrder: 'asc' } },
+                        model3d: true,
+                        allergens: {
+                          include: {
+                            allergen: {
+                              include: {
+                                translations: {
+                                  include: {
+                                    language: { select: { code: true } },
+                                  },
+                                },
+                              },
+                            },
+                          },
+                        },
+                        ingredients: {
+                          include: { ingredient: true },
+                        },
                       },
                       orderBy: { sortOrder: 'asc' },
                     },
@@ -114,27 +309,6 @@ export class MenuService {
           },
           orderBy: { sortOrder: 'asc' },
         },
-        store: {
-          select: { id: true, name: true, logo: true, slug: true, defaultLanguage: true },
-        },
-      },
-    });
-
-    if (!menu) {
-      throw new NotFoundException('No active menu found for this store');
-    }
-
-    return menu;
-  }
-
-  async getMenuByToken(qrToken: string, filters: PublicMenuFiltersDto) {
-    // Find menu by qrToken
-    const menu = await prisma.menu.findUnique({
-      where: { qrToken },
-      include: {
-        store: {
-          select: { id: true, name: true, logo: true, slug: true, defaultLanguage: true },
-        },
       },
     });
 
@@ -142,125 +316,49 @@ export class MenuService {
       throw new NotFoundException('Menu not found or inactive');
     }
 
-    // Build product where clause based on filters
-    const productWhere: any = { isActive: true };
+    const fallbackLanguage = menu.store.defaultLanguage || 'tr';
+    const lang = filters.lang || fallbackLanguage;
 
-    if (filters.minPrice !== undefined) {
-      productWhere.salePrice = { ...productWhere.salePrice, gte: filters.minPrice };
-    }
-    if (filters.maxPrice !== undefined) {
-      productWhere.salePrice = { ...productWhere.salePrice, lte: filters.maxPrice };
-    }
+    const flatCategories = menu.menuCategories.flatMap((menuCategory) => {
+      const rootCategory = this.formatCategory(menuCategory.category, lang, fallbackLanguage);
+      const childCategories = menuCategory.category.children.map((child: any) =>
+        this.formatCategory(child, lang, fallbackLanguage),
+      );
 
-    // Allergen exclusion: find allergen IDs by code
-    let excludeAllergenIds: string[] = [];
-    if (filters.excludeAllergens) {
-      const codes = filters.excludeAllergens.split(',').map((c) => c.trim().toUpperCase());
-      const allergens = await prisma.allergen.findMany({
-        where: { code: { in: codes } },
-        select: { id: true },
-      });
-      excludeAllergenIds = allergens.map((a) => a.id);
-    }
-
-    // Search filter: search in translations
-    let searchProductIds: string[] | undefined;
-    if (filters.search) {
-      const matchingTranslations = await prisma.productTranslation.findMany({
-        where: {
-          OR: [
-            { name: { contains: filters.search, mode: 'insensitive' } },
-            { description: { contains: filters.search, mode: 'insensitive' } },
-          ],
-        },
-        select: { productId: true },
-      });
-      searchProductIds = matchingTranslations.map((t) => t.productId);
-    }
-
-    // Build category filter
-    const categoryWhere: any = { isActive: true };
-    if (filters.categoryId) {
-      categoryWhere.categoryId = filters.categoryId;
-    }
-
-    // Fetch menu categories with products
-    const menuCategories = await prisma.menuCategory.findMany({
-      where: {
-        menuId: menu.id,
-        ...categoryWhere,
-      },
-      include: {
-        category: {
-          include: {
-            translations: true,
-            products: {
-              where: {
-                ...productWhere,
-                ...(searchProductIds !== undefined ? { id: { in: searchProductIds } } : {}),
-              },
-              include: {
-                translations: true,
-                images: { orderBy: { sortOrder: 'asc' } },
-                allergens: { include: { allergen: { include: { translations: true } } } },
-                ingredients: {
-                  include: { ingredient: true, unit: true },
-                },
-              },
-              orderBy: { sortOrder: 'asc' },
-            },
-            children: {
-              where: { isActive: true },
-              include: {
-                translations: true,
-                products: {
-                  where: {
-                    ...productWhere,
-                    ...(searchProductIds !== undefined ? { id: { in: searchProductIds } } : {}),
-                  },
-                  include: {
-                    translations: true,
-                    images: { orderBy: { sortOrder: 'asc' } },
-                    allergens: { include: { allergen: { include: { translations: true } } } },
-                    ingredients: {
-                      include: { ingredient: true, unit: true },
-                    },
-                  },
-                  orderBy: { sortOrder: 'asc' },
-                },
-              },
-            },
-          },
-        },
-      },
-      orderBy: { sortOrder: 'asc' },
+      return [rootCategory, ...childCategories];
     });
 
-    // Filter out products that contain excluded allergens
-    const categories = menuCategories.map((mc) => {
-      const category = mc.category;
-      const filteredProducts = this.filterAllergens(category.products, excludeAllergenIds);
-      const filteredChildren = category.children.map((child) => ({
-        ...child,
-        products: this.filterAllergens(child.products, excludeAllergenIds),
-      }));
-
-      return {
+    const filteredCategories = flatCategories
+      .map((category) => ({
         ...category,
-        products: filteredProducts,
-        children: filteredChildren,
-        sortOrder: mc.sortOrder,
-        isActive: mc.isActive,
-      };
-    });
+        products: this.applyProductFilters(category.products, filters),
+      }))
+      .filter((category) => {
+        if (filters.categoryId && category.id !== filters.categoryId) {
+          return false;
+        }
+
+        return category.products.length > 0 || !filters.search;
+      });
+
+    const allergens = Array.from(
+      new Map(
+        filteredCategories
+          .flatMap((category) => category.products)
+          .flatMap((product) => product.allergens)
+          .map((allergen) => [allergen.id, allergen]),
+      ).values(),
+    );
 
     return {
       id: menu.id,
       name: menu.name,
+      slug: menu.qrToken,
       description: menu.description,
       qrToken: menu.qrToken,
       store: menu.store,
-      categories,
+      categories: filteredCategories,
+      allergens,
     };
   }
 
@@ -268,10 +366,26 @@ export class MenuService {
     const product = await prisma.product.findUnique({
       where: { id: productId },
       include: {
-        translations: true,
+        translations: {
+          include: {
+            language: { select: { code: true } },
+          },
+        },
         images: { orderBy: { sortOrder: 'asc' } },
         model3d: true,
-        allergens: { include: { allergen: { include: { translations: true } } } },
+        allergens: {
+          include: {
+            allergen: {
+              include: {
+                translations: {
+                  include: {
+                    language: { select: { code: true } },
+                  },
+                },
+              },
+            },
+          },
+        },
         ingredients: {
           include: {
             ingredient: true,
@@ -279,7 +393,18 @@ export class MenuService {
           },
         },
         category: {
-          include: { translations: true },
+          include: {
+            translations: {
+              include: {
+                language: { select: { code: true } },
+              },
+            },
+          },
+        },
+        store: {
+          select: {
+            defaultLanguage: true,
+          },
         },
       },
     });
@@ -288,23 +413,18 @@ export class MenuService {
       throw new NotFoundException('Product not found');
     }
 
-    return product;
-  }
-
-  private filterAllergens(products: any[], excludeAllergenIds: string[]): any[] {
-    if (excludeAllergenIds.length === 0) return products;
-
-    return products.filter((product) => {
-      const productAllergenIds = product.allergens.map((pa: any) => pa.allergen.id);
-      return !productAllergenIds.some((id: string) => excludeAllergenIds.includes(id));
-    });
+    return this.formatProduct(
+      product,
+      lang || product.store.defaultLanguage,
+      product.store.defaultLanguage,
+    );
   }
 
   async generateQrCode(menuId: string, tableId?: string) {
     const menu = await this.findOne(menuId);
-    const baseUrl = this.configService.get<string>('app.corsOrigins')?.[0] || 'http://localhost:3000';
+    const baseUrl = process.env.APP_URL || 'http://localhost:3000';
 
-    let url = `${baseUrl}/menu/${menu.storeId}`;
+    let url = `${baseUrl}/m/${menu.qrToken}`;
     if (tableId) {
       url += `?table=${tableId}`;
     }
@@ -330,11 +450,11 @@ export class MenuService {
       where: { id },
       data: {
         ...data,
-        categories: categoryIds
+        menuCategories: categoryIds
           ? {
               createMany: {
-                data: categoryIds.map((cid, index) => ({
-                  categoryId: cid,
+                data: categoryIds.map((categoryId, index) => ({
+                  categoryId,
                   sortOrder: index,
                 })),
               },
@@ -342,7 +462,7 @@ export class MenuService {
           : undefined,
       },
       include: {
-        categories: { include: { category: true }, orderBy: { sortOrder: 'asc' } },
+        menuCategories: { include: { category: true }, orderBy: { sortOrder: 'asc' } },
       },
     });
   }

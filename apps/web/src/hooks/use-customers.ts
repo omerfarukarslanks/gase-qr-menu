@@ -59,7 +59,7 @@ export function useCustomers(storeId: string, filters: CustomerFilters = {}) {
     queryKey: ['customers', storeId, filters],
     queryFn: () =>
       api
-        .get<PaginatedResponse<Customer>>(`/api/v1/customers?${params}`)
+        .get<PaginatedResponse<Customer>>(`/api/customers?${params}`)
         .then((r) => r.data),
     enabled: !!storeId,
   });
@@ -70,7 +70,7 @@ export function useCustomerDetails(id: string) {
     queryKey: ['customers', 'detail', id],
     queryFn: () =>
       api
-        .get<{ success: boolean; data: CustomerDetails }>(`/api/v1/customers/${id}`)
+        .get<{ success: boolean; data: CustomerDetails }>(`/api/customers/${id}`)
         .then((r) => r.data.data),
     enabled: !!id,
   });

@@ -43,7 +43,7 @@ export function useDailyReport(storeId: string, date: string) {
     queryFn: () =>
       api
         .get<{ success: boolean; data: DailyReport }>(
-          `/api/v1/reports/daily?storeId=${storeId}&date=${date}`
+          `/api/reports/daily?storeId=${storeId}&date=${date}`
         )
         .then((r) => r.data.data),
     enabled: !!storeId && !!date,
@@ -56,7 +56,7 @@ export function useMonthlyReport(storeId: string, month: string) {
     queryFn: () =>
       api
         .get<{ success: boolean; data: MonthlyReport }>(
-          `/api/v1/reports/monthly?storeId=${storeId}&month=${month}`
+          `/api/reports/monthly?storeId=${storeId}&month=${month}`
         )
         .then((r) => r.data.data),
     enabled: !!storeId && !!month,
@@ -69,7 +69,7 @@ export function useProductAnalytics(storeId: string) {
     queryFn: () =>
       api
         .get<{ success: boolean; data: ProductAnalytics }>(
-          `/api/v1/reports/products?storeId=${storeId}`
+          `/api/reports/products?storeId=${storeId}`
         )
         .then((r) => r.data.data),
     enabled: !!storeId,
@@ -82,7 +82,7 @@ export function useCustomerAnalytics(storeId: string) {
     queryFn: () =>
       api
         .get<{ success: boolean; data: CustomerAnalytics }>(
-          `/api/v1/reports/customers?storeId=${storeId}`
+          `/api/reports/customers?storeId=${storeId}`
         )
         .then((r) => r.data.data),
     enabled: !!storeId,

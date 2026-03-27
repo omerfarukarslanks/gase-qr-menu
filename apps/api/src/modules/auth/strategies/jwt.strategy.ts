@@ -3,6 +3,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { prisma } from '@gase/database';
+import { splitDisplayName } from '../../../common/utils/language.util';
 
 export interface JwtPayload {
   sub: string;
@@ -17,9 +18,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey:
-        configService.get<string>('app.jwt.secret') ||
-        'change-me-in-production',
+      secretOrKey: configService.get<string>('jwt.secret') || 'change-me-in-production',
     });
   }
 
@@ -28,17 +27,20 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       where: { id: payload.sub },
     });
 
-    if (!user || !user.isActive) {
-      throw new UnauthorizedException('User not found or inactive');
+    if (!user) {
+      throw new UnauthorizedException('User not found');
     }
+
+    const userName = splitDisplayName(user.name);
 
     return {
       id: user.id,
       email: user.email,
       role: user.role,
       organizationId: user.organizationId,
-      firstName: user.firstName,
-      lastName: user.lastName,
+      firstName: userName.firstName,
+      lastName: userName.lastName,
+      name: user.name,
     };
   }
 }

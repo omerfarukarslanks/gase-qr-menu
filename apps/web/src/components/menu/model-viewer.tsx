@@ -27,7 +27,6 @@ export function ModelViewer({ src, alt, poster, className }: ModelViewerProps) {
 
   return (
     <div ref={containerRef} className={cn("relative", className)}>
-      {/* @ts-expect-error - model-viewer is a web component */}
       <model-viewer
         src={src}
         alt={alt}

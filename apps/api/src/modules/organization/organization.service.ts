@@ -5,16 +5,14 @@ import { PaginationQueryDto } from '../../common/dto/pagination.dto';
 
 @Injectable()
 export class OrganizationService {
-  async create(dto: CreateOrganizationDto) {
+  async create(dto: CreateOrganizationDto, ownerId: string) {
     return prisma.organization.create({
       data: {
         name: dto.name,
         slug: dto.slug || dto.name.toLowerCase().replace(/\s+/g, '-'),
         logo: dto.logo,
-        email: dto.email,
-        phone: dto.phone,
-        address: dto.address,
-        taxNumber: dto.taxNumber,
+        defaultCurrency: dto.defaultCurrency || 'TRY',
+        ownerId,
       },
     });
   }
@@ -70,9 +68,6 @@ export class OrganizationService {
   async remove(id: string) {
     await this.findOne(id);
 
-    return prisma.organization.update({
-      where: { id },
-      data: { isActive: false },
-    });
+    return prisma.organization.delete({ where: { id } });
   }
 }

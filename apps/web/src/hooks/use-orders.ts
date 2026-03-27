@@ -68,7 +68,7 @@ export function useOrders(storeId: string, filters: OrderFilters = {}) {
     queryKey: ['orders', storeId, filters],
     queryFn: () =>
       api
-        .get<PaginatedResponse<Order>>(`/api/v1/orders?${params}`)
+        .get<PaginatedResponse<Order>>(`/api/orders?${params}`)
         .then((r) => r.data),
     enabled: !!storeId,
   });
@@ -79,7 +79,7 @@ export function useOrder(id: string) {
     queryKey: ['orders', 'detail', id],
     queryFn: () =>
       api
-        .get<{ success: boolean; data: Order }>(`/api/v1/orders/${id}`)
+        .get<{ success: boolean; data: Order }>(`/api/orders/${id}`)
         .then((r) => r.data.data),
     enabled: !!id,
   });
@@ -90,7 +90,7 @@ export function useUpdateOrderStatus() {
   return useMutation({
     mutationFn: (payload: { id: string; status: OrderStatus }) =>
       api
-        .patch(`/api/v1/orders/${payload.id}/status`, { status: payload.status })
+        .patch(`/api/orders/${payload.id}/status`, { status: payload.status })
         .then((r) => r.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });

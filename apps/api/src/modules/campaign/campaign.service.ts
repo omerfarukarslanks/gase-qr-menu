@@ -13,14 +13,18 @@ export interface DiscountResult {
 
 @Injectable()
 export class CampaignService {
+  private normalizeType(type: string) {
+    return (type === 'FIXED' ? 'FIXED_AMOUNT' : type) as any;
+  }
+
   async create(dto: CreateCampaignDto) {
     const campaign = await prisma.campaign.create({
       data: {
         name: dto.name,
         description: dto.description,
         storeId: dto.storeId,
-        type: dto.type,
-        discountValue: dto.discountValue,
+        type: this.normalizeType(dto.type),
+        discountValue: dto.discountValue ?? 0,
         minOrderAmount: dto.minOrderAmount,
         buyQuantity: dto.buyQuantity,
         getQuantity: dto.getQuantity,
@@ -266,6 +270,13 @@ export class CampaignService {
     // Remove array fields from direct update
     delete data.productIds;
     delete data.categoryIds;
+
+    if (data.type) {
+      data.type = this.normalizeType(data.type);
+    }
+    if (data.discountValue === undefined && data.type) {
+      data.discountValue = 0;
+    }
 
     const campaign = await prisma.campaign.update({ where: { id }, data });
 

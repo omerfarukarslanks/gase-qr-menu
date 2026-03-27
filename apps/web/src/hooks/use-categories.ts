@@ -34,7 +34,7 @@ export function useCategories(storeId: string) {
     queryFn: () =>
       api
         .get<{ success: boolean; data: Category[] }>(
-          `/api/v1/categories?storeId=${storeId}`
+          `/api/categories?storeId=${storeId}`
         )
         .then((r) => r.data.data),
     enabled: !!storeId,
@@ -46,7 +46,7 @@ export function useCategory(id: string) {
     queryKey: ['categories', 'detail', id],
     queryFn: () =>
       api
-        .get<{ success: boolean; data: Category }>(`/api/v1/categories/${id}`)
+        .get<{ success: boolean; data: Category }>(`/api/categories/${id}`)
         .then((r) => r.data.data),
     enabled: !!id,
   });
@@ -56,7 +56,7 @@ export function useCreateCategory() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (payload: CreateCategoryPayload) =>
-      api.post('/api/v1/categories', payload).then((r) => r.data),
+      api.post('/api/categories', payload).then((r) => r.data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['categories', variables.storeId] });
     },
@@ -67,7 +67,7 @@ export function useUpdateCategory() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ...payload }: UpdateCategoryPayload) =>
-      api.patch(`/api/v1/categories/${id}`, payload).then((r) => r.data),
+      api.patch(`/api/categories/${id}`, payload).then((r) => r.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
     },
@@ -78,7 +78,7 @@ export function useDeleteCategory() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) =>
-      api.delete(`/api/v1/categories/${id}`).then((r) => r.data),
+      api.delete(`/api/categories/${id}`).then((r) => r.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
     },

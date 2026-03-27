@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { prisma } from '@gase/database';
+import { OrderStatus, prisma } from '@gase/database';
 import { CreateOrderDto, UpdateOrderStatusDto } from './dto/order.dto';
 import { CreateOrderFromCartDto } from './dto/create-order-from-cart.dto';
 import { PaginationQueryDto } from '../../common/dto/pagination.dto';
@@ -8,7 +8,7 @@ import { CartService } from '../cart/cart.service';
 import { CampaignService } from '../campaign/campaign.service';
 import { StockService } from '../stock/stock.service';
 
-const STATUS_FLOW: Record<string, string[]> = {
+const STATUS_FLOW: Record<OrderStatus, OrderStatus[]> = {
   DRAFT: ['PENDING', 'CANCELLED'],
   PENDING: ['CONFIRMED', 'CANCELLED'],
   CONFIRMED: ['PREPARING', 'CANCELLED'],
@@ -243,17 +243,18 @@ export class OrderService {
 
   async updateStatus(id: string, dto: UpdateOrderStatusDto) {
     const order = await this.findOne(id);
+    const nextStatus = dto.status as OrderStatus;
 
     const allowedStatuses = STATUS_FLOW[order.status] || [];
-    if (!allowedStatuses.includes(dto.status)) {
+    if (!allowedStatuses.includes(nextStatus)) {
       throw new BadRequestException(
-        `Cannot transition from ${order.status} to ${dto.status}. Allowed: ${allowedStatuses.join(', ')}`,
+        `Cannot transition from ${order.status} to ${nextStatus}. Allowed: ${allowedStatuses.join(', ')}`,
       );
     }
 
     const updatedOrder = await prisma.order.update({
       where: { id },
-      data: { status: dto.status },
+      data: { status: nextStatus },
       include: {
         items: { include: { product: true } },
         tableSession: { include: { tableRef: true } },
@@ -263,7 +264,7 @@ export class OrderService {
     this.eventsGateway.emitOrderStatusUpdate(order.storeId, updatedOrder);
 
     // Auto-deduct stock when order is CONFIRMED
-    if (dto.status === 'CONFIRMED') {
+    if (nextStatus === 'CONFIRMED') {
       await this.stockService.deductStockForOrder(updatedOrder);
     }
 

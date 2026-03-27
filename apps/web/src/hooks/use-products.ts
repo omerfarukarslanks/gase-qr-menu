@@ -76,7 +76,7 @@ export function useProducts(storeId: string, filters: ProductFilters = {}) {
     queryKey: ['products', storeId, filters],
     queryFn: () =>
       api
-        .get<PaginatedResponse<Product>>(`/api/v1/products?${params}`)
+        .get<PaginatedResponse<Product>>(`/api/products?${params}`)
         .then((r) => r.data),
     enabled: !!storeId,
   });
@@ -87,7 +87,7 @@ export function useProduct(id: string) {
     queryKey: ['products', 'detail', id],
     queryFn: () =>
       api
-        .get<{ success: boolean; data: Product }>(`/api/v1/products/${id}`)
+        .get<{ success: boolean; data: Product }>(`/api/products/${id}`)
         .then((r) => r.data.data),
     enabled: !!id,
   });
@@ -97,7 +97,7 @@ export function useCreateProduct() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (payload: CreateProductPayload) =>
-      api.post('/api/v1/products', payload).then((r) => r.data),
+      api.post('/api/products', payload).then((r) => r.data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['products', variables.storeId] });
     },
@@ -108,7 +108,7 @@ export function useUpdateProduct() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ...payload }: UpdateProductPayload) =>
-      api.patch(`/api/v1/products/${id}`, payload).then((r) => r.data),
+      api.patch(`/api/products/${id}`, payload).then((r) => r.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
     },
@@ -119,7 +119,7 @@ export function useDeleteProduct() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) =>
-      api.delete(`/api/v1/products/${id}`).then((r) => r.data),
+      api.delete(`/api/products/${id}`).then((r) => r.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
     },

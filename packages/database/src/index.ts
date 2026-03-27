@@ -3,17 +3,19 @@ import { PrismaClient } from "@prisma/client";
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
+const runtimeProcess = (globalThis as { process?: { env?: { NODE_ENV?: string } } }).process;
+const nodeEnv = runtimeProcess?.env?.NODE_ENV;
 
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
     log:
-      process.env.NODE_ENV === "development"
+      nodeEnv === "development"
         ? ["query", "error", "warn"]
         : ["error"],
   });
 
-if (process.env.NODE_ENV !== "production") {
+if (nodeEnv !== "production") {
   globalForPrisma.prisma = prisma;
 }
 

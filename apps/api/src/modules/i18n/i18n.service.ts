@@ -4,80 +4,100 @@ import { prisma } from '@gase/database';
 @Injectable()
 export class I18nService {
   async getLanguages(storeId: string) {
-    return prisma.storeLanguage.findMany({
-      where: { storeId },
-      orderBy: { isDefault: 'desc' },
-    });
+    const [store, languages] = await Promise.all([
+      prisma.store.findUnique({
+        where: { id: storeId },
+        select: { defaultLanguage: true },
+      }),
+      prisma.language.findMany({
+        orderBy: [{ isDefault: 'desc' }, { code: 'asc' }],
+      }),
+    ]);
+
+    if (!store) {
+      throw new NotFoundException('Store not found');
+    }
+
+    return languages.map((language) => ({
+      id: language.id,
+      code: language.code,
+      name: language.name,
+      isDefault: language.code === store.defaultLanguage,
+    }));
   }
 
   async addLanguage(storeId: string, data: { languageCode: string; name: string; isDefault?: boolean }) {
+    const store = await prisma.store.findUnique({
+      where: { id: storeId },
+      select: { id: true, defaultLanguage: true },
+    });
+
+    if (!store) {
+      throw new NotFoundException('Store not found');
+    }
+
+    const language = await prisma.language.findUnique({
+      where: { code: data.languageCode.toLowerCase() },
+    });
+
+    if (!language) {
+      throw new NotFoundException('Language not found');
+    }
+
     if (data.isDefault) {
-      // Unset other defaults
-      await prisma.storeLanguage.updateMany({
-        where: { storeId, isDefault: true },
-        data: { isDefault: false },
+      await prisma.store.update({
+        where: { id: storeId },
+        data: { defaultLanguage: language.code },
       });
     }
 
-    return prisma.storeLanguage.create({
-      data: {
-        storeId,
-        languageCode: data.languageCode,
-        name: data.name,
-        isDefault: data.isDefault || false,
+    return {
+      id: language.id,
+      code: language.code,
+      name: language.name,
+      isDefault: data.isDefault ? true : language.code === store.defaultLanguage,
+    };
+  }
+
+  async removeLanguage(storeId: string, languageCode: string) {
+    const store = await prisma.store.findUnique({
+      where: { id: storeId },
+      select: { defaultLanguage: true },
+    });
+
+    if (!store) {
+      throw new NotFoundException('Store not found');
+    }
+
+    if (store.defaultLanguage === languageCode.toLowerCase()) {
+      throw new NotFoundException('Cannot remove default language');
+    }
+
+    return { message: 'Store-level language mapping is not persisted in schema; no action needed' };
+  }
+
+  async setDefaultLanguage(storeId: string, languageCode: string) {
+    const language = await prisma.language.findUnique({
+      where: { code: languageCode.toLowerCase() },
+    });
+
+    if (!language) {
+      throw new NotFoundException('Language not found');
+    }
+
+    return prisma.store.update({
+      where: { id: storeId },
+      data: { defaultLanguage: language.code },
+      select: {
+        id: true,
+        defaultLanguage: true,
       },
     });
   }
 
-  async removeLanguage(storeId: string, languageCode: string) {
-    const language = await prisma.storeLanguage.findFirst({
-      where: { storeId, languageCode },
-    });
-
-    if (!language) {
-      throw new NotFoundException('Language not found for this store');
-    }
-
-    if (language.isDefault) {
-      throw new NotFoundException('Cannot remove default language');
-    }
-
-    await prisma.storeLanguage.delete({ where: { id: language.id } });
-    return { message: 'Language removed' };
-  }
-
-  async setDefaultLanguage(storeId: string, languageCode: string) {
-    const language = await prisma.storeLanguage.findFirst({
-      where: { storeId, languageCode },
-    });
-
-    if (!language) {
-      throw new NotFoundException('Language not found for this store');
-    }
-
-    await prisma.storeLanguage.updateMany({
-      where: { storeId, isDefault: true },
-      data: { isDefault: false },
-    });
-
-    return prisma.storeLanguage.update({
-      where: { id: language.id },
-      data: { isDefault: true },
-    });
-  }
-
   async getSupportedLanguages() {
-    return [
-      { code: 'tr', name: 'Turkce' },
-      { code: 'en', name: 'English' },
-      { code: 'de', name: 'Deutsch' },
-      { code: 'fr', name: 'Francais' },
-      { code: 'ar', name: 'Arabic' },
-      { code: 'ru', name: 'Russian' },
-      { code: 'es', name: 'Espanol' },
-      { code: 'zh', name: 'Chinese' },
-      { code: 'ja', name: 'Japanese' },
-      { code: 'ko', name: 'Korean' },
-    ];
+    return prisma.language.findMany({
+      orderBy: [{ isDefault: 'desc' }, { code: 'asc' }],
+    });
   }
 }

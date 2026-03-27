@@ -55,10 +55,26 @@ export class CreateProductDto {
   @IsString()
   categoryId: string;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  unitId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  slug?: string;
+
   @ApiProperty({ example: 120.5 })
   @IsNumber()
   @Min(0)
   price: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  costPrice?: number;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -103,6 +119,11 @@ export class CreateProductDto {
   @IsString({ each: true })
   allergenIds?: string[];
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  currency?: string;
+
   @ApiPropertyOptional({ type: [ProductIngredientDto] })
   @IsOptional()
   @IsArray()
@@ -136,9 +157,25 @@ export class UpdateProductDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @IsString()
+  unitId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  slug?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsNumber()
   @Min(0)
   price?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  costPrice?: number;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -187,6 +224,11 @@ export class UpdateProductDto {
   @IsArray()
   @IsString({ each: true })
   allergenIds?: string[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  currency?: string;
 
   @ApiPropertyOptional({ type: [ProductIngredientDto] })
   @IsOptional()

@@ -62,7 +62,7 @@ export function useStockMovements(storeId: string, filters: StockMovementFilters
     queryKey: ['stock-movements', storeId, filters],
     queryFn: () =>
       api
-        .get<PaginatedResponse<StockMovement>>(`/api/v1/stock/movements?${params}`)
+        .get<PaginatedResponse<StockMovement>>(`/api/stock/movements?${params}`)
         .then((r) => r.data),
     enabled: !!storeId,
   });
@@ -74,7 +74,7 @@ export function useLowStockAlerts(storeId: string) {
     queryFn: () =>
       api
         .get<{ success: boolean; data: LowStockAlert[] }>(
-          `/api/v1/stock/low-alerts?storeId=${storeId}`
+          `/api/stock/low-alerts?storeId=${storeId}`
         )
         .then((r) => r.data.data),
     enabled: !!storeId,
@@ -85,7 +85,7 @@ export function useCreateStockMovement() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (payload: CreateStockMovementPayload) =>
-      api.post('/api/v1/stock/movements', payload).then((r) => r.data),
+      api.post('/api/stock/movements', payload).then((r) => r.data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['stock-movements', variables.storeId] });
       queryClient.invalidateQueries({ queryKey: ['stock', 'low-alerts', variables.storeId] });

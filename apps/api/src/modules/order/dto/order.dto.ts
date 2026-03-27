@@ -1,6 +1,7 @@
-import { IsString, IsOptional, IsArray, IsNumber, IsInt, ValidateNested, Min } from 'class-validator';
+import { IsString, IsOptional, IsArray, IsNumber, IsInt, ValidateNested, Min, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { OrderStatus } from '@gase/database';
 
 export class OrderItemDto {
   @ApiProperty()
@@ -50,7 +51,7 @@ export class CreateOrderDto {
 }
 
 export class UpdateOrderStatusDto {
-  @ApiProperty({ enum: ['PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'SERVED', 'CANCELLED'] })
-  @IsString()
-  status: string;
+  @ApiProperty({ enum: OrderStatus })
+  @IsEnum(OrderStatus)
+  status: OrderStatus;
 }

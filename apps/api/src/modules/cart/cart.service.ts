@@ -10,7 +10,7 @@ export class CartService {
   private readonly CART_TTL = 3600; // 1 hour
 
   constructor(private configService: ConfigService) {
-    const redisConfig = this.configService.get('app.redis');
+    const redisConfig = this.configService.get('redis');
     this.redis = new Redis({
       host: redisConfig?.host || 'localhost',
       port: redisConfig?.port || 6379,

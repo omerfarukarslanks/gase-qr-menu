@@ -64,7 +64,7 @@ export function useIngredients(storeId: string, filters: IngredientFilters = {})
     queryKey: ['ingredients', storeId, filters],
     queryFn: () =>
       api
-        .get<PaginatedResponse<Ingredient>>(`/api/v1/ingredients?${params}`)
+        .get<PaginatedResponse<Ingredient>>(`/api/ingredients?${params}`)
         .then((r) => r.data),
     enabled: !!storeId,
   });
@@ -74,7 +74,7 @@ export function useCreateIngredient() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (payload: CreateIngredientPayload) =>
-      api.post('/api/v1/ingredients', payload).then((r) => r.data),
+      api.post('/api/ingredients', payload).then((r) => r.data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['ingredients', variables.storeId] });
     },
@@ -85,7 +85,7 @@ export function useUpdateIngredient() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ...payload }: UpdateIngredientPayload) =>
-      api.patch(`/api/v1/ingredients/${id}`, payload).then((r) => r.data),
+      api.patch(`/api/ingredients/${id}`, payload).then((r) => r.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ingredients'] });
     },
@@ -96,7 +96,7 @@ export function useDeleteIngredient() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) =>
-      api.delete(`/api/v1/ingredients/${id}`).then((r) => r.data),
+      api.delete(`/api/ingredients/${id}`).then((r) => r.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ingredients'] });
     },

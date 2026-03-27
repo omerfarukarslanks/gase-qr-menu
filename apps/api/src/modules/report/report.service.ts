@@ -192,24 +192,28 @@ export class ReportService {
   }
 
   async getCustomerAnalytics(storeId: string) {
-    const [totalCustomers, returningCustomers, recentVisits] = await Promise.all([
-      prisma.customerVisit.groupBy({
-        by: ['customerSessionId'],
-        where: { storeId },
-      }).then((r) => r.length),
+    const visits = await prisma.customerVisit.findMany({
+      where: { storeId },
+      orderBy: { visitDate: 'desc' },
+      include: {
+        customer: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
 
-      prisma.customerVisit.groupBy({
-        by: ['customerSessionId'],
-        where: { storeId },
-        having: { customerSessionId: { _count: { gt: 1 } } },
-      }).then((r) => r.length),
+    const visitCounts = new Map<string, number>();
+    for (const visit of visits) {
+      visitCounts.set(visit.customerId, (visitCounts.get(visit.customerId) || 0) + 1);
+    }
 
-      prisma.customerVisit.findMany({
-        where: { storeId },
-        orderBy: { visitedAt: 'desc' },
-        take: 50,
-      }),
-    ]);
+    const totalCustomers = visitCounts.size;
+    const returningCustomers = [...visitCounts.values()].filter((count) => count > 1).length;
+    const recentVisits = visits.slice(0, 50);
 
     return {
       totalUniqueCustomers: totalCustomers,

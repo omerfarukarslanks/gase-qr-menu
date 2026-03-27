@@ -1,5 +1,6 @@
-import { IsString, IsOptional, IsInt, Min } from 'class-validator';
+import { IsString, IsOptional, IsInt, Min, IsEnum } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { TableStatus } from '@gase/database';
 
 export class CreateTableDto {
   @ApiProperty({ example: 'Table 1' })
@@ -44,10 +45,10 @@ export class UpdateTableDto {
   @Min(1)
   capacity?: number;
 
-  @ApiPropertyOptional({ enum: ['AVAILABLE', 'OCCUPIED', 'RESERVED', 'OUT_OF_SERVICE'] })
+  @ApiPropertyOptional({ enum: TableStatus })
   @IsOptional()
-  @IsString()
-  status?: string;
+  @IsEnum(TableStatus)
+  status?: TableStatus;
 }
 
 export class OpenSessionDto {

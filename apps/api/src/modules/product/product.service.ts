@@ -1,27 +1,191 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { prisma } from '@gase/database';
+import slugify from 'slugify';
 import { CreateProductDto, UpdateProductDto } from './dto/product.dto';
 import { PaginationQueryDto } from '../../common/dto/pagination.dto';
+import { mapTranslationsWithLanguageIds } from '../../common/utils/language.util';
 
 @Injectable()
 export class ProductService {
-  async create(dto: CreateProductDto) {
-    const { translations, ingredients, allergenIds, images, ...data } = dto;
+  private async resolveUnitId(storeId: string, unitId?: string) {
+    if (unitId) {
+      return unitId;
+    }
 
-    return prisma.product.create({
+    const fallbackUnit = await prisma.unit.findFirst({
+      where: { storeId },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true },
+    });
+
+    if (!fallbackUnit) {
+      throw new BadRequestException(
+        'Product creation requires a unitId or at least one unit in the store',
+      );
+    }
+
+    return fallbackUnit.id;
+  }
+
+  private async buildTranslations(
+    name?: string,
+    description?: string,
+    translations?: CreateProductDto['translations'],
+  ) {
+    const normalizedTranslations =
+      translations && translations.length > 0
+        ? translations
+        : name
+          ? [{ languageCode: 'tr', name, description }]
+          : [];
+
+    const mappedTranslations = await mapTranslationsWithLanguageIds(
+      normalizedTranslations,
+    );
+
+    if (normalizedTranslations.length !== mappedTranslations.length) {
+      throw new BadRequestException(
+        'One or more product translations use an unknown language code',
+      );
+    }
+
+    return mappedTranslations;
+  }
+
+  private buildImageRecords(images?: string[], coverImage?: string) {
+    const orderedImages = Array.from(
+      new Set(
+        [...(coverImage ? [coverImage] : []), ...(images ?? [])].filter(Boolean),
+      ),
+    ) as string[];
+
+    return orderedImages.map((url, index) => ({
+      url,
+      thumbnailUrl: url,
+      isCover: coverImage ? url === coverImage : index === 0,
+      sortOrder: index,
+    }));
+  }
+
+  private formatProduct(product: any) {
+    const primaryTranslation = product.translations[0];
+    const coverImage =
+      product.images.find((image: any) => image.isCover) ?? product.images[0];
+
+    return {
+      id: product.id,
+      storeId: product.storeId,
+      categoryId: product.categoryId,
+      unitId: product.unitId,
+      slug: product.slug,
+      name: primaryTranslation?.name ?? product.slug,
+      description: primaryTranslation?.description ?? null,
+      price: product.salePrice,
+      costPrice: product.costPrice,
+      currency: product.currency,
+      isActive: product.isActive,
+      sortOrder: product.sortOrder,
+      preparationTime: product.preparationTime,
+      images: product.images.map((image: any) => image.url),
+      coverImage: coverImage?.url ?? null,
+      model3dUrl: product.model3d?.modelUrl ?? null,
+      category: product.category
+        ? {
+            id: product.category.id,
+            name: product.category.translations?.[0]?.name ?? product.category.slug,
+          }
+        : null,
+      allergens: product.allergens.map((productAllergen: any) => ({
+        id: productAllergen.allergen.id,
+        code: productAllergen.allergen.code,
+        name:
+          productAllergen.allergen.translations?.[0]?.name ??
+          productAllergen.allergen.code,
+      })),
+      ingredients: product.ingredients.map((ingredient: any) => ({
+        id: ingredient.ingredient.id,
+        name: ingredient.ingredient.name,
+        quantity: ingredient.quantity ?? 1,
+        isRemovable: ingredient.isRemovable,
+      })),
+      translations: product.translations.map((translation: any) => ({
+        languageCode: translation.language?.code,
+        name: translation.name,
+        description: translation.description ?? null,
+      })),
+    };
+  }
+
+  async create(dto: CreateProductDto) {
+    const {
+      translations,
+      ingredients,
+      allergenIds,
+      images,
+      coverImage,
+      model3dUrl,
+      name,
+      description,
+      price,
+      costPrice,
+      unitId,
+      slug,
+      currency,
+      ...data
+    } = dto;
+
+    const resolvedUnitId = await this.resolveUnitId(dto.storeId, unitId);
+    const mappedTranslations = await this.buildTranslations(
+      name,
+      description,
+      translations,
+    );
+    const imageRecords = this.buildImageRecords(images, coverImage);
+
+    const product = await prisma.product.create({
       data: {
-        ...data,
-        images: images || [],
+        storeId: data.storeId,
+        categoryId: data.categoryId,
+        unitId: resolvedUnitId,
+        slug:
+          slug ||
+          slugify(name || mappedTranslations[0]?.name || `product-${Date.now()}`, {
+            lower: true,
+            strict: true,
+          }),
+        costPrice: costPrice ?? price,
+        salePrice: price,
+        currency: currency || 'TRY',
         sortOrder: data.sortOrder || 0,
-        translations: translations
-          ? { createMany: { data: translations } }
+        preparationTime: data.preparationTime,
+        translations: mappedTranslations.length
+          ? { createMany: { data: mappedTranslations } }
+          : undefined,
+        images: imageRecords.length
+          ? {
+              createMany: {
+                data: imageRecords,
+              },
+            }
+          : undefined,
+        model3d: model3dUrl
+          ? {
+              create: {
+                modelUrl: model3dUrl,
+                thumbnailUrl: coverImage || imageRecords[0]?.url,
+              },
+            }
           : undefined,
         ingredients: ingredients
           ? {
               createMany: {
-                data: ingredients.map((i) => ({
-                  ingredientId: i.ingredientId,
-                  quantity: i.quantity || 1,
+                data: ingredients.map((ingredient) => ({
+                  ingredientId: ingredient.ingredientId,
+                  quantity: ingredient.quantity || 1,
                 })),
               },
             }
@@ -35,19 +199,54 @@ export class ProductService {
           : undefined,
       },
       include: {
-        translations: true,
-        category: true,
+        translations: {
+          include: {
+            language: { select: { code: true } },
+          },
+        },
+        category: {
+          include: {
+            translations: {
+              include: {
+                language: { select: { code: true } },
+              },
+            },
+          },
+        },
+        images: { orderBy: { sortOrder: 'asc' } },
+        model3d: true,
         ingredients: { include: { ingredient: true } },
-        allergens: { include: { allergen: true } },
+        allergens: {
+          include: {
+            allergen: {
+              include: {
+                translations: {
+                  include: {
+                    language: { select: { code: true } },
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     });
+
+    return this.formatProduct(product);
   }
 
-  async findAll(storeId: string, query: PaginationQueryDto & { categoryId?: string }) {
+  async findAll(
+    storeId: string,
+    query: PaginationQueryDto & { categoryId?: string },
+  ) {
     const where: any = { storeId };
 
     if (query.search) {
-      where.name = { contains: query.search, mode: 'insensitive' };
+      where.translations = {
+        some: {
+          name: { contains: query.search, mode: 'insensitive' },
+        },
+      };
     }
 
     if (query.categoryId) {
@@ -59,18 +258,45 @@ export class ProductService {
         where,
         skip: query.skip,
         take: query.limit,
-        orderBy: { sortOrder: 'asc' },
+        orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
         include: {
-          translations: true,
-          category: true,
-          allergens: { include: { allergen: true } },
+          translations: {
+            include: {
+              language: { select: { code: true } },
+            },
+          },
+          category: {
+            include: {
+              translations: {
+                include: {
+                  language: { select: { code: true } },
+                },
+              },
+            },
+          },
+          images: { orderBy: { sortOrder: 'asc' } },
+          model3d: true,
+          ingredients: { include: { ingredient: true } },
+          allergens: {
+            include: {
+              allergen: {
+                include: {
+                  translations: {
+                    include: {
+                      language: { select: { code: true } },
+                    },
+                  },
+                },
+              },
+            },
+          },
         },
       }),
       prisma.product.count({ where }),
     ]);
 
     return {
-      items,
+      items: items.map((item) => this.formatProduct(item)),
       meta: {
         total,
         page: query.page,
@@ -84,10 +310,36 @@ export class ProductService {
     const product = await prisma.product.findUnique({
       where: { id },
       include: {
-        translations: true,
-        category: true,
+        translations: {
+          include: {
+            language: { select: { code: true } },
+          },
+        },
+        category: {
+          include: {
+            translations: {
+              include: {
+                language: { select: { code: true } },
+              },
+            },
+          },
+        },
+        images: { orderBy: { sortOrder: 'asc' } },
+        model3d: true,
         ingredients: { include: { ingredient: { include: { unit: true } } } },
-        allergens: { include: { allergen: { include: { translations: true } } } },
+        allergens: {
+          include: {
+            allergen: {
+              include: {
+                translations: {
+                  include: {
+                    language: { select: { code: true } },
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     });
 
@@ -95,20 +347,41 @@ export class ProductService {
       throw new NotFoundException('Product not found');
     }
 
-    return product;
+    return this.formatProduct(product);
   }
 
   async update(id: string, dto: UpdateProductDto) {
-    await this.findOne(id);
-    const { translations, ingredients, allergenIds, images, ...data } = dto;
+    const existingProduct = await prisma.product.findUnique({
+      where: { id },
+      select: { storeId: true },
+    });
 
-    // Handle images max 5
+    if (!existingProduct) {
+      throw new NotFoundException('Product not found');
+    }
+
+    const {
+      translations,
+      ingredients,
+      allergenIds,
+      images,
+      coverImage,
+      model3dUrl,
+      name,
+      description,
+      price,
+      costPrice,
+      unitId,
+      slug,
+      currency,
+      ...data
+    } = dto;
+
     if (images && images.length > 5) {
       throw new BadRequestException('Maximum 5 images allowed per product');
     }
 
-    // Delete old relations if updating
-    if (translations) {
+    if (translations || typeof name === 'string' || typeof description === 'string') {
       await prisma.productTranslation.deleteMany({ where: { productId: id } });
     }
     if (ingredients) {
@@ -117,21 +390,70 @@ export class ProductService {
     if (allergenIds) {
       await prisma.productAllergen.deleteMany({ where: { productId: id } });
     }
+    if (images || coverImage) {
+      await prisma.productImage.deleteMany({ where: { productId: id } });
+    }
 
-    return prisma.product.update({
+    const mappedTranslations =
+      translations || typeof name === 'string' || typeof description === 'string'
+        ? await this.buildTranslations(name, description, translations)
+        : [];
+    const imageRecords =
+      images || coverImage ? this.buildImageRecords(images, coverImage) : [];
+
+    const product = await prisma.product.update({
       where: { id },
       data: {
-        ...data,
-        ...(images !== undefined ? { images } : {}),
-        translations: translations
-          ? { createMany: { data: translations } }
+        categoryId: data.categoryId,
+        unitId: unitId
+          ? await this.resolveUnitId(existingProduct.storeId, unitId)
+          : undefined,
+        slug:
+          slug ||
+          (name
+            ? slugify(name, {
+                lower: true,
+                strict: true,
+              })
+            : undefined),
+        costPrice,
+        salePrice: price,
+        currency,
+        isActive: data.isActive,
+        sortOrder: data.sortOrder,
+        preparationTime: data.preparationTime,
+        translations:
+          translations || typeof name === 'string' || typeof description === 'string'
+            ? { createMany: { data: mappedTranslations } }
+            : undefined,
+        images:
+          images || coverImage
+            ? {
+                createMany: {
+                  data: imageRecords,
+                },
+              }
+            : undefined,
+        model3d: model3dUrl
+          ? {
+              upsert: {
+                create: {
+                  modelUrl: model3dUrl,
+                  thumbnailUrl: coverImage || imageRecords[0]?.url,
+                },
+                update: {
+                  modelUrl: model3dUrl,
+                  thumbnailUrl: coverImage || imageRecords[0]?.url,
+                },
+              },
+            }
           : undefined,
         ingredients: ingredients
           ? {
               createMany: {
-                data: ingredients.map((i) => ({
-                  ingredientId: i.ingredientId,
-                  quantity: i.quantity || 1,
+                data: ingredients.map((ingredient) => ({
+                  ingredientId: ingredient.ingredientId,
+                  quantity: ingredient.quantity || 1,
                 })),
               },
             }
@@ -145,12 +467,40 @@ export class ProductService {
           : undefined,
       },
       include: {
-        translations: true,
-        category: true,
+        translations: {
+          include: {
+            language: { select: { code: true } },
+          },
+        },
+        category: {
+          include: {
+            translations: {
+              include: {
+                language: { select: { code: true } },
+              },
+            },
+          },
+        },
+        images: { orderBy: { sortOrder: 'asc' } },
+        model3d: true,
         ingredients: { include: { ingredient: true } },
-        allergens: { include: { allergen: true } },
+        allergens: {
+          include: {
+            allergen: {
+              include: {
+                translations: {
+                  include: {
+                    language: { select: { code: true } },
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     });
+
+    return this.formatProduct(product);
   }
 
   async remove(id: string) {

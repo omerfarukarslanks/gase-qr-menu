@@ -30,7 +30,7 @@ interface AuthResponse {
 export function useLogin() {
   return useMutation({
     mutationFn: (payload: LoginPayload) =>
-      api.post<AuthResponse>('/api/v1/auth/login', payload).then((r) => r.data),
+      api.post<AuthResponse>('/api/auth/login', payload).then((r) => r.data),
     onSuccess: (data) => {
       if (data.data?.accessToken) {
         localStorage.setItem('auth-token', data.data.accessToken);
@@ -42,7 +42,7 @@ export function useLogin() {
 export function useRegister() {
   return useMutation({
     mutationFn: (payload: RegisterPayload) =>
-      api.post<AuthResponse>('/api/v1/auth/register', payload).then((r) => r.data),
+      api.post<AuthResponse>('/api/auth/register', payload).then((r) => r.data),
     onSuccess: (data) => {
       if (data.data?.accessToken) {
         localStorage.setItem('auth-token', data.data.accessToken);
@@ -55,7 +55,7 @@ export function useRefreshToken() {
   return useMutation({
     mutationFn: (refreshToken: string) =>
       api
-        .post<AuthResponse>('/api/v1/auth/refresh', { refreshToken })
+        .post<AuthResponse>('/api/auth/refresh', { refreshToken })
         .then((r) => r.data),
     onSuccess: (data) => {
       if (data.data?.accessToken) {

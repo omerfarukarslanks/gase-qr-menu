@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { prisma } from '@gase/database';
+import { TableStatus, prisma } from '@gase/database';
 import { CreateTableDto, UpdateTableDto } from './dto/table.dto';
 
 @Injectable()
@@ -47,7 +47,15 @@ export class TableService {
 
   async update(id: string, dto: UpdateTableDto) {
     await this.findOne(id);
-    return prisma.restaurantTable.update({ where: { id }, data: dto });
+    return prisma.restaurantTable.update({
+      where: { id },
+      data: {
+        name: dto.name,
+        section: dto.section,
+        capacity: dto.capacity,
+        status: dto.status as TableStatus | undefined,
+      },
+    });
   }
 
   async openSession(tableId: string, customerName?: string, customerPhone?: string) {

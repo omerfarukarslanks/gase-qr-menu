@@ -1,35 +1,52 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import {
-  S3Client,
-  PutObjectCommand,
-  DeleteObjectCommand,
-} from '@aws-sdk/client-s3';
-import * as sharp from 'sharp';
+  BadRequestException,
+  Injectable,
+  Logger,
+  OnModuleInit,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { Client as MinioClient } from 'minio';
+import sharp from 'sharp';
 import { v4 as uuid } from 'uuid';
 import * as path from 'path';
 
 @Injectable()
-export class UploadService {
-  private s3: S3Client;
+export class UploadService implements OnModuleInit {
+  private readonly logger = new Logger('UploadService');
+  private minio: MinioClient;
   private bucket: string;
   private publicUrl: string;
+  private region: string;
 
   constructor(private configService: ConfigService) {
-    const s3Config = this.configService.get('app.s3');
+    const s3Config = this.configService.get('s3');
+    const endpoint = new URL(s3Config?.endpoint || 'http://localhost:9000');
 
-    this.s3 = new S3Client({
-      endpoint: s3Config?.endpoint || 'http://localhost:9000',
+    this.minio = new MinioClient({
+      endPoint: endpoint.hostname,
+      port: endpoint.port ? Number(endpoint.port) : endpoint.protocol === 'https:' ? 443 : 80,
+      useSSL: endpoint.protocol === 'https:',
+      accessKey: s3Config?.accessKey || 'minioadmin',
+      secretKey: s3Config?.secretKey || 'minioadmin',
       region: s3Config?.region || 'us-east-1',
-      credentials: {
-        accessKeyId: s3Config?.accessKey || 'minioadmin',
-        secretAccessKey: s3Config?.secretKey || 'minioadmin',
-      },
-      forcePathStyle: true,
     });
 
     this.bucket = s3Config?.bucket || 'gase-uploads';
     this.publicUrl = s3Config?.publicUrl || 'http://localhost:9000/gase-uploads';
+    this.region = s3Config?.region || 'us-east-1';
+  }
+
+  async onModuleInit() {
+    try {
+      const exists = await this.minio.bucketExists(this.bucket);
+
+      if (!exists) {
+        await this.minio.makeBucket(this.bucket, this.region);
+        this.logger.log(`Created bucket: ${this.bucket}`);
+      }
+    } catch (error: any) {
+      this.logger.error(`Failed to ensure bucket ${this.bucket}: ${error.message}`);
+    }
   }
 
   async uploadImage(
@@ -46,15 +63,12 @@ export class UploadService {
     }
 
     const fileId = uuid();
-    const ext = path.extname(file.originalname) || '.jpg';
 
-    // Resize and optimize original
     const optimizedBuffer = await sharp(file.buffer)
       .resize(1200, 1200, { fit: 'inside', withoutEnlargement: true })
       .webp({ quality: 85 })
       .toBuffer();
 
-    // Create thumbnail
     const thumbnailBuffer = await sharp(file.buffer)
       .resize(300, 300, { fit: 'cover' })
       .webp({ quality: 75 })
@@ -64,21 +78,17 @@ export class UploadService {
     const thumbnailKey = `${folder}/${fileId}_thumb.webp`;
 
     await Promise.all([
-      this.s3.send(
-        new PutObjectCommand({
-          Bucket: this.bucket,
-          Key: key,
-          Body: optimizedBuffer,
-          ContentType: 'image/webp',
-        }),
-      ),
-      this.s3.send(
-        new PutObjectCommand({
-          Bucket: this.bucket,
-          Key: thumbnailKey,
-          Body: thumbnailBuffer,
-          ContentType: 'image/webp',
-        }),
+      this.minio.putObject(this.bucket, key, optimizedBuffer, optimizedBuffer.length, {
+        'Content-Type': 'image/webp',
+      }),
+      this.minio.putObject(
+        this.bucket,
+        thumbnailKey,
+        thumbnailBuffer,
+        thumbnailBuffer.length,
+        {
+          'Content-Type': 'image/webp',
+        },
       ),
     ]);
 
@@ -101,14 +111,9 @@ export class UploadService {
     const ext = path.extname(file.originalname);
     const key = `${folder}/${fileId}${ext}`;
 
-    await this.s3.send(
-      new PutObjectCommand({
-        Bucket: this.bucket,
-        Key: key,
-        Body: file.buffer,
-        ContentType: file.mimetype,
-      }),
-    );
+    await this.minio.putObject(this.bucket, key, file.buffer, file.buffer.length, {
+      'Content-Type': file.mimetype,
+    });
 
     return {
       url: `${this.publicUrl}/${key}`,
@@ -117,11 +122,6 @@ export class UploadService {
   }
 
   async deleteFile(key: string): Promise<void> {
-    await this.s3.send(
-      new DeleteObjectCommand({
-        Bucket: this.bucket,
-        Key: key,
-      }),
-    );
+    await this.minio.removeObject(this.bucket, key);
   }
 }

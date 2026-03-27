@@ -16,7 +16,8 @@ export class IngredientService {
       data: {
         name: data.name,
         storeId: data.storeId,
-        unitId: data.unitId,
+        type: 'OTHER',
+        stockUnitId: data.unitId,
         currentStock: data.currentStock || 0,
         lowStockThreshold: data.lowStockThreshold || 0,
         cost: data.cost || 0,
@@ -78,12 +79,17 @@ export class IngredientService {
   }
 
   async getLowStock(storeId: string) {
-    return prisma.ingredient.findMany({
+    return prisma.ingredient
+      .findMany({
       where: {
         storeId,
-        currentStock: { lte: prisma.ingredient.fields?.lowStockThreshold as any },
       },
       include: { unit: true },
-    });
+      })
+      .then((ingredients) =>
+        ingredients.filter(
+          (ingredient) => ingredient.currentStock <= ingredient.lowStockThreshold,
+        ),
+      );
   }
 }

@@ -69,7 +69,7 @@ export function usePublicMenu(qrToken: string, filters?: MenuFilters) {
     queryKey: ["public-menu", qrToken, filters],
     queryFn: () =>
       api
-        .get(`/api/v1/menus/public/by-token/${qrToken}`, { params: filters })
+        .get(`/api/menus/public/by-token/${qrToken}`, { params: filters })
         .then((r) => r.data.data ?? r.data),
     enabled: !!qrToken,
     retry: 1,
@@ -82,7 +82,7 @@ export function usePublicProduct(productId: string, lang?: string) {
     queryKey: ["public-product", productId, lang],
     queryFn: () =>
       api
-        .get(`/api/v1/menus/public/product/${productId}`, {
+        .get(`/api/menus/public/product/${productId}`, {
           params: { lang },
         })
         .then((r) => r.data.data ?? r.data),

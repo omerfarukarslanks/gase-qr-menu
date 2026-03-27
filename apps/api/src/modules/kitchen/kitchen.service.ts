@@ -1,5 +1,8 @@
-import { Injectable } from '@nestjs/common';
-import { prisma } from '@gase/database';
+import { BadRequestException, Injectable } from '@nestjs/common';
+import { OrderItemStatus, OrderStatus, prisma } from '@gase/database';
+
+const ORDER_STATUSES = Object.values(OrderStatus);
+const ORDER_ITEM_STATUSES = Object.values(OrderItemStatus);
 
 @Injectable()
 export class KitchenService {
@@ -40,8 +43,12 @@ export class KitchenService {
   }
 
   async getOrdersByStatus(storeId: string, status: string) {
+    if (!ORDER_STATUSES.includes(status as OrderStatus)) {
+      throw new BadRequestException(`Invalid order status: ${status}`);
+    }
+
     return prisma.order.findMany({
-      where: { storeId, status },
+      where: { storeId, status: status as OrderStatus },
       orderBy: { createdAt: 'asc' },
       include: {
         items: {
@@ -65,9 +72,13 @@ export class KitchenService {
   }
 
   async updateOrderItemStatus(orderItemId: string, status: string) {
+    if (!ORDER_ITEM_STATUSES.includes(status as OrderItemStatus)) {
+      throw new BadRequestException(`Invalid order item status: ${status}`);
+    }
+
     return prisma.orderItem.update({
       where: { id: orderItemId },
-      data: { status },
+      data: { status: status as OrderItemStatus },
       include: { product: true, order: true },
     });
   }

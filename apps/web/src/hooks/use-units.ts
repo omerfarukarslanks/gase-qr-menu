@@ -26,7 +26,7 @@ export function useUnits(storeId: string) {
     queryFn: () =>
       api
         .get<{ success: boolean; data: Unit[] }>(
-          `/api/v1/units?storeId=${storeId}`
+          `/api/units?storeId=${storeId}`
         )
         .then((r) => r.data.data),
     enabled: !!storeId,
@@ -37,7 +37,7 @@ export function useCreateUnit() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (payload: CreateUnitPayload) =>
-      api.post('/api/v1/units', payload).then((r) => r.data),
+      api.post('/api/units', payload).then((r) => r.data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['units', variables.storeId] });
     },
@@ -48,7 +48,7 @@ export function useUpdateUnit() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ...payload }: UpdateUnitPayload) =>
-      api.patch(`/api/v1/units/${id}`, payload).then((r) => r.data),
+      api.patch(`/api/units/${id}`, payload).then((r) => r.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['units'] });
     },
@@ -59,7 +59,7 @@ export function useDeleteUnit() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) =>
-      api.delete(`/api/v1/units/${id}`).then((r) => r.data),
+      api.delete(`/api/units/${id}`).then((r) => r.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['units'] });
     },

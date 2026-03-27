@@ -42,7 +42,7 @@ export function useNotifications(storeId: string, filters: NotificationFilters =
     queryKey: ['notifications', storeId, filters],
     queryFn: () =>
       api
-        .get<PaginatedResponse<Notification>>(`/api/v1/notifications?${params}`)
+        .get<PaginatedResponse<Notification>>(`/api/notifications?${params}`)
         .then((r) => r.data),
     enabled: !!storeId,
   });
@@ -54,7 +54,7 @@ export function useUnreadCount(storeId: string) {
     queryFn: () =>
       api
         .get<{ success: boolean; data: { count: number } }>(
-          `/api/v1/notifications/unread-count?storeId=${storeId}`
+          `/api/notifications/unread-count?storeId=${storeId}`
         )
         .then((r) => r.data.data.count),
     enabled: !!storeId,
@@ -66,7 +66,7 @@ export function useMarkAsRead() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) =>
-      api.patch(`/api/v1/notifications/${id}/read`, {}).then((r) => r.data),
+      api.patch(`/api/notifications/${id}/read`, {}).then((r) => r.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },
@@ -77,7 +77,7 @@ export function useMarkAllAsRead() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (storeId: string) =>
-      api.patch(`/api/v1/notifications/read-all?storeId=${storeId}`, {}).then((r) => r.data),
+      api.patch(`/api/notifications/read-all?storeId=${storeId}`, {}).then((r) => r.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },

@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { prisma } from '@gase/database';
+import { Prisma, prisma } from '@gase/database';
 import {
   CreatePaymentDto,
   Initiate3DSecureDto,
@@ -232,9 +232,11 @@ export class PaymentService {
       throw new BadRequestException(result.errorMessage || 'Refund failed');
     }
 
+    const providerResponse = JSON.parse(JSON.stringify(result)) as Prisma.InputJsonValue;
+
     const updatedPayment = await prisma.payment.update({
       where: { id: paymentId },
-      data: { status: 'REFUNDED', providerResponse: result },
+      data: { status: 'REFUNDED', providerResponse },
     });
 
     // Mark order as unpaid

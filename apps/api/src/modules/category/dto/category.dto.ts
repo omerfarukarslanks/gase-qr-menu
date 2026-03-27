@@ -41,6 +41,11 @@ export class CreateCategoryDto {
   @IsString()
   image?: string;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  slug?: string;
+
   @ApiPropertyOptional({ default: 0 })
   @IsOptional()
   @IsInt()
@@ -74,6 +79,11 @@ export class UpdateCategoryDto {
   @IsOptional()
   @IsString()
   image?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  slug?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
