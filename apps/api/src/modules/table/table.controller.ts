@@ -10,7 +10,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { TableService } from './table.service';
-import { CreateTableDto, UpdateTableDto } from './dto/table.dto';
+import { CreateTableDto, UpdateTableDto, OpenSessionDto } from './dto/table.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 
 @ApiTags('tables')
@@ -48,9 +48,9 @@ export class TableController {
   @ApiOperation({ summary: 'Open a table session' })
   openSession(
     @Param('id') id: string,
-    @Body() body: { customerSessionId?: string },
+    @Body() body: OpenSessionDto,
   ) {
-    return this.tableService.openSession(id, body.customerSessionId);
+    return this.tableService.openSession(id, body.customerName, body.customerPhone);
   }
 
   @Post('sessions/:sessionId/close')
@@ -60,7 +60,7 @@ export class TableController {
   }
 
   @Delete(':id')
-  @ApiOperation({ summary: 'Soft delete table' })
+  @ApiOperation({ summary: 'Soft delete table (set OUT_OF_SERVICE)' })
   remove(@Param('id') id: string) {
     return this.tableService.remove(id);
   }

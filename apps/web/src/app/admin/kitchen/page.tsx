@@ -18,6 +18,7 @@ import {
   CheckCircle2,
   ArrowRight,
 } from "lucide-react";
+import { useSocket } from "@/hooks/use-socket";
 
 interface OrderItem {
   name: string;
@@ -171,6 +172,58 @@ export default function KitchenDisplayPage() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const { joinStore, joinKitchen, onEvent } = useSocket();
+
+  // Join kitchen room for real-time updates
+  // TODO: Replace with actual storeId from auth context
+  const storeId = "demo-store";
+
+  useEffect(() => {
+    joinStore(storeId);
+    joinKitchen(storeId);
+  }, [joinStore, joinKitchen, storeId]);
+
+  // Listen for new orders and status updates via WebSocket
+  useEffect(() => {
+    const cleanupNew = onEvent("newOrder", (data: any) => {
+      const newOrder: KitchenOrder = {
+        id: data.id,
+        orderNumber: data.orderNumber || 0,
+        tableName: data.tableSession?.tableRef?.name || "Masa",
+        status: "PENDING",
+        items: (data.items || []).map((item: any) => ({
+          name: item.product?.translations?.[0]?.name || item.product?.slug || "Urun",
+          quantity: item.quantity,
+          notes: item.notes,
+        })),
+        createdAt: new Date(data.createdAt),
+      };
+      setOrders((prev) => [...prev, newOrder]);
+
+      // Play notification sound
+      if (soundEnabled) {
+        try {
+          const audio = new Audio("/notification.mp3");
+          audio.play().catch(() => {});
+        } catch {}
+      }
+    });
+
+    const cleanupStatus = onEvent("orderStatusUpdate", (data: any) => {
+      setOrders((prev) =>
+        prev
+          .map((o) =>
+            o.id === data.id ? { ...o, status: data.status } : o
+          )
+          .filter((o) => o.status !== "SERVED" && o.status !== "CANCELLED")
+      );
+    });
+
+    return () => {
+      cleanupNew?.();
+      cleanupStatus?.();
+    };
+  }, [onEvent, soundEnabled]);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);

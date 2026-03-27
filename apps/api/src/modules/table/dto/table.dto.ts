@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsInt, IsEnum, Min } from 'class-validator';
+import { IsString, IsOptional, IsInt, Min } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateTableDto {
@@ -9,6 +9,11 @@ export class CreateTableDto {
   @ApiProperty()
   @IsString()
   storeId: string;
+
+  @ApiProperty({ example: 1 })
+  @IsInt()
+  @Min(1)
+  number: number;
 
   @ApiPropertyOptional({ example: 'A' })
   @IsOptional()
@@ -39,8 +44,20 @@ export class UpdateTableDto {
   @Min(1)
   capacity?: number;
 
-  @ApiPropertyOptional({ enum: ['AVAILABLE', 'OCCUPIED', 'RESERVED', 'CLEANING'] })
+  @ApiPropertyOptional({ enum: ['AVAILABLE', 'OCCUPIED', 'RESERVED', 'OUT_OF_SERVICE'] })
   @IsOptional()
   @IsString()
   status?: string;
+}
+
+export class OpenSessionDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  customerName?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  customerPhone?: string;
 }

@@ -20,7 +20,6 @@ export class NotificationService {
         type: dto.type as any,
         message: dto.message || dto.title,
         data: dto.metadata || {},
-        userId: dto.userId,
       },
     });
 

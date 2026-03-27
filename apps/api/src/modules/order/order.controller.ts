@@ -11,6 +11,7 @@ import {
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { OrderService } from './order.service';
 import { CreateOrderDto, UpdateOrderStatusDto } from './dto/order.dto';
+import { CreateOrderFromCartDto } from './dto/create-order-from-cart.dto';
 import { PaginationQueryDto } from '../../common/dto/pagination.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { Public } from '../../common/decorators/public.decorator';
@@ -25,6 +26,13 @@ export class OrderController {
   @ApiOperation({ summary: 'Create an order (customer can place)' })
   create(@Body() dto: CreateOrderDto) {
     return this.orderService.create(dto);
+  }
+
+  @Public()
+  @Post('from-cart')
+  @ApiOperation({ summary: 'Create an order from cart items' })
+  createFromCart(@Body() dto: CreateOrderFromCartDto) {
+    return this.orderService.createFromCart(dto);
   }
 
   @Get('store/:storeId')

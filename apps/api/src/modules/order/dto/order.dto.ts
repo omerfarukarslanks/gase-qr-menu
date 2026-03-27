@@ -21,11 +21,6 @@ export class OrderItemDto {
   @IsOptional()
   @IsString()
   notes?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsArray()
-  modifiers?: any[];
 }
 
 export class CreateOrderDto {
@@ -33,20 +28,9 @@ export class CreateOrderDto {
   @IsString()
   storeId: string;
 
-  @ApiPropertyOptional()
-  @IsOptional()
+  @ApiProperty({ description: 'Table session ID (required)' })
   @IsString()
-  tableSessionId?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  tableId?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  customerSessionId?: string;
+  tableSessionId: string;
 
   @ApiPropertyOptional()
   @IsOptional()

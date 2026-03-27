@@ -35,6 +35,10 @@ export function useSocket() {
     socketRef.current?.emit("joinStore", { storeId });
   }, []);
 
+  const joinKitchen = useCallback((storeId: string) => {
+    socketRef.current?.emit("joinKitchen", { storeId });
+  }, []);
+
   const joinTable = useCallback((tableId: string, sessionId: string) => {
     socketRef.current?.emit("joinTable", { tableId, sessionId });
   }, []);
@@ -66,6 +70,7 @@ export function useSocket() {
   return {
     socket: socketRef,
     joinStore,
+    joinKitchen,
     joinTable,
     callWaiter,
     requestBill,

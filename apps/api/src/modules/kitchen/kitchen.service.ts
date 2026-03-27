@@ -25,7 +25,7 @@ export class KitchenService {
           },
         },
         tableSession: {
-          include: { table: { select: { id: true, name: true, section: true } } },
+          include: { tableRef: { select: { id: true, name: true, section: true } } },
         },
       },
     });
@@ -58,7 +58,7 @@ export class KitchenService {
           },
         },
         tableSession: {
-          include: { table: { select: { id: true, name: true, section: true } } },
+          include: { tableRef: { select: { id: true, name: true, section: true } } },
         },
       },
     });

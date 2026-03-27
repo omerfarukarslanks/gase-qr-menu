@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Clock,
   ChevronDown,
@@ -13,6 +13,7 @@ import {
   Card,
   CardContent,
 } from "@/components/ui/card";
+import { useSocket } from "@/hooks/use-socket";
 
 type OrderStatus = "PENDING" | "CONFIRMED" | "PREPARING" | "READY" | "SERVED";
 
@@ -182,6 +183,59 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>(mockOrders);
   const [activeFilter, setActiveFilter] = useState<FilterStatus>("ALL");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const { joinStore, onEvent } = useSocket();
+
+  // Join store room for real-time updates
+  // TODO: Replace with actual storeId from auth context
+  const storeId = "demo-store";
+
+  useEffect(() => {
+    joinStore(storeId);
+  }, [joinStore, storeId]);
+
+  // Listen for new orders via WebSocket
+  useEffect(() => {
+    const cleanupNew = onEvent("newOrder", (data: any) => {
+      const newOrder: Order = {
+        id: data.id,
+        orderNumber: `#${String(data.orderNumber).padStart(3, "0")}`,
+        tableName: data.tableSession?.tableRef?.name || "Masa",
+        customerName: data.tableSession?.customerName || "Musteri",
+        items: (data.items || []).map((item: any) => ({
+          id: item.id,
+          name: item.product?.translations?.[0]?.name || item.product?.slug || "Urun",
+          quantity: item.quantity,
+          price: item.unitPrice,
+          notes: item.notes,
+          status: item.status || "PENDING",
+        })),
+        totalAmount: data.totalAmount || 0,
+        status: data.status || "PENDING",
+        time: new Date(data.createdAt).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
+        createdAt: new Date(data.createdAt),
+      };
+      setOrders((prev) => [newOrder, ...prev]);
+    });
+
+    const cleanupStatus = onEvent("orderStatusUpdate", (data: any) => {
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === data.id
+            ? {
+                ...o,
+                status: data.status,
+                items: o.items.map((item) => ({ ...item, status: data.status })),
+              }
+            : o
+        )
+      );
+    });
+
+    return () => {
+      cleanupNew?.();
+      cleanupStatus?.();
+    };
+  }, [onEvent]);
 
   const filteredOrders =
     activeFilter === "ALL"
