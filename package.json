@@ -4,14 +4,16 @@
   "private": true,
   "packageManager": "pnpm@9.15.4",
   "scripts": {
+    "setup:dev": "sh ./scripts/setup-dev.sh",
+    "predev": "pnpm --filter @gase/database build",
     "dev": "turbo run dev",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "test": "turbo run test",
     "db:generate": "turbo run db:generate",
-    "db:push": "turbo run db:push",
-    "db:migrate": "pnpm --filter @gase/database db:migrate",
-    "db:seed": "pnpm --filter @gase/database db:seed",
+    "db:push": "sh ./scripts/database.sh prisma db push",
+    "db:migrate": "sh ./scripts/database.sh prisma migrate dev",
+    "db:seed": "sh ./scripts/database.sh tsx prisma/seed.ts",
     "clean": "turbo run clean"
   },
   "devDependencies": {
