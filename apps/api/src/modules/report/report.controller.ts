@@ -19,6 +19,16 @@ import { Roles } from '../../common/decorators/roles.decorator';
 export class ReportController {
   constructor(private readonly reportService: ReportService) {}
 
+  @Get('overview/:storeId')
+  @ApiOperation({ summary: 'Get overview report for a date range' })
+  getOverviewReport(
+    @Param('storeId') storeId: string,
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
+  ) {
+    return this.reportService.getOverviewReport(storeId, startDate, endDate);
+  }
+
   @Get('daily/:storeId/:date')
   @ApiOperation({ summary: 'Get daily report' })
   getDailyReport(
@@ -50,7 +60,21 @@ export class ReportController {
 
   @Get('customers/:storeId')
   @ApiOperation({ summary: 'Get customer analytics' })
-  getCustomerAnalytics(@Param('storeId') storeId: string) {
-    return this.reportService.getCustomerAnalytics(storeId);
+  getCustomerAnalytics(
+    @Param('storeId') storeId: string,
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
+  ) {
+    return this.reportService.getCustomerAnalytics(storeId, startDate, endDate);
+  }
+
+  @Get('staff/:storeId')
+  @ApiOperation({ summary: 'Get staff analytics' })
+  getStaffAnalytics(
+    @Param('storeId') storeId: string,
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
+  ) {
+    return this.reportService.getStaffAnalytics(storeId, startDate, endDate);
   }
 }

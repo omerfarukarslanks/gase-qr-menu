@@ -1,159 +1,69 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { prisma } from '@gase/database';
+
+type ReportPeriod = {
+  startDate: string;
+  endDate: string;
+};
+
+type RevenueSeriesRow = {
+  day: Date | string;
+  orderCount: number;
+  revenue: number;
+};
 
 @Injectable()
 export class ReportService {
-  async getDailyReport(storeId: string, date: string) {
-    const startDate = new Date(date);
-    startDate.setHours(0, 0, 0, 0);
-    const endDate = new Date(date);
-    endDate.setHours(23, 59, 59, 999);
+  async getOverviewReport(storeId: string, startDate: string, endDate: string) {
+    const { start, end, period } = await this.resolveRange(storeId, startDate, endDate);
 
-    const [orders, revenue, payments, topProducts] = await Promise.all([
-      // Order stats
-      prisma.order.groupBy({
-        by: ['status'],
-        where: { storeId, createdAt: { gte: startDate, lte: endDate } },
-        _count: true,
-      }),
-
-      // Revenue
-      prisma.order.aggregate({
-        where: {
-          storeId,
-          createdAt: { gte: startDate, lte: endDate },
-          status: { not: 'CANCELLED' },
-        },
-        _sum: { totalAmount: true, discountAmount: true, taxAmount: true },
-        _count: true,
-        _avg: { totalAmount: true },
-      }),
-
-      // Payment breakdown
-      prisma.payment.groupBy({
-        by: ['method'],
-        where: {
-          order: {
-            storeId,
-            createdAt: { gte: startDate, lte: endDate },
-          },
-          status: 'COMPLETED',
-        },
-        _sum: { amount: true },
-        _count: true,
-      }),
-
-      // Top products
-      prisma.orderItem.groupBy({
-        by: ['productId'],
-        where: {
-          order: {
-            storeId,
-            createdAt: { gte: startDate, lte: endDate },
-            status: { not: 'CANCELLED' },
-          },
-        },
-        _sum: { quantity: true, totalPrice: true },
-        orderBy: { _sum: { quantity: 'desc' } },
-        take: 10,
-      }),
-    ]);
-
-    // Enrich top products with names
-    const productIds = topProducts.map((p) => p.productId);
-    const products = await prisma.product.findMany({
-      where: { id: { in: productIds } },
-      select: {
-        id: true,
-        slug: true,
-        translations: { select: { name: true, languageId: true } },
-        images: { where: { isCover: true }, take: 1, select: { url: true } },
-      },
-    });
-
-    const enrichedTopProducts = topProducts.map((tp) => ({
-      ...tp,
-      product: products.find((p) => p.id === tp.productId),
-    }));
+    const [summary, customerSummary, revenueByDay, ordersByStatus, paymentMethods] =
+      await Promise.all([
+        this.getOrderSummary(storeId, start, end),
+        this.getCustomerSummary(storeId, start, end),
+        this.getRevenueSeries(storeId, start, end),
+        this.getOrdersByStatus(storeId, start, end),
+        this.getPaymentMethods(storeId, start, end),
+      ]);
 
     return {
-      date,
-      orders,
-      revenue: {
-        totalRevenue: revenue._sum.totalAmount || 0,
-        totalDiscount: revenue._sum.discountAmount || 0,
-        totalTax: revenue._sum.taxAmount || 0,
-        orderCount: revenue._count,
-        averageOrderValue: revenue._avg.totalAmount || 0,
+      period,
+      summary: {
+        totalOrders: summary.totalOrders,
+        totalRevenue: summary.totalRevenue,
+        averageOrderAmount: summary.averageOrderAmount,
+        totalCustomers: customerSummary.totalCustomers,
       },
-      payments,
-      topProducts: enrichedTopProducts,
+      series: {
+        revenueByDay,
+      },
+      breakdown: {
+        ordersByStatus,
+        paymentMethods,
+      },
     };
+  }
+
+  async getDailyReport(storeId: string, date: string) {
+    return this.getOverviewReport(storeId, date, date);
   }
 
   async getMonthlyReport(storeId: string, year: number, month: number) {
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0, 23, 59, 59, 999);
+    const start = new Date(year, month - 1, 1);
+    const end = new Date(year, month, 0);
 
-    const [revenue, ordersByDay, categoryRevenue] = await Promise.all([
-      prisma.order.aggregate({
-        where: {
-          storeId,
-          createdAt: { gte: startDate, lte: endDate },
-          status: { not: 'CANCELLED' },
-        },
-        _sum: { totalAmount: true },
-        _count: true,
-        _avg: { totalAmount: true },
-      }),
-
-      // Orders grouped by day
-      prisma.$queryRaw`
-        SELECT DATE(created_at) as date, COUNT(*)::int as order_count, 
-               SUM(total_amount)::float as revenue
-        FROM orders 
-        WHERE store_id = ${storeId} 
-          AND created_at >= ${startDate} 
-          AND created_at <= ${endDate}
-          AND status != 'CANCELLED'
-        GROUP BY DATE(created_at) 
-        ORDER BY date
-      `,
-
-      // Revenue by category
-      prisma.$queryRaw`
-        SELECT c.name as category_name, c.id as category_id,
-               SUM(oi.total_price)::float as revenue,
-               SUM(oi.quantity)::int as items_sold
-        FROM order_items oi
-        JOIN products p ON p.id = oi.product_id
-        JOIN categories c ON c.id = p.category_id
-        JOIN orders o ON o.id = oi.order_id
-        WHERE o.store_id = ${storeId}
-          AND o.created_at >= ${startDate}
-          AND o.created_at <= ${endDate}
-          AND o.status != 'CANCELLED'
-        GROUP BY c.id, c.name
-        ORDER BY revenue DESC
-      `,
-    ]);
-
-    return {
-      year,
-      month,
-      revenue: {
-        totalRevenue: revenue._sum.totalAmount || 0,
-        orderCount: revenue._count,
-        averageOrderValue: revenue._avg.totalAmount || 0,
-      },
-      ordersByDay,
-      categoryRevenue,
-    };
+    return this.getOverviewReport(
+      storeId,
+      this.formatDateKey(start),
+      this.formatDateKey(end),
+    );
   }
 
   async getProductAnalytics(storeId: string, startDate: string, endDate: string) {
-    const start = new Date(startDate);
-    const end = new Date(endDate);
+    const [{ start, end, period }, defaultLanguage] = await Promise.all([
+      this.resolveRange(storeId, startDate, endDate),
+      this.getDefaultLanguage(storeId),
+    ]);
 
     const analytics = await prisma.orderItem.groupBy({
       by: ['productId'],
@@ -165,36 +75,68 @@ export class ReportService {
         },
       },
       _sum: { quantity: true, totalPrice: true },
-      _avg: { unitPrice: true },
-      _count: true,
+      _count: { _all: true },
       orderBy: { _sum: { totalPrice: 'desc' } },
+      take: 10,
     });
 
-    const productIds = analytics.map((a) => a.productId);
+    const productIds = analytics.map((item) => item.productId);
     const products = await prisma.product.findMany({
       where: { id: { in: productIds } },
       select: {
         id: true,
         slug: true,
-        categoryId: true,
-        translations: { select: { name: true, languageId: true } },
-        images: { where: { isCover: true }, take: 1, select: { url: true } },
+        translations: {
+          select: {
+            languageId: true,
+            name: true,
+          },
+        },
+        images: {
+          where: { isCover: true },
+          take: 1,
+          select: { url: true },
+        },
       },
     });
 
-    return analytics.map((a) => ({
-      product: products.find((p) => p.id === a.productId),
-      totalQuantity: a._sum.quantity,
-      totalRevenue: a._sum.totalPrice,
-      averagePrice: a._avg.unitPrice,
-      orderCount: a._count,
-    }));
+    const items = analytics.map((item) => {
+      const product = products.find((candidate) => candidate.id === item.productId);
+      const quantity = item._sum.quantity || 0;
+      const revenue = item._sum.totalPrice || 0;
+
+      return {
+        productId: item.productId,
+        productName: this.pickTranslatedName(product?.translations ?? [], product?.slug ?? 'Urun', defaultLanguage),
+        quantity,
+        revenue,
+        orderCount: item._count._all,
+        imageUrl: product?.images[0]?.url ?? null,
+      };
+    });
+
+    return {
+      period,
+      summary: {
+        totalProducts: items.length,
+        totalQuantity: items.reduce((sum, item) => sum + item.quantity, 0),
+        totalRevenue: items.reduce((sum, item) => sum + item.revenue, 0),
+      },
+      items,
+    };
   }
 
-  async getCustomerAnalytics(storeId: string) {
-    const visits = await prisma.customerVisit.findMany({
-      where: { storeId },
+  async getCustomerAnalytics(storeId: string, startDate: string, endDate: string) {
+    const { start, end, period } = await this.resolveRange(storeId, startDate, endDate);
+    const summary = await this.getCustomerSummary(storeId, start, end);
+
+    const recentVisits = await prisma.customerVisit.findMany({
+      where: {
+        storeId,
+        visitDate: { gte: start, lte: end },
+      },
       orderBy: { visitDate: 'desc' },
+      take: 8,
       include: {
         customer: {
           select: {
@@ -206,20 +148,340 @@ export class ReportService {
       },
     });
 
-    const visitCounts = new Map<string, number>();
-    for (const visit of visits) {
-      visitCounts.set(visit.customerId, (visitCounts.get(visit.customerId) || 0) + 1);
-    }
+    return {
+      period,
+      summary,
+      items: recentVisits.map((visit) => ({
+        customerId: visit.customerId,
+        customerName: visit.customer.name,
+        email: visit.customer.email,
+        visitDate: visit.visitDate.toISOString(),
+        totalSpent: visit.totalSpent,
+      })),
+    };
+  }
 
-    const totalCustomers = visitCounts.size;
-    const returningCustomers = [...visitCounts.values()].filter((count) => count > 1).length;
-    const recentVisits = visits.slice(0, 50);
+  async getStaffAnalytics(storeId: string, startDate: string, endDate: string) {
+    const { start, end, period } = await this.resolveRange(storeId, startDate, endDate);
+
+    const grouped = await prisma.order.groupBy({
+      by: ['takenByUserId'],
+      where: {
+        storeId,
+        createdAt: { gte: start, lte: end },
+        status: { not: 'CANCELLED' },
+      },
+      _count: { _all: true },
+      _sum: { finalAmount: true },
+      orderBy: {
+        _sum: {
+          finalAmount: 'desc',
+        },
+      },
+    });
+
+    const userIds = grouped
+      .map((item) => item.takenByUserId)
+      .filter((value): value is string => Boolean(value));
+
+    const users = await prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: {
+        id: true,
+        name: true,
+        userStores: {
+          where: {
+            storeId,
+            isActive: true,
+          },
+          select: {
+            role: true,
+          },
+        },
+      },
+    });
+
+    const items = grouped.map((item) => {
+      const revenue = item._sum.finalAmount || 0;
+      const orderCount = item._count._all;
+      const user = users.find((candidate) => candidate.id === item.takenByUserId);
+
+      if (!user) {
+        return {
+          staffUserId: null,
+          staffName: 'Sistem / Atanmayan',
+          role: 'SYSTEM',
+          orderCount,
+          revenue,
+          averageOrderValue: orderCount > 0 ? revenue / orderCount : 0,
+        };
+      }
+
+      return {
+        staffUserId: user.id,
+        staffName: user.name,
+        role: user.userStores[0]?.role ?? 'STAFF',
+        orderCount,
+        revenue,
+        averageOrderValue: orderCount > 0 ? revenue / orderCount : 0,
+      };
+    });
+
+    const unassignedOrders =
+      items.find((item) => item.staffUserId === null)?.orderCount ?? 0;
 
     return {
-      totalUniqueCustomers: totalCustomers,
-      returningCustomers,
-      returnRate: totalCustomers > 0 ? (returningCustomers / totalCustomers) * 100 : 0,
-      recentVisits,
+      period,
+      summary: {
+        trackedOrders: items.reduce(
+          (sum, item) => sum + (item.staffUserId ? item.orderCount : 0),
+          0,
+        ),
+        unassignedOrders,
+        totalRevenue: items.reduce((sum, item) => sum + item.revenue, 0),
+      },
+      items,
     };
+  }
+
+  private async resolveRange(storeId: string, startDate: string, endDate: string) {
+    await this.ensureStoreExists(storeId);
+
+    const start = this.parseDateInput(startDate, false);
+    const end = this.parseDateInput(endDate, true);
+
+    if (start > end) {
+      throw new BadRequestException('startDate cannot be after endDate');
+    }
+
+    return {
+      start,
+      end,
+      period: {
+        startDate: this.formatDateKey(start),
+        endDate: this.formatDateKey(end),
+      } satisfies ReportPeriod,
+    };
+  }
+
+  private async ensureStoreExists(storeId: string) {
+    const store = await prisma.store.findUnique({
+      where: { id: storeId },
+      select: { id: true },
+    });
+
+    if (!store) {
+      throw new NotFoundException('Store not found');
+    }
+  }
+
+  private async getDefaultLanguage(storeId: string) {
+    const store = await prisma.store.findUnique({
+      where: { id: storeId },
+      select: { defaultLanguage: true },
+    });
+
+    return store?.defaultLanguage ?? 'tr';
+  }
+
+  private async getOrderSummary(storeId: string, start: Date, end: Date) {
+    const aggregate = await prisma.order.aggregate({
+      where: {
+        storeId,
+        createdAt: { gte: start, lte: end },
+        status: { not: 'CANCELLED' },
+      },
+      _sum: {
+        finalAmount: true,
+      },
+      _count: {
+        _all: true,
+      },
+      _avg: {
+        finalAmount: true,
+      },
+    });
+
+    return {
+      totalOrders: aggregate._count._all,
+      totalRevenue: aggregate._sum.finalAmount || 0,
+      averageOrderAmount: aggregate._avg.finalAmount || 0,
+    };
+  }
+
+  private async getCustomerSummary(storeId: string, start: Date, end: Date) {
+    const visits = await prisma.customerVisit.findMany({
+      where: {
+        storeId,
+        visitDate: { gte: start, lte: end },
+      },
+      select: {
+        customerId: true,
+        totalSpent: true,
+      },
+    });
+
+    const customerIds = [...new Set(visits.map((visit) => visit.customerId))];
+
+    const allCustomerVisits = customerIds.length
+      ? await prisma.customerVisit.groupBy({
+          by: ['customerId'],
+          where: {
+            storeId,
+            customerId: { in: customerIds },
+          },
+          _min: {
+            visitDate: true,
+          },
+        })
+      : [];
+
+    const firstVisitMap = new Map(
+      allCustomerVisits.map((visit) => [visit.customerId, visit._min.visitDate]),
+    );
+
+    const newCustomers = customerIds.filter((customerId) => {
+      const firstVisit = firstVisitMap.get(customerId);
+      return firstVisit ? firstVisit >= start && firstVisit <= end : false;
+    }).length;
+
+    const totalCustomers = customerIds.length;
+    const totalVisits = visits.length;
+    const totalSpend = visits.reduce((sum, visit) => sum + visit.totalSpent, 0);
+
+    return {
+      totalCustomers,
+      newCustomers,
+      returningCustomers: Math.max(totalCustomers - newCustomers, 0),
+      averageVisits: totalCustomers > 0 ? totalVisits / totalCustomers : 0,
+      averageSpend: totalCustomers > 0 ? totalSpend / totalCustomers : 0,
+    };
+  }
+
+  private async getRevenueSeries(storeId: string, start: Date, end: Date) {
+    const rows = await prisma.$queryRaw<RevenueSeriesRow[]>`
+      SELECT
+        DATE(created_at) AS day,
+        COUNT(*)::int AS "orderCount",
+        COALESCE(SUM(final_amount), 0)::float AS revenue
+      FROM orders
+      WHERE store_id = ${storeId}
+        AND created_at >= ${start}
+        AND created_at <= ${end}
+        AND status != 'CANCELLED'
+      GROUP BY DATE(created_at)
+      ORDER BY day ASC
+    `;
+
+    const rowMap = new Map(
+      rows.map((row) => [this.formatDateKey(new Date(row.day)), row]),
+    );
+
+    const series: Array<{ date: string; label: string; revenue: number; orders: number }> = [];
+
+    for (
+      const cursor = new Date(start.getTime());
+      cursor <= end;
+      cursor.setDate(cursor.getDate() + 1)
+    ) {
+      const dateKey = this.formatDateKey(cursor);
+      const row = rowMap.get(dateKey);
+
+      series.push({
+        date: dateKey,
+        label: this.formatSeriesLabel(cursor),
+        revenue: row?.revenue || 0,
+        orders: row?.orderCount || 0,
+      });
+    }
+
+    return series;
+  }
+
+  private async getOrdersByStatus(storeId: string, start: Date, end: Date) {
+    const rows = await prisma.order.groupBy({
+      by: ['status'],
+      where: {
+        storeId,
+        createdAt: { gte: start, lte: end },
+      },
+      _count: {
+        _all: true,
+      },
+    });
+
+    return rows.map((row) => ({
+      status: row.status,
+      count: row._count._all,
+    }));
+  }
+
+  private async getPaymentMethods(storeId: string, start: Date, end: Date) {
+    const rows = await prisma.payment.groupBy({
+      by: ['method'],
+      where: {
+        storeId,
+        status: 'COMPLETED',
+        createdAt: { gte: start, lte: end },
+      },
+      _count: {
+        _all: true,
+      },
+      _sum: {
+        amount: true,
+      },
+    });
+
+    return rows.map((row) => ({
+      method: row.method,
+      count: row._count._all,
+      amount: row._sum.amount || 0,
+    }));
+  }
+
+  private parseDateInput(value: string, endOfDay: boolean) {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+
+    if (!match) {
+      throw new BadRequestException('Date format must be YYYY-MM-DD');
+    }
+
+    const [, year, month, day] = match;
+    const date = endOfDay
+      ? new Date(Number(year), Number(month) - 1, Number(day), 23, 59, 59, 999)
+      : new Date(Number(year), Number(month) - 1, Number(day), 0, 0, 0, 0);
+
+    if (Number.isNaN(date.getTime())) {
+      throw new BadRequestException('Invalid date');
+    }
+
+    return date;
+  }
+
+  private formatDateKey(date: Date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+
+    return `${year}-${month}-${day}`;
+  }
+
+  private formatSeriesLabel(date: Date) {
+    return date.toLocaleDateString('tr-TR', {
+      day: '2-digit',
+      month: 'short',
+    });
+  }
+
+  private pickTranslatedName(
+    translations: Array<{ languageId: string; name: string }>,
+    fallbackName: string,
+    defaultLanguage: string,
+  ) {
+    return (
+      translations.find((translation) => translation.languageId === defaultLanguage)?.name ||
+      translations[0]?.name ||
+      fallbackName
+    );
   }
 }
