@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import {
+  AlertCircle,
   ArrowLeft,
   Bell,
   CheckCircle2,
+  Clock3,
   CreditCard,
   Loader2,
   Minus,
@@ -69,6 +71,8 @@ export default function CartPage({ params }: CartPageProps) {
   const grandTotal = Math.max(0, subtotal - discount);
   const storeId = menuData?.store.id ?? "";
   const tableName = menuData?.store.tableName ?? storedTableName ?? "Masa";
+  const operatingStatus = menuData?.store.operatingStatus;
+  const isAcceptingOrders = operatingStatus?.acceptingOrders ?? true;
 
   const handleCallWaiter = () => {
     if (!storeId) {
@@ -297,6 +301,15 @@ export default function CartPage({ params }: CartPageProps) {
                 Siparis verebilmek icin bu menuyu masa QR kodu ile acmaniz gerekiyor.
               </div>
             )}
+            {!isAcceptingOrders && (
+              <div className="flex items-start gap-2 rounded-[1rem] border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>
+                  {operatingStatus?.message ??
+                    "Restoran su anda siparis kabul etmiyor. Acilis saatlerinde tekrar deneyin."}
+                </span>
+              </div>
+            )}
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <Tag className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -391,14 +404,20 @@ export default function CartPage({ params }: CartPageProps) {
                 <Button
                   className="flex-1"
                   onClick={handlePlaceOrder}
-                  disabled={orderLoading || !tableId}
+                  disabled={orderLoading || !tableId || !isAcceptingOrders}
                 >
                   {orderLoading ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
-                    <CreditCard className="mr-2 h-4 w-4" />
+                    <>
+                      {isAcceptingOrders ? (
+                        <CreditCard className="mr-2 h-4 w-4" />
+                      ) : (
+                        <Clock3 className="mr-2 h-4 w-4" />
+                      )}
+                    </>
                   )}
-                  Siparis ver
+                  {isAcceptingOrders ? "Siparis ver" : "Siparis su an kapali"}
                 </Button>
               </CardFooter>
             </Card>

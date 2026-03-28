@@ -6,6 +6,7 @@ import { EventsGateway } from '../../gateway/events.gateway';
 import { CartService } from '../cart/cart.service';
 import { CampaignService } from '../campaign/campaign.service';
 import { StockService } from '../stock/stock.service';
+import { getStoreOperatingStatus } from '../../common/utils/store-availability.util';
 
 const STATUS_FLOW: Record<OrderStatus, OrderStatus[]> = {
   DRAFT: ['PENDING', 'CANCELLED'],
@@ -52,6 +53,7 @@ export class OrderService {
 
   async create(dto: CreateOrderDto) {
     const { items, ...orderData } = dto;
+    await this.assertStoreAcceptingOrders(dto.storeId);
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -132,6 +134,7 @@ export class OrderService {
   }
 
   async createFromCart(dto: CreateOrderFromCartDto) {
+    await this.assertStoreAcceptingOrders(dto.storeId);
     const cart = await this.cartService.getCart(dto.sessionId);
 
     if (!cart.items || cart.items.length === 0) {
@@ -371,5 +374,31 @@ export class OrderService {
     }
 
     return user.id;
+  }
+
+  private async assertStoreAcceptingOrders(storeId: string) {
+    const store = await prisma.store.findUnique({
+      where: { id: storeId },
+      select: {
+        id: true,
+        isActive: true,
+        timezone: true,
+        settings: true,
+      },
+    });
+
+    if (!store) {
+      throw new NotFoundException('Store not found');
+    }
+
+    const operatingStatus = getStoreOperatingStatus({
+      isActive: store.isActive,
+      settings: store.settings,
+      timezone: store.timezone,
+    });
+
+    if (!operatingStatus.acceptingOrders) {
+      throw new BadRequestException(operatingStatus.message);
+    }
   }
 }

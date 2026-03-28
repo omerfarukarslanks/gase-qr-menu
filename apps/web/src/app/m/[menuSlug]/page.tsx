@@ -94,6 +94,9 @@ export default function MenuPage({ params }: MenuPageProps) {
   const categories = menuData?.categories ?? [];
   const storeName = menuData?.store?.name ?? "Menu";
   const storeLogo = menuData?.store?.logo;
+  const operatingStatus = menuData?.store?.operatingStatus;
+  const isAcceptingOrders = operatingStatus?.acceptingOrders ?? true;
+  const isOpenNow = operatingStatus?.isOpenNow ?? true;
 
   const allProducts = useMemo(() => {
     const products: (PublicProduct & { categoryName?: string })[] = [];
@@ -188,7 +191,9 @@ export default function MenuPage({ params }: MenuPageProps) {
     {
       label: "Servis akisi",
       value: tableFromQr ? `Masa ${tableFromQr}` : "QR hazir",
-      hint: "Hizli siparis akisi",
+      hint: isAcceptingOrders
+        ? "Hizli siparis akisi"
+        : operatingStatus?.message ?? "Su anda siparis kapali",
       icon: Clock3,
     },
   ];
@@ -292,6 +297,20 @@ export default function MenuPage({ params }: MenuPageProps) {
                 )}
                 {tableFromQr ? `Masa ${tableFromQr}` : "Canli menu"}
               </div>
+              <div
+                className={cn(
+                  "mt-3 inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold",
+                  isOpenNow
+                    ? "bg-emerald-100 text-emerald-700"
+                    : "bg-amber-100 text-amber-700"
+                )}
+              >
+                <Clock3 className="h-3.5 w-3.5" />
+                {isOpenNow ? "Su an acik" : "Su an kapali"}
+                {operatingStatus?.openTime && operatingStatus?.closeTime
+                  ? ` · ${operatingStatus.openTime} - ${operatingStatus.closeTime}`
+                  : ""}
+              </div>
               <h1 className="mt-4 font-display text-[34px] leading-[42px] text-foreground sm:text-[42px] sm:leading-[48px]">
                 {storeName}
               </h1>
@@ -332,6 +351,13 @@ export default function MenuPage({ params }: MenuPageProps) {
               </div>
             ))}
           </div>
+
+          {!isAcceptingOrders && (
+            <div className="rounded-[1.25rem] border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+              {operatingStatus?.message ??
+                "Restoran su anda siparis kabul etmiyor. Menuyu incelemeye devam edebilirsiniz."}
+            </div>
+          )}
         </div>
       </section>
 

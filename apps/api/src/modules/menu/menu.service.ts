@@ -4,6 +4,7 @@ import * as QRCode from 'qrcode';
 import { randomUUID } from 'crypto';
 import { CreateMenuDto, UpdateMenuDto } from './dto/menu.dto';
 import { PublicMenuFiltersDto } from './dto/public-menu-filters.dto';
+import { getStoreOperatingStatus } from '../../common/utils/store-availability.util';
 
 @Injectable()
 export class MenuService {
@@ -256,7 +257,16 @@ export class MenuService {
       where: { qrToken },
       include: {
         store: {
-          select: { id: true, name: true, logo: true, slug: true, defaultLanguage: true },
+          select: {
+            id: true,
+            name: true,
+            logo: true,
+            slug: true,
+            defaultLanguage: true,
+            timezone: true,
+            isActive: true,
+            settings: true,
+          },
         },
         menuCategories: {
           where: { isActive: true },
@@ -349,6 +359,16 @@ export class MenuService {
       throw new NotFoundException('Menu not found or inactive');
     }
 
+    const operatingStatus = getStoreOperatingStatus({
+      isActive: menu.store.isActive,
+      settings: menu.store.settings,
+      timezone: menu.store.timezone,
+    });
+
+    if (!operatingStatus.isPubliclyVisible || !operatingStatus.isStoreActive) {
+      throw new NotFoundException('Menu not found or inactive');
+    }
+
     const fallbackLanguage = menu.store.defaultLanguage || 'tr';
     const lang = filters.lang || fallbackLanguage;
     const table = filters.table
@@ -402,6 +422,7 @@ export class MenuService {
         ...menu.store,
         tableId: table?.id,
         tableName: table?.name,
+        operatingStatus,
       },
       categories: filteredCategories,
       allergens,
@@ -450,12 +471,25 @@ export class MenuService {
         store: {
           select: {
             defaultLanguage: true,
+            timezone: true,
+            isActive: true,
+            settings: true,
           },
         },
       },
     });
 
     if (!product || !product.isActive) {
+      throw new NotFoundException('Product not found');
+    }
+
+    const operatingStatus = getStoreOperatingStatus({
+      isActive: product.store.isActive,
+      settings: product.store.settings,
+      timezone: product.store.timezone,
+    });
+
+    if (!operatingStatus.isPubliclyVisible || !operatingStatus.isStoreActive) {
       throw new NotFoundException('Product not found');
     }
 

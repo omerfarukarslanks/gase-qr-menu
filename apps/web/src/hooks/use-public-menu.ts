@@ -60,6 +60,19 @@ export interface PublicMenuData {
     logo?: string;
     tableId?: string;
     tableName?: string;
+    operatingStatus?: {
+      isStoreActive: boolean;
+      isPubliclyVisible: boolean;
+      hasSchedule: boolean;
+      isOpenNow: boolean;
+      acceptingOrders: boolean;
+      currentDay: string;
+      currentDayLabel: string;
+      openTime?: string | null;
+      closeTime?: string | null;
+      timezone: string;
+      message: string;
+    };
   };
   categories: PublicCategory[];
   allergens: PublicAllergen[];
