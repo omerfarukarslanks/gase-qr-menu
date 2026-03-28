@@ -48,6 +48,12 @@ export class RegisterDto {
   @IsOptional()
   @IsString()
   organizationId?: string;
+
+  @ApiPropertyOptional({ example: 'GASE Restaurant Zincirleri' })
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  organizationName?: string;
 }
 
 export class RefreshTokenDto {

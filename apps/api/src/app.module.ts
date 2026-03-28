@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { existsSync } from 'fs';
+import { resolve } from 'path';
 import envConfig from './config/env.config';
 import { AuthModule } from './modules/auth/auth.module';
 import { OrganizationModule } from './modules/organization/organization.module';
@@ -24,10 +26,18 @@ import { UploadModule } from './modules/upload/upload.module';
 import { I18nModule } from './modules/i18n/i18n.module';
 import { EventsGateway } from './gateway/events.gateway';
 
+const envFilePath = [
+  resolve(process.cwd(), '.env'),
+  resolve(process.cwd(), '../../.env'),
+  resolve(__dirname, '../../../.env'),
+  resolve(__dirname, '../../../../.env'),
+].filter((path, index, paths) => existsSync(path) && paths.indexOf(path) === index);
+
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      envFilePath,
       load: [envConfig as any],
     }),
     AuthModule,

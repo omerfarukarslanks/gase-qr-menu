@@ -2,11 +2,13 @@ import {
   Injectable,
   UnauthorizedException,
   ConflictException,
+  BadRequestException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
-import { prisma } from '@gase/database';
+import { Prisma, prisma } from '@gase/database';
+import slugify from 'slugify';
 import { LoginDto, RegisterDto } from './dto/auth.dto';
 import { splitDisplayName } from '../../common/utils/language.util';
 
@@ -28,16 +30,55 @@ export class AuthService {
 
     const hashedPassword = await bcrypt.hash(dto.password, 12);
     const fullName = [dto.firstName, dto.lastName].filter(Boolean).join(' ').trim();
+    const providedOrganizationName =
+      dto.organizationName?.trim() ||
+      (dto.organizationId && !this.looksLikeEntityId(dto.organizationId)
+        ? dto.organizationId.trim()
+        : undefined);
 
-    const user = await prisma.user.create({
-      data: {
-        email: dto.email,
-        passwordHash: hashedPassword,
-        name: fullName || dto.email,
-        phone: dto.phone,
-        organizationId: dto.organizationId,
-        role: 'OWNER',
-      },
+    const user = await prisma.$transaction(async (tx) => {
+      let organizationId: string | undefined;
+
+      if (dto.organizationId && !providedOrganizationName) {
+        const organization = await tx.organization.findUnique({
+          where: { id: dto.organizationId },
+          select: { id: true },
+        });
+
+        if (!organization) {
+          throw new BadRequestException('Invalid organizationId');
+        }
+
+        organizationId = organization.id;
+      }
+
+      const createdUser = await tx.user.create({
+        data: {
+          email: dto.email,
+          passwordHash: hashedPassword,
+          name: fullName || dto.email,
+          phone: dto.phone,
+          organizationId,
+          role: 'OWNER',
+        },
+      });
+
+      if (!organizationId && providedOrganizationName) {
+        const organization = await tx.organization.create({
+          data: {
+            name: providedOrganizationName,
+            slug: await this.generateUniqueOrganizationSlug(tx, providedOrganizationName),
+            ownerId: createdUser.id,
+          },
+        });
+
+        return tx.user.update({
+          where: { id: createdUser.id },
+          data: { organizationId: organization.id },
+        });
+      }
+
+      return createdUser;
     });
 
     const tokens = await this.generateTokens(user.id, user.email, user.role, user.organizationId);
@@ -130,5 +171,28 @@ export class AuthService {
     ]);
 
     return { accessToken, refreshToken };
+  }
+
+  private looksLikeEntityId(value: string) {
+    return /^c[a-z0-9]{20,}$/i.test(value);
+  }
+
+  private async generateUniqueOrganizationSlug(
+    tx: Prisma.TransactionClient,
+    organizationName: string,
+  ) {
+    const baseSlug =
+      slugify(organizationName, { lower: true, strict: true, trim: true }) ||
+      `organization-${Date.now()}`;
+
+    let slug = baseSlug;
+    let counter = 1;
+
+    while (await tx.organization.findUnique({ where: { slug }, select: { id: true } })) {
+      slug = `${baseSlug}-${counter}`;
+      counter += 1;
+    }
+
+    return slug;
   }
 }
