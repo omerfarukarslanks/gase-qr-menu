@@ -13,6 +13,7 @@ import { TableService } from './table.service';
 import { CreateTableDto, UpdateTableDto, OpenSessionDto } from './dto/table.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { Public } from '../../common/decorators/public.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
 @ApiTags('tables')
 @ApiBearerAuth()
@@ -50,8 +51,21 @@ export class TableController {
   openSession(
     @Param('id') id: string,
     @Body() body: OpenSessionDto,
+    @CurrentUser()
+    currentUser: {
+      id: string;
+      role: string;
+      organizationId?: string | null;
+      userStores?: Array<{ storeId: string; role: string; isActive: boolean }>;
+    },
   ) {
-    return this.tableService.openSession(id, body.customerName, body.customerPhone);
+    return this.tableService.openSession(
+      id,
+      body.customerName,
+      body.customerPhone,
+      body.assignedStaffUserId,
+      currentUser,
+    );
   }
 
   @Public()

@@ -39,6 +39,11 @@ export class CreateOrderDto {
   @IsString()
   notes?: string;
 
+  @ApiPropertyOptional({ description: 'Staff user who took the order' })
+  @IsOptional()
+  @IsString()
+  takenByUserId?: string;
+
   @ApiProperty({ type: [OrderItemDto] })
   @IsArray()
   @ValidateNested({ each: true })

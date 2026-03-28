@@ -61,4 +61,9 @@ export class OpenSessionDto {
   @IsOptional()
   @IsString()
   customerPhone?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  assignedStaffUserId?: string;
 }

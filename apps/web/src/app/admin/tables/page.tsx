@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Switch } from "@/components/ui/switch";
 import { useMenus } from "@/hooks/use-menus";
+import { useStaff } from "@/hooks/use-staff";
 import {
   type RestaurantTable,
   type TableStatus,
@@ -50,6 +51,13 @@ const sectionOptions = Object.entries(sectionLabels).map(([value, label]) => ({
   value,
   label,
 }));
+
+const staffRoleLabels = {
+  MANAGER: "Yonetici",
+  STAFF: "Personel",
+  WAITER: "Garson",
+  KITCHEN: "Mutfak",
+} as const;
 
 const statusConfig: Record<
   TableStatus,
@@ -88,11 +96,23 @@ interface TableFormData {
   section: Exclude<Section, "ALL">;
 }
 
+interface OpenSessionFormData {
+  customerName: string;
+  customerPhone: string;
+  assignedStaffUserId: string;
+}
+
 const emptyForm: TableFormData = {
   number: 0,
   name: "",
   capacity: 2,
   section: "IC_MEKAN",
+};
+
+const emptySessionForm: OpenSessionFormData = {
+  customerName: "",
+  customerPhone: "",
+  assignedStaffUserId: "",
 };
 
 function getElapsedMinutes(openedAt: string) {
@@ -103,6 +123,7 @@ export default function TablesPage() {
   const { activeStoreId } = useCurrentStore();
   const { data: tables = [], isLoading, isError, error } = useTables(activeStoreId ?? "");
   const { data: menus = [] } = useMenus(activeStoreId ?? "");
+  const { data: staff = [] } = useStaff(activeStoreId ?? "");
   const createTable = useCreateTable();
   const updateTable = useUpdateTable();
   const openTableSession = useOpenTableSession();
@@ -112,10 +133,24 @@ export default function TablesPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<TableFormData>(emptyForm);
+  const [sessionTable, setSessionTable] = useState<RestaurantTable | null>(null);
+  const [sessionFormData, setSessionFormData] =
+    useState<OpenSessionFormData>(emptySessionForm);
   const [qrTableId, setQrTableId] = useState<string | null>(null);
   const [qrMenuId, setQrMenuId] = useState<string | null>(null);
 
   const activeMenus = useMemo(() => menus.filter((menu) => menu.isActive), [menus]);
+  const assignableStaffOptions = useMemo(
+    () =>
+      staff
+        .filter((member) => member.isActive && member.role !== "KITCHEN")
+        .map((member) => ({
+          value: member.userId,
+          label: `${member.name} • ${staffRoleLabels[member.role]}`,
+          keywords: [member.email, member.storeName],
+        })),
+    [staff]
+  );
   const qrTable = useMemo(
     () => tables.find((table) => table.id === qrTableId) ?? null,
     [qrTableId, tables]
@@ -145,6 +180,11 @@ export default function TablesPage() {
     setShowForm(false);
     setEditingId(null);
     setFormData(emptyForm);
+  };
+
+  const resetSessionForm = () => {
+    setSessionTable(null);
+    setSessionFormData(emptySessionForm);
   };
 
   const handleAdd = () => {
@@ -221,6 +261,29 @@ export default function TablesPage() {
       id: table.id,
       status: nextStatus,
     });
+  };
+
+  const handleOpenSessionDrawer = (table: RestaurantTable) => {
+    setSessionTable(table);
+    setSessionFormData(emptySessionForm);
+  };
+
+  const handleSubmitSession = () => {
+    if (!sessionTable) {
+      return;
+    }
+
+    openTableSession.mutate(
+      {
+        tableId: sessionTable.id,
+        customerName: sessionFormData.customerName.trim() || undefined,
+        customerPhone: sessionFormData.customerPhone.trim() || undefined,
+        assignedStaffUserId: sessionFormData.assignedStaffUserId || undefined,
+      },
+      {
+        onSuccess: resetSessionForm,
+      }
+    );
   };
 
   const formContent = (
@@ -321,6 +384,84 @@ export default function TablesPage() {
       </div>
     ) : null;
 
+  const sessionFormContent = sessionTable ? (
+    <div className="space-y-6">
+      <div className="rounded-2xl border border-border bg-muted/30 p-4">
+        <div className="text-sm font-medium">Masa {sessionTable.number}</div>
+        <div className="text-sm text-muted-foreground">
+          {sessionTable.name} • {sessionTable.capacity} kisi
+        </div>
+      </div>
+
+      <div className="grid gap-4">
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Musteri adi</label>
+          <Input
+            value={sessionFormData.customerName}
+            placeholder="Opsiyonel"
+            onChange={(event) =>
+              setSessionFormData((current) => ({
+                ...current,
+                customerName: event.target.value,
+              }))
+            }
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Telefon</label>
+          <Input
+            value={sessionFormData.customerPhone}
+            placeholder="Opsiyonel"
+            onChange={(event) =>
+              setSessionFormData((current) => ({
+                ...current,
+                customerPhone: event.target.value,
+              }))
+            }
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Siparisi alan personel</label>
+          <SearchableSelect
+            options={assignableStaffOptions}
+            value={sessionFormData.assignedStaffUserId}
+            onChange={(value) =>
+              setSessionFormData((current) => ({
+                ...current,
+                assignedStaffUserId: String(value || ""),
+              }))
+            }
+            placeholder="Secim yapmadan devam et"
+            searchPlaceholder="Personel ara..."
+            emptyMessage="Secilebilir personel bulunamadi."
+          />
+          <p className="text-xs text-muted-foreground">
+            Bos birakirsaniz siparisler varsayilan olarak giris yapan kullaniciya yazilir.
+          </p>
+        </div>
+      </div>
+
+      {openTableSession.isError ? (
+        <p className="text-sm text-destructive">
+          {openTableSession.error instanceof Error
+            ? openTableSession.error.message
+            : "Masa oturumu acilamadi."}
+        </p>
+      ) : null}
+
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <Button onClick={handleSubmitSession} disabled={openTableSession.isPending}>
+          {openTableSession.isPending ? "Aciliyor..." : "Masayi ac"}
+        </Button>
+        <Button variant="outline" onClick={resetSessionForm}>
+          Iptal
+        </Button>
+      </div>
+    </div>
+  ) : null;
+
   return (
     <div className="space-y-6">
       <AdminPageHeader
@@ -372,6 +513,19 @@ export default function TablesPage() {
         contentClassName="lg:w-[min(34rem,calc(100vw-2rem))]"
       >
         {qrPanelContent}
+      </AdminDrawer>
+
+      <AdminDrawer
+        open={Boolean(sessionTable)}
+        onOpenChange={(open) => {
+          if (!open) {
+            resetSessionForm();
+          }
+        }}
+        title={sessionTable ? `Masa ${sessionTable.number} oturumu` : "Masa oturumu"}
+        description="Masa acarken opsiyonel musteri ve sorumlu personel bilgisini baglayin."
+      >
+        {sessionFormContent}
       </AdminDrawer>
 
       {isLoading ? (
@@ -444,6 +598,9 @@ export default function TablesPage() {
                           <ChefHat className="h-3 w-3" />
                           {table.currentSession.orderCount} aktif siparis
                         </span>
+                        {table.currentSession.assignedStaff?.name ? (
+                          <span>{table.currentSession.assignedStaff.name}</span>
+                        ) : null}
                       </div>
                     </div>
                   )}
@@ -469,11 +626,7 @@ export default function TablesPage() {
                         disabled={
                           openTableSession.isPending || table.status === "OUT_OF_SERVICE"
                         }
-                        onClick={() =>
-                          openTableSession.mutate({
-                            tableId: table.id,
-                          })
-                        }
+                        onClick={() => handleOpenSessionDrawer(table)}
                       >
                         Masa ac
                       </Button>

@@ -17,6 +17,30 @@ const STATUS_FLOW: Record<OrderStatus, OrderStatus[]> = {
   CANCELLED: [],
 };
 
+const ORDER_INCLUDE = {
+  items: { include: { product: true } },
+  tableSession: {
+    include: {
+      tableRef: true,
+      assignedStaff: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
+  },
+  takenBy: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+    },
+  },
+  campaign: true,
+  payments: true,
+} as const;
+
 @Injectable()
 export class OrderService {
   constructor(
@@ -63,12 +87,18 @@ export class OrderService {
     } catch {}
 
     const finalAmount = Math.max(0, totalAmount - discountAmount);
+    const takenByUserId = await this.resolveTakenByUserId(
+      dto.storeId,
+      dto.tableSessionId,
+      dto.takenByUserId,
+    );
 
     const order = await prisma.order.create({
       data: {
         storeId: orderData.storeId,
         tableSessionId: orderData.tableSessionId,
         notes: orderData.notes,
+        takenByUserId,
         orderNumber,
         status: 'PENDING',
         totalAmount,
@@ -89,10 +119,7 @@ export class OrderService {
           },
         },
       },
-      include: {
-        items: { include: { product: true } },
-        tableSession: { include: { tableRef: true } },
-      },
+      include: ORDER_INCLUDE,
     });
 
     // Increment campaign usage
@@ -150,12 +177,18 @@ export class OrderService {
     } catch {}
 
     const finalAmount = Math.max(0, totalAmount - discountAmount);
+    const takenByUserId = await this.resolveTakenByUserId(
+      dto.storeId,
+      dto.tableSessionId,
+      dto.takenByUserId,
+    );
 
     const order = await prisma.order.create({
       data: {
         storeId: dto.storeId,
         tableSessionId: dto.tableSessionId,
         notes: dto.notes,
+        takenByUserId,
         orderNumber,
         status: 'PENDING',
         totalAmount,
@@ -176,10 +209,7 @@ export class OrderService {
           },
         },
       },
-      include: {
-        items: { include: { product: true } },
-        tableSession: { include: { tableRef: true } },
-      },
+      include: ORDER_INCLUDE,
     });
 
     await this.cartService.clearCart(dto.sessionId);
@@ -205,12 +235,7 @@ export class OrderService {
         skip: query.skip,
         take: query.limit,
         orderBy: { createdAt: 'desc' },
-        include: {
-          items: { include: { product: true } },
-          tableSession: { include: { tableRef: true } },
-          campaign: true,
-          payments: true,
-        },
+        include: ORDER_INCLUDE,
       }),
       prisma.order.count({ where }),
     ]);
@@ -229,12 +254,7 @@ export class OrderService {
   async findOne(id: string) {
     const order = await prisma.order.findUnique({
       where: { id },
-      include: {
-        items: { include: { product: true } },
-        tableSession: { include: { tableRef: true } },
-        campaign: true,
-        payments: true,
-      },
+      include: ORDER_INCLUDE,
     });
     if (!order) throw new NotFoundException('Order not found');
     return order;
@@ -254,10 +274,7 @@ export class OrderService {
     const updatedOrder = await prisma.order.update({
       where: { id },
       data: { status: nextStatus },
-      include: {
-        items: { include: { product: true } },
-        tableSession: { include: { tableRef: true } },
-      },
+      include: ORDER_INCLUDE,
     });
 
     this.eventsGateway.emitOrderStatusUpdate(order.storeId, updatedOrder);
@@ -277,10 +294,82 @@ export class OrderService {
         status: { in: ['PENDING', 'CONFIRMED', 'PREPARING', 'READY'] },
       },
       orderBy: { createdAt: 'asc' },
-      include: {
-        items: { include: { product: true } },
-        tableSession: { include: { tableRef: true } },
+      include: ORDER_INCLUDE,
+    });
+  }
+
+  private async resolveTakenByUserId(
+    storeId: string,
+    tableSessionId: string,
+    explicitTakenByUserId?: string,
+  ) {
+    const store = await prisma.store.findUnique({
+      where: { id: storeId },
+      select: {
+        id: true,
+        organizationId: true,
       },
     });
+
+    if (!store) {
+      throw new NotFoundException('Store not found');
+    }
+
+    const tableSession = await prisma.tableSession.findUnique({
+      where: { id: tableSessionId },
+      select: {
+        assignedStaffUserId: true,
+        tableRef: {
+          select: {
+            storeId: true,
+          },
+        },
+      },
+    });
+
+    if (!tableSession) {
+      throw new NotFoundException('Table session not found');
+    }
+
+    if (tableSession.tableRef.storeId !== storeId) {
+      throw new BadRequestException('Table session does not belong to the selected store');
+    }
+
+    const candidateUserId = explicitTakenByUserId || tableSession.assignedStaffUserId;
+
+    if (!candidateUserId) {
+      return null;
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: candidateUserId },
+      select: {
+        id: true,
+        role: true,
+        organizationId: true,
+        userStores: {
+          where: {
+            storeId,
+            isActive: true,
+          },
+          select: {
+            id: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Staff user not found');
+    }
+
+    const isOrganizationOwner =
+      user.role === 'OWNER' && user.organizationId === store.organizationId;
+
+    if (!isOrganizationOwner && user.userStores.length === 0 && user.role !== 'SUPER_ADMIN') {
+      throw new BadRequestException('Selected staff user does not have access to this store');
+    }
+
+    return user.id;
   }
 }

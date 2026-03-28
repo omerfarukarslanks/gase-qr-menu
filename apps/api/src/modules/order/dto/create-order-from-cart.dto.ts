@@ -19,6 +19,11 @@ export class CreateOrderFromCartDto {
   @IsString()
   notes?: string;
 
+  @ApiPropertyOptional({ description: 'Staff user who took the order' })
+  @IsOptional()
+  @IsString()
+  takenByUserId?: string;
+
   @ApiPropertyOptional({ description: 'Coupon code for discount' })
   @IsOptional()
   @IsString()

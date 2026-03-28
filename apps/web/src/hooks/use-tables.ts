@@ -14,6 +14,10 @@ export interface TableSessionSummary {
   customerName?: string | null;
   customerPhone?: string | null;
   orderCount: number;
+  assignedStaff?: {
+    id: string;
+    name: string;
+  } | null;
 }
 
 export interface RestaurantTable {
@@ -40,6 +44,10 @@ interface TableApiRecord {
     openedAt: string;
     customerName?: string | null;
     customerPhone?: string | null;
+    assignedStaff?: {
+      id: string;
+      name: string;
+    } | null;
     orders?: { id: string }[];
   }[];
 }
@@ -78,6 +86,7 @@ function mapTable(record: TableApiRecord): RestaurantTable {
           customerName: currentSession.customerName ?? null,
           customerPhone: currentSession.customerPhone ?? null,
           orderCount: currentSession.orders?.length ?? 0,
+          assignedStaff: currentSession.assignedStaff ?? null,
         }
       : null,
   };
@@ -133,11 +142,22 @@ export function useOpenTableSession() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ tableId, customerName, customerPhone }: { tableId: string; customerName?: string; customerPhone?: string }) =>
+    mutationFn: ({
+      tableId,
+      customerName,
+      customerPhone,
+      assignedStaffUserId,
+    }: {
+      tableId: string;
+      customerName?: string;
+      customerPhone?: string;
+      assignedStaffUserId?: string;
+    }) =>
       api
         .post(`/api/tables/${tableId}/open-session`, {
           customerName,
           customerPhone,
+          assignedStaffUserId,
         })
         .then((r) => r.data),
     onSuccess: () => {

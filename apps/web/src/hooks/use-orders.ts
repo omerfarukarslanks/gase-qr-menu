@@ -32,6 +32,8 @@ export interface Order {
   items: OrderItem[];
   totalAmount: number;
   finalAmount?: number;
+  takenById?: string | null;
+  takenByName?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -47,10 +49,18 @@ interface OrderApiRecord {
   updatedAt: string;
   tableSession?: {
     customerName?: string | null;
+    assignedStaff?: {
+      id: string;
+      name: string;
+    } | null;
     tableRef?: {
       id: string;
       name: string;
     } | null;
+  } | null;
+  takenBy?: {
+    id: string;
+    name: string;
   } | null;
   items?: {
     id: string;
@@ -110,6 +120,8 @@ function mapOrder(record: OrderApiRecord): Order {
       })) ?? [],
     totalAmount: record.totalAmount,
     finalAmount: record.finalAmount,
+    takenById: record.takenBy?.id ?? record.tableSession?.assignedStaff?.id ?? null,
+    takenByName: record.takenBy?.name ?? record.tableSession?.assignedStaff?.name ?? null,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
   };

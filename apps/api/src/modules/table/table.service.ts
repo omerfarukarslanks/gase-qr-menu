@@ -1,6 +1,18 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { TableStatus, prisma } from '@gase/database';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
+import { TableStatus, UserRole, prisma } from '@gase/database';
 import { CreateTableDto, UpdateTableDto } from './dto/table.dto';
+
+type CurrentUser = {
+  id: string;
+  role: string;
+  organizationId?: string | null;
+  userStores?: Array<{ storeId: string; role: string; isActive: boolean }>;
+};
 
 @Injectable()
 export class TableService {
@@ -26,6 +38,12 @@ export class TableService {
           take: 1,
           orderBy: { openedAt: 'desc' },
           include: {
+            assignedStaff: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
             orders: {
               where: {
                 status: { in: ['PENDING', 'CONFIRMED', 'PREPARING', 'READY'] },
@@ -45,7 +63,15 @@ export class TableService {
         sessions: {
           where: { status: 'ACTIVE' },
           take: 1,
-          include: { orders: true },
+          include: {
+            orders: true,
+            assignedStaff: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
         },
       },
     });
@@ -66,7 +92,13 @@ export class TableService {
     });
   }
 
-  async openSession(tableId: string, customerName?: string, customerPhone?: string) {
+  async openSession(
+    tableId: string,
+    customerName?: string,
+    customerPhone?: string,
+    assignedStaffUserId?: string,
+    currentUser?: CurrentUser | null,
+  ) {
     const table = await this.findOne(tableId);
 
     const activeSession = await prisma.tableSession.findFirst({
@@ -77,12 +109,27 @@ export class TableService {
       throw new BadRequestException('Table already has an active session');
     }
 
+    const resolvedAssignedStaffUserId = await this.resolveAssignedStaffUserId(
+      table.storeId,
+      assignedStaffUserId,
+      currentUser,
+    );
+
     const session = await prisma.tableSession.create({
       data: {
         tableId,
         status: 'ACTIVE',
         customerName,
         customerPhone,
+        assignedStaffUserId: resolvedAssignedStaffUserId,
+      },
+      include: {
+        assignedStaff: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
       },
     });
 
@@ -141,5 +188,59 @@ export class TableService {
       where: { id },
       data: { status: 'OUT_OF_SERVICE' },
     });
+  }
+
+  private async resolveAssignedStaffUserId(
+    storeId: string,
+    assignedStaffUserId?: string,
+    currentUser?: CurrentUser | null,
+  ) {
+    const candidateUserId = assignedStaffUserId || currentUser?.id;
+
+    if (!candidateUserId) {
+      return null;
+    }
+
+    const store = await prisma.store.findUnique({
+      where: { id: storeId },
+      select: {
+        organizationId: true,
+      },
+    });
+
+    if (!store) {
+      throw new NotFoundException('Store not found');
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: candidateUserId },
+      select: {
+        id: true,
+        role: true,
+        organizationId: true,
+        userStores: {
+          where: {
+            storeId,
+            isActive: true,
+          },
+          select: {
+            id: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Assigned staff user not found');
+    }
+
+    const isOrganizationOwner =
+      user.role === UserRole.OWNER && user.organizationId === store.organizationId;
+
+    if (!isOrganizationOwner && user.userStores.length === 0 && user.role !== UserRole.SUPER_ADMIN) {
+      throw new ForbiddenException('Assigned staff user does not have access to this store');
+    }
+
+    return user.id;
   }
 }

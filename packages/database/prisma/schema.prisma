@@ -197,6 +197,8 @@ model User {
   organization      Organization?  @relation("OrganizationUsers", fields: [organizationId], references: [id])
   ownedOrganizations Organization[] @relation("OrganizationOwner")
   userStores        UserStore[]
+  takenOrders       Order[]           @relation("OrderTakenBy")
+  assignedSessions  TableSession[]    @relation("TableSessionAssignedStaff")
   tableSessions     TableSession[]
   customerVisits    CustomerVisit[]
   readNotifications Notification[] @relation("NotificationReader")
@@ -537,21 +539,23 @@ model RestaurantTable {
 }
 
 model TableSession {
-  id            String        @id @default(cuid())
-  tableId       String        @map("table_id")
-  customerId    String?       @map("customer_id")
-  customerName  String?       @map("customer_name")
-  customerPhone String?       @map("customer_phone")
-  status        SessionStatus @default(ACTIVE)
-  openedAt      DateTime      @default(now()) @map("opened_at")
-  closedAt      DateTime?     @map("closed_at")
-  totalAmount   Float         @default(0) @map("total_amount")
-  discountAmount Float        @default(0) @map("discount_amount")
-  finalAmount   Float         @default(0) @map("final_amount")
+  id                 String        @id @default(cuid())
+  tableId            String        @map("table_id")
+  customerId         String?       @map("customer_id")
+  customerName       String?       @map("customer_name")
+  customerPhone      String?       @map("customer_phone")
+  assignedStaffUserId String?      @map("assigned_staff_user_id")
+  status             SessionStatus @default(ACTIVE)
+  openedAt           DateTime      @default(now()) @map("opened_at")
+  closedAt           DateTime?     @map("closed_at")
+  totalAmount        Float         @default(0) @map("total_amount")
+  discountAmount     Float         @default(0) @map("discount_amount")
+  finalAmount        Float         @default(0) @map("final_amount")
 
   table          RestaurantTable? @relation("CurrentSession")
   tableRef       RestaurantTable  @relation("TableSessions", fields: [tableId], references: [id], onDelete: Cascade)
   customer       User?            @relation(fields: [customerId], references: [id])
+  assignedStaff  User?            @relation("TableSessionAssignedStaff", fields: [assignedStaffUserId], references: [id])
   orders         Order[]
   payments       Payment[]
 
@@ -566,6 +570,7 @@ model Order {
   id              String      @id @default(cuid())
   tableSessionId  String      @map("table_session_id")
   storeId         String      @map("store_id")
+  takenByUserId   String?     @map("taken_by_user_id")
   orderNumber     Int         @map("order_number")
   status          OrderStatus @default(DRAFT)
   totalAmount     Float       @default(0) @map("total_amount")
@@ -581,6 +586,7 @@ model Order {
 
   tableSession TableSession @relation(fields: [tableSessionId], references: [id], onDelete: Cascade)
   store        Store        @relation(fields: [storeId], references: [id])
+  takenBy      User?        @relation("OrderTakenBy", fields: [takenByUserId], references: [id])
   campaign     Campaign?    @relation(fields: [campaignId], references: [id])
   items        OrderItem[]
   payments     Payment[]
