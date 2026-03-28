@@ -11,8 +11,8 @@ import {
   Search,
   Tag,
   Trash2,
-  X,
 } from "lucide-react";
+import { AdminDrawer } from "@/components/admin/admin-drawer";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -400,24 +400,18 @@ export default function CampaignsPage() {
         </CardContent>
       </Card>
 
-      {showForm && (
-        <Card className="overflow-hidden border-border/80 bg-card/90 shadow-[var(--card-shadow)]">
-          <CardHeader className="pb-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <CardTitle>
-                  {editingCampaign ? "Kampanya duzenle" : "Yeni kampanya"}
-                </CardTitle>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Form backend DTO ile birebir hizali calisiyor.
-                </p>
-              </div>
-              <Button variant="ghost" size="icon" onClick={resetForm}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-6">
+      <AdminDrawer
+        open={showForm}
+        onOpenChange={(open) => {
+          if (!open) {
+            resetForm();
+          }
+        }}
+        title={editingCampaign ? "Kampanya duzenle" : "Yeni kampanya"}
+        description="Indirim, kupon ve happy hour akisini sag panelden yonetin."
+        contentClassName="lg:w-[min(54rem,calc(100vw-2rem))]"
+      >
+        <div className="space-y-6">
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               <div className="space-y-2 xl:col-span-2">
                 <label className="text-sm font-medium">Kampanya adi</label>
@@ -721,14 +715,12 @@ export default function CampaignsPage() {
                 </Button>
               </div>
             </div>
-          </CardContent>
-        </Card>
-      )}
+        </div>
+      </AdminDrawer>
 
       {isLoading ? (
         <Card>
           <CardContent className="flex items-center gap-3 py-10 text-sm text-muted-foreground">
-            Yenile
             <Loader2 className="h-4 w-4 animate-spin" />
             Kampanyalar yukleniyor...
           </CardContent>

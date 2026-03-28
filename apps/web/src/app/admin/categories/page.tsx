@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Pencil, Plus, Trash2, X } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
+import { AdminDrawer } from "@/components/admin/admin-drawer";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { ResponsiveDataTable } from "@/components/admin/responsive-data-table";
 import { Button } from "@/components/ui/button";
@@ -179,117 +180,121 @@ export default function CategoriesPage() {
         }
       />
 
-      {showForm && (
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <CardTitle>{editingCategory ? "Kategori duzenle" : "Yeni kategori"}</CardTitle>
-            <Button variant="ghost" size="icon" onClick={resetForm}>
-              <X className="h-4 w-4" />
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <form className="grid gap-4 md:grid-cols-2" onSubmit={handleSubmit}>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Kategori adi</label>
-                <Input
-                  value={form.name}
-                  onChange={(event) =>
-                    setForm((current) => ({ ...current, name: event.target.value }))
-                  }
-                  placeholder="Ana Yemekler"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Ust kategori</label>
-                <select
-                  className="flex h-11 w-full rounded-[1rem] border border-input bg-background px-3 py-2 text-sm"
-                  value={form.parentId}
-                  onChange={(event) =>
-                    setForm((current) => ({ ...current, parentId: event.target.value }))
-                  }
-                >
-                  <option value="">Ana kategori</option>
-                  {flatCategories
-                    .filter((category) => category.id !== editingCategory?.id)
-                    .map((category) => (
-                      <option key={category.id} value={category.id}>
-                        {`${"  ".repeat(category.depth)}${category.name}`}
-                      </option>
-                    ))}
-                </select>
-              </div>
-              <div className="space-y-2 md:col-span-2">
-                <label className="text-sm font-medium">Aciklama</label>
-                <textarea
-                  className="flex min-h-[96px] w-full rounded-[1rem] border border-input bg-background px-3 py-2 text-sm"
-                  value={form.description}
+      <AdminDrawer
+        open={showForm}
+        onOpenChange={(open) => {
+          if (!open) {
+            resetForm();
+          }
+        }}
+        title={editingCategory ? "Kategori duzenle" : "Yeni kategori"}
+        description="Kategori hiyerarsisini sag panelden hizlica yonetin."
+      >
+        <form className="space-y-6" onSubmit={handleSubmit}>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Kategori adi</label>
+              <Input
+                value={form.name}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, name: event.target.value }))
+                }
+                placeholder="Ana Yemekler"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Ust kategori</label>
+              <select
+                className="flex h-11 w-full rounded-[1rem] border border-input bg-background px-3 py-2 text-sm"
+                value={form.parentId}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, parentId: event.target.value }))
+                }
+              >
+                <option value="">Ana kategori</option>
+                {flatCategories
+                  .filter((category) => category.id !== editingCategory?.id)
+                  .map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {`${"  ".repeat(category.depth)}${category.name}`}
+                    </option>
+                  ))}
+              </select>
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-sm font-medium">Aciklama</label>
+              <textarea
+                className="flex min-h-[120px] w-full rounded-[1rem] border border-input bg-background px-3 py-3 text-sm"
+                value={form.description}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    description: event.target.value,
+                  }))
+                }
+                placeholder="Kategori aciklamasi"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Slug</label>
+              <Input
+                value={form.slug}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, slug: event.target.value }))
+                }
+                placeholder="opsiyonel-slug"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Gorsel URL</label>
+              <Input
+                value={form.image}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, image: event.target.value }))
+                }
+                placeholder="https://..."
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Sira</label>
+              <Input
+                type="number"
+                value={form.sortOrder}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, sortOrder: event.target.value }))
+                }
+              />
+            </div>
+            {editingCategory && (
+              <label className="flex items-center gap-3 rounded-[1rem] border border-border bg-muted/60 px-4 py-3 text-sm font-medium">
+                <input
+                  type="checkbox"
+                  checked={form.isActive}
                   onChange={(event) =>
                     setForm((current) => ({
                       ...current,
-                      description: event.target.value,
+                      isActive: event.target.checked,
                     }))
                   }
-                  placeholder="Kategori aciklamasi"
                 />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Slug</label>
-                <Input
-                  value={form.slug}
-                  onChange={(event) =>
-                    setForm((current) => ({ ...current, slug: event.target.value }))
-                  }
-                  placeholder="opsiyonel-slug"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Gorsel URL</label>
-                <Input
-                  value={form.image}
-                  onChange={(event) =>
-                    setForm((current) => ({ ...current, image: event.target.value }))
-                  }
-                  placeholder="https://..."
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Sira</label>
-                <Input
-                  type="number"
-                  value={form.sortOrder}
-                  onChange={(event) =>
-                    setForm((current) => ({ ...current, sortOrder: event.target.value }))
-                  }
-                />
-              </div>
-              {editingCategory && (
-                <label className="flex items-center gap-3 rounded-[1rem] border border-border bg-muted/60 px-4 py-3 text-sm font-medium">
-                  <input
-                    type="checkbox"
-                    checked={form.isActive}
-                    onChange={(event) =>
-                      setForm((current) => ({
-                        ...current,
-                        isActive: event.target.checked,
-                      }))
-                    }
-                  />
-                  Kategori aktif
-                </label>
-              )}
-              <div className="flex flex-col gap-2 md:col-span-2 sm:flex-row">
-                <Button type="submit" disabled={createCategory.isPending || updateCategory.isPending}>
-                  {editingCategory ? "Guncelle" : "Olustur"}
-                </Button>
-                <Button variant="outline" type="button" onClick={resetForm}>
-                  Vazgec
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-      )}
+                Kategori aktif
+              </label>
+            )}
+          </div>
+
+          <div className="sticky bottom-0 z-10 -mx-2 rounded-[1.4rem] border border-border/80 bg-background/92 p-3 shadow-[var(--card-shadow-hover)] backdrop-blur lg:mx-0">
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button type="submit" disabled={createCategory.isPending || updateCategory.isPending}>
+                {editingCategory ? "Guncelle" : "Olustur"}
+              </Button>
+              <Button variant="outline" type="button" onClick={resetForm}>
+                Vazgec
+              </Button>
+            </div>
+          </div>
+        </form>
+      </AdminDrawer>
 
       <Card>
         <CardHeader>

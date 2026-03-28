@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { AdminDrawer } from "@/components/admin/admin-drawer";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { ResponsiveDataTable } from "@/components/admin/responsive-data-table";
 import { Button } from "@/components/ui/button";
@@ -156,81 +157,88 @@ export default function IngredientsPage() {
         }
       />
 
-      {showForm && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{editingId ? "Malzemeyi duzenle" : "Yeni malzeme ekle"}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Malzeme adi</label>
-                <Input
-                  placeholder="orn. Domates"
-                  value={form.name}
-                  onChange={(event) => setForm({ ...form, name: event.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Tur</label>
-                <select
-                  className="flex h-11 w-full rounded-[1rem] border border-input bg-background px-3 py-2 text-sm"
-                  value={form.type}
-                  onChange={(event) => setForm({ ...form, type: event.target.value })}
-                >
-                  {INGREDIENT_TYPES.filter((item) => item.value !== "").map((item) => (
-                    <option key={item.value} value={item.value}>
-                      {item.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Stok miktari</label>
-                <Input
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={form.stockQuantity}
-                  onChange={(event) =>
-                    setForm({
-                      ...form,
-                      stockQuantity: parseFloat(event.target.value) || 0,
-                    })
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Min. stok seviyesi</label>
-                <Input
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={form.minStockLevel}
-                  onChange={(event) =>
-                    setForm({
-                      ...form,
-                      minStockLevel: parseFloat(event.target.value) || 0,
-                    })
-                  }
-                />
-              </div>
-              <div className="flex flex-col gap-2 sm:col-span-2 lg:col-span-4 sm:flex-row">
-                <Button
-                  type="submit"
-                  disabled={createIngredient.isPending || updateIngredient.isPending}
-                >
-                  {editingId ? "Guncelle" : "Ekle"}
-                </Button>
-                <Button type="button" variant="outline" onClick={handleCancel}>
-                  Iptal
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-      )}
+      <AdminDrawer
+        open={showForm}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleCancel();
+          }
+        }}
+        title={editingId ? "Malzemeyi duzenle" : "Yeni malzeme ekle"}
+        description="Malzeme, tur ve stok esiklerini tek panelden yonetin."
+      >
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Malzeme adi</label>
+              <Input
+                placeholder="orn. Domates"
+                value={form.name}
+                onChange={(event) => setForm({ ...form, name: event.target.value })}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Tur</label>
+              <select
+                className="flex h-11 w-full rounded-[1rem] border border-input bg-background px-3 py-2 text-sm"
+                value={form.type}
+                onChange={(event) => setForm({ ...form, type: event.target.value })}
+              >
+                {INGREDIENT_TYPES.filter((item) => item.value !== "").map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Stok miktari</label>
+              <Input
+                type="number"
+                min={0}
+                step="0.01"
+                value={form.stockQuantity}
+                onChange={(event) =>
+                  setForm({
+                    ...form,
+                    stockQuantity: parseFloat(event.target.value) || 0,
+                  })
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Min. stok seviyesi</label>
+              <Input
+                type="number"
+                min={0}
+                step="0.01"
+                value={form.minStockLevel}
+                onChange={(event) =>
+                  setForm({
+                    ...form,
+                    minStockLevel: parseFloat(event.target.value) || 0,
+                  })
+                }
+              />
+            </div>
+          </div>
+
+          <div className="sticky bottom-0 z-10 -mx-2 rounded-[1.4rem] border border-border/80 bg-background/92 p-3 shadow-[var(--card-shadow-hover)] backdrop-blur lg:mx-0">
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button
+                type="submit"
+                disabled={createIngredient.isPending || updateIngredient.isPending}
+              >
+                {editingId ? "Guncelle" : "Ekle"}
+              </Button>
+              <Button type="button" variant="outline" onClick={handleCancel}>
+                Iptal
+              </Button>
+            </div>
+          </div>
+        </form>
+      </AdminDrawer>
 
       <div className="flex flex-col gap-4">
         <div className="relative max-w-sm flex-1">

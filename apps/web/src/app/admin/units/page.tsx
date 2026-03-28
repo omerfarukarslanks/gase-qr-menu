@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
+import { AdminDrawer } from "@/components/admin/admin-drawer";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { ResponsiveDataTable } from "@/components/admin/responsive-data-table";
 import { Button } from "@/components/ui/button";
@@ -97,51 +98,58 @@ export default function UnitsPage() {
         }
       />
 
-      {showForm && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{editingId ? "Birimi duzenle" : "Yeni birim ekle"}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form
-              onSubmit={handleSubmit}
-              className="grid gap-4 md:grid-cols-[minmax(0,1fr)_160px_auto]"
-            >
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Birim adi</label>
-                <Input
-                  placeholder="orn. Kilogram"
-                  value={form.name}
-                  onChange={(event) => setForm({ ...form, name: event.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Kisaltma</label>
-                <Input
-                  placeholder="orn. kg"
-                  value={form.abbreviation}
-                  onChange={(event) =>
-                    setForm({ ...form, abbreviation: event.target.value })
-                  }
-                  required
-                />
-              </div>
-              <div className="flex flex-col gap-2 md:justify-end">
-                <Button
-                  type="submit"
-                  disabled={createUnit.isPending || updateUnit.isPending}
-                >
-                  {editingId ? "Guncelle" : "Ekle"}
-                </Button>
-                <Button type="button" variant="outline" onClick={handleCancel}>
-                  Iptal
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-      )}
+      <AdminDrawer
+        open={showForm}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleCancel();
+          }
+        }}
+        title={editingId ? "Birimi duzenle" : "Yeni birim ekle"}
+        description="Olcu birimlerini tek akista olusturun veya guncelleyin."
+      >
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-6"
+        >
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Birim adi</label>
+              <Input
+                placeholder="orn. Kilogram"
+                value={form.name}
+                onChange={(event) => setForm({ ...form, name: event.target.value })}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Kisaltma</label>
+              <Input
+                placeholder="orn. kg"
+                value={form.abbreviation}
+                onChange={(event) =>
+                  setForm({ ...form, abbreviation: event.target.value })
+                }
+                required
+              />
+            </div>
+          </div>
+
+          <div className="sticky bottom-0 z-10 -mx-2 rounded-[1.4rem] border border-border/80 bg-background/92 p-3 shadow-[var(--card-shadow-hover)] backdrop-blur lg:mx-0">
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button
+                type="submit"
+                disabled={createUnit.isPending || updateUnit.isPending}
+              >
+                {editingId ? "Guncelle" : "Ekle"}
+              </Button>
+              <Button type="button" variant="outline" onClick={handleCancel}>
+                Iptal
+              </Button>
+            </div>
+          </div>
+        </form>
+      </AdminDrawer>
 
       <Card>
         <CardHeader>

@@ -18,7 +18,7 @@ const SheetOverlay = React.forwardRef<
   <Dialog.Overlay
     ref={ref}
     className={cn(
-      "fixed inset-0 z-50 bg-background/80 backdrop-blur-sm",
+      "fixed inset-0 z-50 bg-background/80 backdrop-blur-sm transition-opacity duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] data-[state=closed]:opacity-0 data-[state=open]:opacity-100",
       className
     )}
     {...props}
@@ -27,14 +27,14 @@ const SheetOverlay = React.forwardRef<
 SheetOverlay.displayName = Dialog.Overlay.displayName;
 
 const sheetVariants = cva(
-  "fixed z-50 gap-4 border border-border bg-card p-6 shadow-[var(--card-shadow-hover)] transition ease-in-out",
+  "fixed z-50 gap-4 border border-border bg-card p-6 shadow-[var(--card-shadow-hover)] opacity-100 transition-[opacity,transform] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform data-[state=closed]:opacity-0 data-[state=open]:opacity-100",
   {
     variants: {
       side: {
-        top: "inset-x-0 top-0 rounded-b-[1.75rem]",
-        bottom: "inset-x-0 bottom-0 rounded-t-[1.75rem]",
-        left: "inset-y-0 left-0 h-full w-[min(92vw,24rem)] rounded-r-[1.75rem]",
-        right: "inset-y-0 right-0 h-full w-[min(92vw,24rem)] rounded-l-[1.75rem]",
+        top: "inset-x-0 top-0 rounded-b-[1.75rem] data-[state=closed]:-translate-y-10 data-[state=open]:translate-y-0",
+        bottom: "inset-x-0 bottom-0 rounded-t-[1.75rem] data-[state=closed]:translate-y-10 data-[state=open]:translate-y-0",
+        left: "inset-y-0 left-0 h-full w-[min(92vw,24rem)] rounded-r-[1.75rem] data-[state=closed]:-translate-x-10 data-[state=open]:translate-x-0",
+        right: "inset-y-0 right-0 h-full w-[min(92vw,24rem)] rounded-l-[1.75rem] data-[state=closed]:translate-x-10 data-[state=open]:translate-x-0",
       },
     },
     defaultVariants: {

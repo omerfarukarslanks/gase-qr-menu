@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Pencil, Plus, Trash2, UserCog } from "lucide-react";
+import { AdminDrawer } from "@/components/admin/admin-drawer";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { ResponsiveDataTable } from "@/components/admin/responsive-data-table";
 import { Button } from "@/components/ui/button";
@@ -123,68 +124,75 @@ export default function StaffPage() {
         }
       />
 
-      {showForm && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{editingId ? "Personeli duzenle" : "Yeni personel ekle"}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Ad soyad</label>
-                <Input
-                  placeholder="orn. Ahmet Yilmaz"
-                  value={form.name}
-                  onChange={(event) => setForm({ ...form, name: event.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Email</label>
-                <Input
-                  type="email"
-                  placeholder="personel@restoran.com"
-                  value={form.email}
-                  onChange={(event) => setForm({ ...form, email: event.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">
-                  {editingId ? "Yeni sifre (bos birakilabilir)" : "Sifre"}
-                </label>
-                <Input
-                  type="password"
-                  placeholder="Sifre girin"
-                  value={form.password}
-                  onChange={(event) => setForm({ ...form, password: event.target.value })}
-                  required={!editingId}
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Rol</label>
-                <select
-                  className="flex h-11 w-full rounded-[1rem] border border-input bg-background px-3 py-2 text-sm"
-                  value={form.role}
-                  onChange={(event) => setForm({ ...form, role: event.target.value })}
-                >
-                  {ROLES.map((role) => (
-                    <option key={role.value} value={role.value}>
-                      {role.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex flex-col gap-2 md:col-span-2 sm:flex-row">
-                <Button type="submit">{editingId ? "Guncelle" : "Ekle"}</Button>
-                <Button type="button" variant="outline" onClick={handleCancel}>
-                  Iptal
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-      )}
+      <AdminDrawer
+        open={showForm}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleCancel();
+          }
+        }}
+        title={editingId ? "Personeli duzenle" : "Yeni personel ekle"}
+        description="Personel, rol ve giris bilgilerini drawer uzerinden yonetin."
+      >
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Ad soyad</label>
+              <Input
+                placeholder="orn. Ahmet Yilmaz"
+                value={form.name}
+                onChange={(event) => setForm({ ...form, name: event.target.value })}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Email</label>
+              <Input
+                type="email"
+                placeholder="personel@restoran.com"
+                value={form.email}
+                onChange={(event) => setForm({ ...form, email: event.target.value })}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                {editingId ? "Yeni sifre (bos birakilabilir)" : "Sifre"}
+              </label>
+              <Input
+                type="password"
+                placeholder="Sifre girin"
+                value={form.password}
+                onChange={(event) => setForm({ ...form, password: event.target.value })}
+                required={!editingId}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Rol</label>
+              <select
+                className="flex h-11 w-full rounded-[1rem] border border-input bg-background px-3 py-2 text-sm"
+                value={form.role}
+                onChange={(event) => setForm({ ...form, role: event.target.value })}
+              >
+                {ROLES.map((role) => (
+                  <option key={role.value} value={role.value}>
+                    {role.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="sticky bottom-0 z-10 -mx-2 rounded-[1.4rem] border border-border/80 bg-background/92 p-3 shadow-[var(--card-shadow-hover)] backdrop-blur lg:mx-0">
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button type="submit">{editingId ? "Guncelle" : "Ekle"}</Button>
+              <Button type="button" variant="outline" onClick={handleCancel}>
+                Iptal
+              </Button>
+            </div>
+          </div>
+        </form>
+      </AdminDrawer>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {ROLES.map((role) => {

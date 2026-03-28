@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   ChefHat,
   Clock,
@@ -10,20 +10,13 @@ import {
   QrCode,
   Trash2,
   Users,
-  X,
 } from "lucide-react";
+import { AdminDrawer } from "@/components/admin/admin-drawer";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { MenuQrCard } from "@/components/admin/menu-qr-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import { useMenus } from "@/hooks/use-menus";
 import {
   type RestaurantTable,
@@ -117,21 +110,6 @@ export default function TablesPage() {
   const [formData, setFormData] = useState<TableFormData>(emptyForm);
   const [qrTableId, setQrTableId] = useState<string | null>(null);
   const [qrMenuId, setQrMenuId] = useState<string | null>(null);
-  const [isDesktop, setIsDesktop] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    const mediaQuery = window.matchMedia("(min-width: 1024px)");
-    const update = () => setIsDesktop(mediaQuery.matches);
-
-    update();
-    mediaQuery.addEventListener("change", update);
-
-    return () => mediaQuery.removeEventListener("change", update);
-  }, []);
 
   const activeMenus = useMemo(() => menus.filter((menu) => menu.isActive), [menus]);
   const qrTable = useMemo(
@@ -361,77 +339,32 @@ export default function TablesPage() {
         ))}
       </div>
 
-      {!isDesktop && (
-        <>
-          <Sheet open={showForm} onOpenChange={(open) => !open && resetForm()}>
-            <SheetContent side="bottom" className="max-h-[88vh] overflow-y-auto">
-              <SheetHeader>
-                <SheetTitle>{editingId ? "Masa duzenle" : "Yeni masa ekle"}</SheetTitle>
-                <SheetDescription>
-                  Masa detaylari ve kapasite bilgilerini telefon ekranindan yonetin.
-                </SheetDescription>
-              </SheetHeader>
-              {formContent}
-            </SheetContent>
-          </Sheet>
+      <AdminDrawer
+        open={showForm}
+        onOpenChange={(open) => {
+          if (!open) {
+            resetForm();
+          }
+        }}
+        title={editingId ? "Masa duzenle" : "Yeni masa ekle"}
+        description="Masa detaylari, kapasite ve bolum bilgisini drawer icinden yonetin."
+      >
+        {formContent}
+      </AdminDrawer>
 
-          <Sheet
-            open={Boolean(qrTable && selectedQrMenu)}
-            onOpenChange={(open) => {
-              if (!open) {
-                setQrTableId(null);
-              }
-            }}
-          >
-            <SheetContent side="bottom" className="max-h-[88vh] overflow-y-auto">
-              <SheetHeader>
-                <SheetTitle>
-                  {qrTable ? `Masa ${qrTable.number} icin QR` : "QR paneli"}
-                </SheetTitle>
-                <SheetDescription>
-                  Secili menu ile masa baglamina ozel QR kodu olusturun.
-                </SheetDescription>
-              </SheetHeader>
-              {qrPanelContent}
-            </SheetContent>
-          </Sheet>
-        </>
-      )}
-
-      {isDesktop && qrPanelContent && (
-        <Card>
-          <CardHeader className="pb-4">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <CardTitle>Masa {qrTable?.number} icin QR</CardTitle>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Bu QR okutuldugunda secili menu dogrudan {qrTable?.name} baglamiyla acilir.
-                </p>
-              </div>
-              <Button variant="ghost" size="icon" onClick={() => setQrTableId(null)}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>{qrPanelContent}</CardContent>
-        </Card>
-      )}
-
-      {isDesktop && showForm && (
-        <Card>
-          <CardHeader className="pb-4">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">
-                {editingId ? "Masa duzenle" : "Yeni masa ekle"}
-              </CardTitle>
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={resetForm}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>{formContent}</CardContent>
-        </Card>
-      )}
+      <AdminDrawer
+        open={Boolean(qrTable && selectedQrMenu)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setQrTableId(null);
+          }
+        }}
+        title={qrTable ? `Masa ${qrTable.number} icin QR` : "QR paneli"}
+        description="Secili menu ile masa baglamina ozel QR kodu olusturun."
+        contentClassName="lg:w-[min(34rem,calc(100vw-2rem))]"
+      >
+        {qrPanelContent}
+      </AdminDrawer>
 
       {isLoading ? (
         <Card>

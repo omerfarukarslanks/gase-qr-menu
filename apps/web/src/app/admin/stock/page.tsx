@@ -8,6 +8,7 @@ import {
   Plus,
   RefreshCw,
 } from "lucide-react";
+import { AdminDrawer } from "@/components/admin/admin-drawer";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { ResponsiveDataTable } from "@/components/admin/responsive-data-table";
 import { Button } from "@/components/ui/button";
@@ -159,83 +160,91 @@ export default function StockPage() {
         </CardContent>
       </Card>
 
-      {showForm && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Yeni stok hareketi</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Malzeme ID</label>
-                <Input
-                  placeholder="Malzeme ID girin"
-                  value={form.ingredientId}
-                  onChange={(event) =>
-                    setForm({ ...form, ingredientId: event.target.value })
-                  }
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Hareket tipi</label>
-                <select
-                  className="flex h-11 w-full rounded-[1rem] border border-input bg-background px-3 py-2 text-sm"
-                  value={form.type}
-                  onChange={(event) =>
-                    setForm({ ...form, type: event.target.value as MovementType })
-                  }
-                >
-                  {MOVEMENT_TYPES.map((item) => (
-                    <option key={item.value} value={item.value}>
-                      {item.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Miktar</label>
-                <Input
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={form.quantity}
-                  onChange={(event) =>
-                    setForm({
-                      ...form,
-                      quantity: parseFloat(event.target.value) || 0,
-                    })
-                  }
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Aciklama</label>
-                <Input
-                  placeholder="Opsiyonel aciklama"
-                  value={form.reason}
-                  onChange={(event) => setForm({ ...form, reason: event.target.value })}
-                />
-              </div>
-              <div className="flex flex-col gap-2 sm:col-span-2 xl:col-span-4 sm:flex-row">
-                <Button type="submit" disabled={createMovement.isPending}>
-                  Kaydet
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setShowForm(false);
-                    setForm(emptyForm);
-                  }}
-                >
-                  Iptal
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-      )}
+      <AdminDrawer
+        open={showForm}
+        onOpenChange={(open) => {
+          if (!open) {
+            setShowForm(false);
+            setForm(emptyForm);
+          }
+        }}
+        title="Yeni stok hareketi"
+        description="Stok girisi, cikisi ve duzeltme kayitlarini drawer uzerinden ekleyin."
+      >
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Malzeme ID</label>
+              <Input
+                placeholder="Malzeme ID girin"
+                value={form.ingredientId}
+                onChange={(event) =>
+                  setForm({ ...form, ingredientId: event.target.value })
+                }
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Hareket tipi</label>
+              <select
+                className="flex h-11 w-full rounded-[1rem] border border-input bg-background px-3 py-2 text-sm"
+                value={form.type}
+                onChange={(event) =>
+                  setForm({ ...form, type: event.target.value as MovementType })
+                }
+              >
+                {MOVEMENT_TYPES.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Miktar</label>
+              <Input
+                type="number"
+                min={0}
+                step="0.01"
+                value={form.quantity}
+                onChange={(event) =>
+                  setForm({
+                    ...form,
+                    quantity: parseFloat(event.target.value) || 0,
+                  })
+                }
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Aciklama</label>
+              <Input
+                placeholder="Opsiyonel aciklama"
+                value={form.reason}
+                onChange={(event) => setForm({ ...form, reason: event.target.value })}
+              />
+            </div>
+          </div>
+
+          <div className="sticky bottom-0 z-10 -mx-2 rounded-[1.4rem] border border-border/80 bg-background/92 p-3 shadow-[var(--card-shadow-hover)] backdrop-blur lg:mx-0">
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button type="submit" disabled={createMovement.isPending}>
+                Kaydet
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowForm(false);
+                  setForm(emptyForm);
+                }}
+              >
+                Iptal
+              </Button>
+            </div>
+          </div>
+        </form>
+      </AdminDrawer>
 
       <Card>
         <CardHeader>

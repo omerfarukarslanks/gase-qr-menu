@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { AdminDrawer } from "@/components/admin/admin-drawer";
+import { ProductEditor } from "@/components/admin/product-editor";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { ResponsiveDataTable } from "@/components/admin/responsive-data-table";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,7 @@ export default function ProductsPage() {
   const [search, setSearch] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [page, setPage] = useState(1);
+  const [editingProductId, setEditingProductId] = useState<string | "new" | null>(null);
 
   const { data: categories = [] } = useCategories(activeStoreId ?? "");
   const { data, isLoading, isError } = useProducts(activeStoreId ?? "", {
@@ -41,14 +43,36 @@ export default function ProductsPage() {
             : "Aktif magaza secimi bekleniyor."
         }
         action={
-          <Link href="/admin/products/new">
-            <Button disabled={!activeStoreId} className="w-full sm:w-auto">
-              <Plus className="mr-2 h-4 w-4" />
-              Yeni urun
-            </Button>
-          </Link>
+          <Button
+            disabled={!activeStoreId}
+            className="w-full sm:w-auto"
+            onClick={() => setEditingProductId("new")}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Yeni urun
+          </Button>
         }
       />
+
+      <AdminDrawer
+        open={editingProductId !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditingProductId(null);
+          }
+        }}
+        title={editingProductId === "new" ? "Yeni urun" : "Urun duzenle"}
+        description="Urun bilgileri, medya ve stok baglantilarini drawer uzerinden yonetin."
+        contentClassName="lg:w-[min(64rem,calc(100vw-2rem))]"
+      >
+        {editingProductId ? (
+          <ProductEditor
+            editId={editingProductId === "new" ? null : editingProductId}
+            onDone={() => setEditingProductId(null)}
+            onCancel={() => setEditingProductId(null)}
+          />
+        ) : null}
+      </AdminDrawer>
 
       <Card>
         <CardContent className="grid gap-4 pt-6 md:grid-cols-[minmax(0,1fr)_240px]">
@@ -159,11 +183,13 @@ export default function ProductsPage() {
                     className: "text-right",
                     cell: (product) => (
                       <div className="flex justify-end gap-2">
-                        <Link href={`/admin/products/new?edit=${product.id}`}>
-                          <Button variant="ghost" size="icon">
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                        </Link>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setEditingProductId(product.id)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
                         <Button
                           variant="ghost"
                           size="icon"
@@ -232,11 +258,13 @@ export default function ProductsPage() {
                         {product.isActive ? "Aktif" : "Pasif"}
                       </span>
                       <div className="flex gap-1">
-                        <Link href={`/admin/products/new?edit=${product.id}`}>
-                          <Button variant="ghost" size="icon">
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                        </Link>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setEditingProductId(product.id)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
                         <Button
                           variant="ghost"
                           size="icon"
