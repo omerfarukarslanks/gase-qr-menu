@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { Plus, ImageIcon } from "lucide-react";
+import { ImageIcon, Plus, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useCartStore } from "@/lib/store";
-import { formatCurrency } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 
 interface ProductAllergen {
   id: string;
@@ -29,6 +29,7 @@ interface ProductCardProps {
   allergens?: (string | ProductAllergen)[];
   menuSlug: string;
   isAvailable?: boolean;
+  categoryName?: string;
 }
 
 export function ProductCard({
@@ -41,23 +42,27 @@ export function ProductCard({
   allergens = [],
   menuSlug,
   isAvailable = true,
+  categoryName,
 }: ProductCardProps) {
   const addItem = useCartStore((state) => state.addItem);
 
-  // Resolve cover image: prefer images array, then fallback to image prop
   const coverImage =
     images && images.length > 0
       ? [...images].sort((a, b) => a.order - b.order)[0].url
       : image ?? null;
 
-  const allergenNames = allergens.map((a) =>
-    typeof a === "string" ? a : a.name
+  const allergenNames = allergens.map((allergen) =>
+    typeof allergen === "string" ? allergen : allergen.name
   );
 
-  const handleQuickAdd = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!isAvailable) return;
+  const handleQuickAdd = (event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (!isAvailable) {
+      return;
+    }
+
     addItem({
       productId: id,
       name,
@@ -69,71 +74,98 @@ export function ProductCard({
   return (
     <Link href={`/m/${menuSlug}/product/${id}`}>
       <Card
-        className={`overflow-hidden transition-shadow hover:shadow-md ${
-          !isAvailable ? "opacity-50 pointer-events-none" : ""
-        }`}
+        className={cn(
+          "group overflow-hidden border-border bg-card/95 transition-all duration-200 hover:-translate-y-1 hover:border-[hsl(var(--brand-300))] hover:shadow-[var(--card-shadow-hover)]",
+          !isAvailable && "opacity-70"
+        )}
       >
-        <CardContent className="flex gap-3 p-3">
-          {/* Product Image */}
-          <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-md bg-muted">
+        <CardContent className="flex gap-4 p-4 pt-4">
+          <div className="relative h-28 w-28 shrink-0 overflow-hidden rounded-[1.25rem]">
             {coverImage ? (
               <img
                 src={coverImage}
                 alt={name}
-                className="h-full w-full object-cover"
+                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
               />
             ) : (
-              <div className="flex h-full items-center justify-center text-muted-foreground">
-                <ImageIcon className="h-6 w-6 opacity-40" />
+              <div
+                className="flex h-full items-center justify-center"
+                style={{
+                  background:
+                    "linear-gradient(135deg, rgba(99, 102, 241, 0.18), rgba(194, 65, 12, 0.08))",
+                }}
+              >
+                <ImageIcon className="h-7 w-7 text-muted-foreground/70" />
               </div>
             )}
+
+            <div
+              className="absolute inset-x-3 bottom-3 rounded-full px-2 py-1 text-center text-[11px] font-semibold backdrop-blur"
+              style={{ backgroundColor: "hsl(var(--background) / 0.9)" }}
+            >
+              {isAvailable ? "Menu detayi" : "Servis disi"}
+            </div>
           </div>
 
-          {/* Product Info */}
-          <div className="flex flex-1 flex-col justify-between min-w-0">
+          <div className="flex min-w-0 flex-1 flex-col justify-between">
             <div>
-              <h3 className="font-semibold truncate">{name}</h3>
+              {categoryName && (
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                  {categoryName}
+                </p>
+              )}
+              <h3 className="mt-2 text-base font-semibold text-foreground">{name}</h3>
               {description && (
-                <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2">
+                <p className="mt-2 text-sm leading-6 text-muted-foreground line-clamp-2">
                   {description}
                 </p>
               )}
-              {/* Allergen Badges */}
+
               {allergenNames.length > 0 && (
-                <div className="mt-1 flex flex-wrap gap-1">
-                  {allergenNames.slice(0, 4).map((allergen) => (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {allergenNames.slice(0, 3).map((allergen) => (
                     <span
                       key={allergen}
-                      className="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-medium text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
+                      className="rounded-full px-2.5 py-1 text-[11px] font-semibold"
+                      style={{
+                        backgroundColor: "hsl(var(--warm-surface))",
+                        color: "hsl(var(--warm))",
+                      }}
                     >
                       {allergen}
                     </span>
                   ))}
-                  {allergenNames.length > 4 && (
-                    <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-medium text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
-                      +{allergenNames.length - 4}
+                  {allergenNames.length > 3 && (
+                    <span className="rounded-full bg-secondary px-2.5 py-1 text-[11px] font-semibold text-secondary-foreground">
+                      +{allergenNames.length - 3}
                     </span>
                   )}
                 </div>
               )}
             </div>
 
-            <div className="mt-2 flex items-center justify-between">
-              <span className="font-bold text-primary">
-                {formatCurrency(price)}
-              </span>
+            <div className="mt-4 flex items-end justify-between gap-3">
+              <div>
+                <p className="text-xs text-muted-foreground">Menu fiyati</p>
+                <span className="text-lg font-semibold text-[hsl(var(--brand-600))]">
+                  {formatCurrency(price)}
+                </span>
+              </div>
+
               {isAvailable ? (
                 <Button
                   variant="outline"
-                  size="icon"
-                  className="h-8 w-8 rounded-full border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+                  size="sm"
+                  className="rounded-full px-4"
                   onClick={handleQuickAdd}
                 >
-                  <Plus className="h-4 w-4" />
+                  <Sparkles className="mr-1 h-4 w-4" />
+                  Ekle
+                  <Plus className="ml-1 h-4 w-4" />
                 </Button>
               ) : (
-                <span className="text-xs text-muted-foreground italic">
-                  Tükendi
+                <span className="rounded-full bg-muted px-3 py-1.5 text-xs font-semibold text-muted-foreground">
+                  Tukendi
                 </span>
               )}
             </div>

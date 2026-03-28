@@ -9,6 +9,7 @@ import {
   RefreshCw,
   ShoppingBag,
 } from "lucide-react";
+import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -129,27 +130,25 @@ export default function OrdersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Siparisler</h1>
-          <p className="text-muted-foreground">
-            Gelen siparisleri takip edin, durumlarini guncelleyin.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
-              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-green-500" />
+      <AdminPageHeader
+        title="Siparisler"
+        description="Gelen siparisleri takip edin, durumlarini guncelleyin."
+        action={
+          <>
+            <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
+                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-green-500" />
+              </span>
+              Canli
             </span>
-            Canli
-          </span>
-          <Button variant="outline" size="sm" onClick={() => refetch()}>
-            <RefreshCw className="mr-2 h-3.5 w-3.5" />
-            Yenile
-          </Button>
-        </div>
-      </div>
+            <Button variant="outline" size="sm" onClick={() => refetch()}>
+              <RefreshCw className="mr-2 h-3.5 w-3.5" />
+              Yenile
+            </Button>
+          </>
+        }
+      />
 
       <div className="flex flex-wrap gap-2">
         {filterTabs.map((tab) => (
@@ -207,8 +206,8 @@ export default function OrdersPage() {
                 onClick={() => setExpandedId(isExpanded ? null : order.id)}
               >
                 <CardContent className="p-4">
-                  <div className="flex items-center gap-4">
-                    <div className="min-w-0 flex-shrink-0">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-4">
+                    <div className="min-w-0 sm:w-40 sm:flex-shrink-0">
                       <div className="text-lg font-bold">
                         #{String(order.orderNumber).padStart(3, "0")}
                       </div>
@@ -220,16 +219,16 @@ export default function OrdersPage() {
                       </div>
                     </div>
 
-                    <div className="hidden min-w-0 flex-1 sm:block">
-                      <p className="truncate text-sm">{itemsSummary}</p>
+                    <div className="min-w-0 flex-1">
+                      <p className="line-clamp-2 text-sm">{itemsSummary}</p>
                       <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
                         <Clock className="h-3 w-3" />
                         {getOrderTime(order.createdAt)}
                       </div>
                     </div>
 
-                    <div className="flex flex-shrink-0 items-center gap-3">
-                      <div className="text-right">
+                    <div className="flex flex-wrap items-center justify-between gap-3 sm:justify-end">
+                      <div className="text-left sm:text-right">
                         <div className="font-semibold">
                           {(order.finalAmount ?? order.totalAmount).toLocaleString("tr-TR")} TL
                         </div>
@@ -242,41 +241,43 @@ export default function OrdersPage() {
                         )}
                       </div>
 
-                      {action && (
-                        <Button
-                          size="sm"
-                          disabled={updateOrderStatus.isPending}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            handleStatusChange(order);
-                          }}
-                        >
-                          {action.label}
-                        </Button>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {action && (
+                          <Button
+                            size="sm"
+                            disabled={updateOrderStatus.isPending}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              handleStatusChange(order);
+                            }}
+                          >
+                            {action.label}
+                          </Button>
+                        )}
 
-                      {isExpanded ? (
-                        <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                      ) : (
-                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                      )}
+                        {isExpanded ? (
+                          <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </div>
                     </div>
                   </div>
 
                   {isExpanded && (
                     <div className="mt-4 space-y-2 border-t pt-4">
-                      <div className="mb-2 text-sm font-medium">Siparis Detaylari</div>
+                      <div className="mb-2 text-sm font-medium">Siparis detaylari</div>
                       {order.items.map((item) => (
                         <div
                           key={item.id}
-                          className="flex items-center justify-between rounded-md bg-muted/30 px-3 py-2"
+                          className="flex items-center justify-between gap-3 rounded-md bg-muted/30 px-3 py-2"
                         >
                           <div className="flex-1">
                             <span className="text-sm font-medium">
                               {item.quantity}x {item.productName}
                             </span>
                             {item.notes && (
-                              <span className="ml-2 text-xs italic text-muted-foreground">
+                              <span className="ml-2 block text-xs italic text-muted-foreground">
                                 ({item.notes})
                               </span>
                             )}

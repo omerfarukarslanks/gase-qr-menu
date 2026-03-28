@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Pencil, Trash2, UserCog } from "lucide-react";
+import { Pencil, Plus, Trash2, UserCog } from "lucide-react";
+import { AdminPageHeader } from "@/components/admin/admin-page-header";
+import { ResponsiveDataTable } from "@/components/admin/responsive-data-table";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -42,7 +44,6 @@ const emptyForm: StaffForm = {
   role: "STAFF",
 };
 
-// Demo data for display purposes
 const demoStaff: StaffMember[] = [];
 
 export default function StaffPage() {
@@ -74,9 +75,8 @@ export default function StaffPage() {
     setForm(emptyForm);
   }
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    // API call would go here
+  function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
     if (editingId) {
       alert("Personel bilgileri guncellendi.");
     } else {
@@ -87,13 +87,12 @@ export default function StaffPage() {
 
   function handleDelete(id: string) {
     if (confirm("Bu personeli silmek istediginize emin misiniz?")) {
-      // API call would go here
       alert(`Personel silindi: ${id}`);
     }
   }
 
   function getRoleLabel(role: string) {
-    return ROLES.find((r) => r.value === role)?.label ?? role;
+    return ROLES.find((item) => item.value === role)?.label ?? role;
   }
 
   function getRoleBadgeClass(role: string) {
@@ -113,34 +112,30 @@ export default function StaffPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Personel Yonetimi</h1>
-          <p className="text-muted-foreground">
-            Personel ekleyin, rollerini ve sube atamalarini yonetin.
-          </p>
-        </div>
-        <Button onClick={handleOpenCreate}>
-          <Plus className="mr-2 h-4 w-4" />
-          Yeni Personel
-        </Button>
-      </div>
+      <AdminPageHeader
+        title="Personel yonetimi"
+        description="Personel ekleyin, rollerini ve sube atamalarini yonetin."
+        action={
+          <Button onClick={handleOpenCreate}>
+            <Plus className="mr-2 h-4 w-4" />
+            Yeni personel
+          </Button>
+        }
+      />
 
       {showForm && (
         <Card>
           <CardHeader>
-            <CardTitle>
-              {editingId ? "Personeli Duzenle" : "Yeni Personel Ekle"}
-            </CardTitle>
+            <CardTitle>{editingId ? "Personeli duzenle" : "Yeni personel ekle"}</CardTitle>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2 max-w-2xl">
+            <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Ad Soyad</label>
+                <label className="text-sm font-medium">Ad soyad</label>
                 <Input
                   placeholder="orn. Ahmet Yilmaz"
                   value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  onChange={(event) => setForm({ ...form, name: event.target.value })}
                   required
                 />
               </div>
@@ -150,40 +145,38 @@ export default function StaffPage() {
                   type="email"
                   placeholder="personel@restoran.com"
                   value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  onChange={(event) => setForm({ ...form, email: event.target.value })}
                   required
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">
-                  {editingId ? "Yeni Sifre (bos birakilabilir)" : "Sifre"}
+                  {editingId ? "Yeni sifre (bos birakilabilir)" : "Sifre"}
                 </label>
                 <Input
                   type="password"
                   placeholder="Sifre girin"
                   value={form.password}
-                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  onChange={(event) => setForm({ ...form, password: event.target.value })}
                   required={!editingId}
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Rol</label>
                 <select
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  className="flex h-11 w-full rounded-[1rem] border border-input bg-background px-3 py-2 text-sm"
                   value={form.role}
-                  onChange={(e) => setForm({ ...form, role: e.target.value })}
+                  onChange={(event) => setForm({ ...form, role: event.target.value })}
                 >
-                  {ROLES.map((r) => (
-                    <option key={r.value} value={r.value}>
-                      {r.label}
+                  {ROLES.map((role) => (
+                    <option key={role.value} value={role.value}>
+                      {role.label}
                     </option>
                   ))}
                 </select>
               </div>
-              <div className="sm:col-span-2 flex gap-2">
-                <Button type="submit">
-                  {editingId ? "Guncelle" : "Ekle"}
-                </Button>
+              <div className="flex flex-col gap-2 md:col-span-2 sm:flex-row">
+                <Button type="submit">{editingId ? "Guncelle" : "Ekle"}</Button>
                 <Button type="button" variant="outline" onClick={handleCancel}>
                   Iptal
                 </Button>
@@ -193,10 +186,9 @@ export default function StaffPage() {
         </Card>
       )}
 
-      {/* Role Summary Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {ROLES.map((role) => {
-          const count = staff.filter((s) => s.role === role.value).length;
+          const count = staff.filter((item) => item.role === role.value).length;
           return (
             <Card key={role.value}>
               <CardContent className="flex items-center gap-4 p-4">
@@ -215,77 +207,124 @@ export default function StaffPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Personel Listesi</CardTitle>
-          <CardDescription>
-            Tum kayitli personel ve rol atamalari.
-          </CardDescription>
+          <CardTitle>Personel listesi</CardTitle>
+          <CardDescription>Tum kayitli personel ve rol atamalari.</CardDescription>
         </CardHeader>
         <CardContent>
           {staff.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Henuz personel eklenmemis. &quot;Yeni Personel&quot; butonuna
-              tiklayarak baslayabilirsiniz.
+              Henuz personel eklenmemis. "Yeni Personel" butonuna tiklayarak baslayabilirsiniz.
             </p>
           ) : (
-            <table className="w-full">
-              <thead>
-                <tr className="border-b text-left text-sm text-muted-foreground">
-                  <th className="pb-3 font-medium">Ad Soyad</th>
-                  <th className="pb-3 font-medium">Email</th>
-                  <th className="pb-3 font-medium">Rol</th>
-                  <th className="pb-3 font-medium">Sube</th>
-                  <th className="pb-3 font-medium text-center">Durum</th>
-                  <th className="pb-3 font-medium text-right">Islemler</th>
-                </tr>
-              </thead>
-              <tbody>
-                {staff.map((member) => (
-                  <tr key={member.id} className="border-b last:border-0">
-                    <td className="py-3 text-sm font-medium">{member.name}</td>
-                    <td className="py-3 text-sm text-muted-foreground">{member.email}</td>
-                    <td className="py-3 text-sm">
-                      <span
-                        className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${getRoleBadgeClass(
-                          member.role
-                        )}`}
-                      >
-                        {getRoleLabel(member.role)}
+            <ResponsiveDataTable
+              data={staff}
+              getKey={(member) => member.id}
+              columns={[
+                {
+                  header: "Ad soyad",
+                  cell: (member) => <span className="font-medium">{member.name}</span>,
+                },
+                {
+                  header: "Email",
+                  cell: (member) => (
+                    <span className="text-muted-foreground">{member.email}</span>
+                  ),
+                },
+                {
+                  header: "Rol",
+                  cell: (member) => (
+                    <span
+                      className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${getRoleBadgeClass(
+                        member.role
+                      )}`}
+                    >
+                      {getRoleLabel(member.role)}
+                    </span>
+                  ),
+                },
+                {
+                  header: "Sube",
+                  cell: (member) => member.storeName,
+                },
+                {
+                  header: "Durum",
+                  className: "text-center",
+                  cell: (member) =>
+                    member.isActive ? (
+                      <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700">
+                        Aktif
                       </span>
-                    </td>
-                    <td className="py-3 text-sm">{member.storeName}</td>
-                    <td className="py-3 text-center">
-                      {member.isActive ? (
-                        <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700">
-                          Aktif
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700">
-                          Pasif
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-3 text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleEdit(member)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(member.id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    ) : (
+                      <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700">
+                        Pasif
+                      </span>
+                    ),
+                },
+                {
+                  header: "Islemler",
+                  className: "text-right",
+                  cell: (member) => (
+                    <div className="flex justify-end gap-2">
+                      <Button variant="ghost" size="icon" onClick={() => handleEdit(member)}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDelete(member.id)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  ),
+                },
+              ]}
+              mobileCard={(member) => (
+                <div className="space-y-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">{member.name}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{member.email}</p>
+                    </div>
+                    <span
+                      className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${getRoleBadgeClass(
+                        member.role
+                      )}`}
+                    >
+                      {getRoleLabel(member.role)}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                        Sube
+                      </p>
+                      <p className="mt-1 text-foreground">{member.storeName}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                        Durum
+                      </p>
+                      <p className="mt-1 text-foreground">
+                        {member.isActive ? "Aktif" : "Pasif"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-1">
+                    <Button variant="ghost" size="icon" onClick={() => handleEdit(member)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDelete(member.id)}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            />
           )}
         </CardContent>
       </Card>

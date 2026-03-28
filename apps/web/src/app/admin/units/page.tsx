@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
+import { AdminPageHeader } from "@/components/admin/admin-page-header";
+import { ResponsiveDataTable } from "@/components/admin/responsive-data-table";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -11,7 +13,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { useUnits, useCreateUnit, useUpdateUnit, useDeleteUnit } from "@/hooks/use-units";
+import {
+  useUnits,
+  useCreateUnit,
+  useUpdateUnit,
+  useDeleteUnit,
+} from "@/hooks/use-units";
 import { useCurrentStore } from "@/hooks/use-current-store";
 
 interface UnitForm {
@@ -50,9 +57,10 @@ export default function UnitsPage() {
     setForm(emptyForm);
   }
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
     if (!activeStoreId) return;
+
     if (editingId) {
       updateUnit.mutate(
         { id: editingId, name: form.name, abbreviation: form.abbreviation },
@@ -74,48 +82,56 @@ export default function UnitsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Birimler</h1>
-          <p className="text-muted-foreground">
-            {activeStore
-              ? `${activeStore.name} icin olcu birimlerini yonetin.`
-              : "Aktif magaza secimi bekleniyor."}
-          </p>
-        </div>
-        <Button onClick={handleOpenCreate}>
-          <Plus className="mr-2 h-4 w-4" />
-          Yeni Birim
-        </Button>
-      </div>
+      <AdminPageHeader
+        title="Birimler"
+        description={
+          activeStore
+            ? `${activeStore.name} icin olcu birimlerini yonetin.`
+            : "Aktif magaza secimi bekleniyor."
+        }
+        action={
+          <Button onClick={handleOpenCreate}>
+            <Plus className="mr-2 h-4 w-4" />
+            Yeni birim
+          </Button>
+        }
+      />
 
       {showForm && (
         <Card>
           <CardHeader>
-            <CardTitle>{editingId ? "Birimi Duzenle" : "Yeni Birim Ekle"}</CardTitle>
+            <CardTitle>{editingId ? "Birimi duzenle" : "Yeni birim ekle"}</CardTitle>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="flex items-end gap-4">
-              <div className="flex-1 space-y-2">
-                <label className="text-sm font-medium">Birim Adi</label>
+            <form
+              onSubmit={handleSubmit}
+              className="grid gap-4 md:grid-cols-[minmax(0,1fr)_160px_auto]"
+            >
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Birim adi</label>
                 <Input
                   placeholder="orn. Kilogram"
                   value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  onChange={(event) => setForm({ ...form, name: event.target.value })}
                   required
                 />
               </div>
-              <div className="w-32 space-y-2">
+              <div className="space-y-2">
                 <label className="text-sm font-medium">Kisaltma</label>
                 <Input
                   placeholder="orn. kg"
                   value={form.abbreviation}
-                  onChange={(e) => setForm({ ...form, abbreviation: e.target.value })}
+                  onChange={(event) =>
+                    setForm({ ...form, abbreviation: event.target.value })
+                  }
                   required
                 />
               </div>
-              <div className="flex gap-2">
-                <Button type="submit" disabled={createUnit.isPending || updateUnit.isPending}>
+              <div className="flex flex-col gap-2 md:justify-end">
+                <Button
+                  type="submit"
+                  disabled={createUnit.isPending || updateUnit.isPending}
+                >
                   {editingId ? "Guncelle" : "Ekle"}
                 </Button>
                 <Button type="button" variant="outline" onClick={handleCancel}>
@@ -129,10 +145,8 @@ export default function UnitsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Birim Listesi</CardTitle>
-          <CardDescription>
-            Tanimli tum olcu birimleri.
-          </CardDescription>
+          <CardTitle>Birim listesi</CardTitle>
+          <CardDescription>Tanimli tum olcu birimleri.</CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -143,44 +157,65 @@ export default function UnitsPage() {
             </p>
           ) : !units || units.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Henuz birim eklenmemis. &quot;Yeni Birim&quot; butonuna tiklayarak baslayabilirsiniz.
+              Henuz birim eklenmemis. "Yeni Birim" butonuna tiklayarak baslayabilirsiniz.
             </p>
           ) : (
-            <table className="w-full">
-              <thead>
-                <tr className="border-b text-left text-sm text-muted-foreground">
-                  <th className="pb-3 font-medium">Birim Adi</th>
-                  <th className="pb-3 font-medium">Kisaltma</th>
-                  <th className="pb-3 font-medium text-right">Islemler</th>
-                </tr>
-              </thead>
-              <tbody>
-                {units.map((unit) => (
-                  <tr key={unit.id} className="border-b last:border-0">
-                    <td className="py-3 text-sm">{unit.name}</td>
-                    <td className="py-3 text-sm font-mono">{unit.abbreviation}</td>
-                    <td className="py-3 text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleEdit(unit)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(unit.id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <ResponsiveDataTable
+              data={units}
+              getKey={(unit) => unit.id}
+              columns={[
+                {
+                  header: "Birim adi",
+                  cell: (unit) => <span className="font-medium">{unit.name}</span>,
+                },
+                {
+                  header: "Kisaltma",
+                  cell: (unit) => <span className="font-mono">{unit.abbreviation}</span>,
+                },
+                {
+                  header: "Islemler",
+                  className: "text-right",
+                  cell: (unit) => (
+                    <div className="flex justify-end gap-2">
+                      <Button variant="ghost" size="icon" onClick={() => handleEdit(unit)}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDelete(unit.id)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  ),
+                },
+              ]}
+              mobileCard={(unit) => (
+                <div className="space-y-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">{unit.name}</p>
+                      <p className="mt-1 text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                        {unit.abbreviation}
+                      </p>
+                    </div>
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="icon" onClick={() => handleEdit(unit)}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDelete(unit.id)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            />
           )}
         </CardContent>
       </Card>

@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { Pencil, Plus, Trash2, X } from "lucide-react";
+import { AdminPageHeader } from "@/components/admin/admin-page-header";
+import { ResponsiveDataTable } from "@/components/admin/responsive-data-table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -162,27 +164,25 @@ export default function CategoriesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Kategoriler</h1>
-          <p className="text-muted-foreground">
-            {activeStore
-              ? `${activeStore.name} icin menu kategorilerini yonetin.`
-              : "Aktif magaza secimi bekleniyor."}
-          </p>
-        </div>
-        <Button onClick={openCreate} disabled={!activeStoreId}>
-          <Plus className="mr-2 h-4 w-4" />
-          Yeni kategori
-        </Button>
-      </div>
+      <AdminPageHeader
+        title="Kategoriler"
+        description={
+          activeStore
+            ? `${activeStore.name} icin menu kategorilerini yonetin.`
+            : "Aktif magaza secimi bekleniyor."
+        }
+        action={
+          <Button onClick={openCreate} disabled={!activeStoreId}>
+            <Plus className="mr-2 h-4 w-4" />
+            Yeni kategori
+          </Button>
+        }
+      />
 
       {showForm && (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <CardTitle>
-              {editingCategory ? "Kategori duzenle" : "Yeni kategori"}
-            </CardTitle>
+            <CardTitle>{editingCategory ? "Kategori duzenle" : "Yeni kategori"}</CardTitle>
             <Button variant="ghost" size="icon" onClick={resetForm}>
               <X className="h-4 w-4" />
             </Button>
@@ -203,7 +203,7 @@ export default function CategoriesPage() {
               <div className="space-y-2">
                 <label className="text-sm font-medium">Ust kategori</label>
                 <select
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  className="flex h-11 w-full rounded-[1rem] border border-input bg-background px-3 py-2 text-sm"
                   value={form.parentId}
                   onChange={(event) =>
                     setForm((current) => ({ ...current, parentId: event.target.value }))
@@ -222,7 +222,7 @@ export default function CategoriesPage() {
               <div className="space-y-2 md:col-span-2">
                 <label className="text-sm font-medium">Aciklama</label>
                 <textarea
-                  className="flex min-h-[96px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  className="flex min-h-[96px] w-full rounded-[1rem] border border-input bg-background px-3 py-2 text-sm"
                   value={form.description}
                   onChange={(event) =>
                     setForm((current) => ({
@@ -259,16 +259,12 @@ export default function CategoriesPage() {
                   type="number"
                   value={form.sortOrder}
                   onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      sortOrder: event.target.value,
-                    }))
+                    setForm((current) => ({ ...current, sortOrder: event.target.value }))
                   }
                 />
               </div>
               {editingCategory && (
-                <div className="flex items-center gap-3 pt-6">
-                  <label className="text-sm font-medium">Aktif</label>
+                <label className="flex items-center gap-3 rounded-[1rem] border border-border bg-muted/60 px-4 py-3 text-sm font-medium">
                   <input
                     type="checkbox"
                     checked={form.isActive}
@@ -279,17 +275,15 @@ export default function CategoriesPage() {
                       }))
                     }
                   />
-                </div>
+                  Kategori aktif
+                </label>
               )}
-              <div className="md:col-span-2 flex gap-2">
-                <Button
-                  type="submit"
-                  disabled={createCategory.isPending || updateCategory.isPending}
-                >
-                  {editingCategory ? "Guncelle" : "Kaydet"}
+              <div className="flex flex-col gap-2 md:col-span-2 sm:flex-row">
+                <Button type="submit" disabled={createCategory.isPending || updateCategory.isPending}>
+                  {editingCategory ? "Guncelle" : "Olustur"}
                 </Button>
-                <Button type="button" variant="outline" onClick={resetForm}>
-                  Iptal
+                <Button variant="outline" type="button" onClick={resetForm}>
+                  Vazgec
                 </Button>
               </div>
             </form>
@@ -302,11 +296,7 @@ export default function CategoriesPage() {
           <CardTitle>Kategori listesi</CardTitle>
         </CardHeader>
         <CardContent>
-          {!activeStoreId ? (
-            <p className="text-sm text-muted-foreground">
-              Devam etmek icin bir magaza secin.
-            </p>
-          ) : isLoading ? (
+          {isLoading ? (
             <p className="text-sm text-muted-foreground">Kategoriler yukleniyor...</p>
           ) : isError ? (
             <p className="text-sm text-destructive">
@@ -317,70 +307,118 @@ export default function CategoriesPage() {
               Henuz kategori yok. Ilk kategoriyi olusturarak baslayabilirsiniz.
             </p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-left text-muted-foreground">
-                    <th className="pb-3 font-medium">Kategori</th>
-                    <th className="pb-3 font-medium">Slug</th>
-                    <th className="pb-3 font-medium">Durum</th>
-                    <th className="pb-3 font-medium">Sira</th>
-                    <th className="pb-3 text-right font-medium">Islemler</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {flatCategories.map((category) => (
-                    <tr key={category.id} className="border-b last:border-0">
-                      <td className="py-3">
-                        <div style={{ paddingLeft: `${category.depth * 16}px` }}>
-                          <div className="font-medium">{category.name}</div>
-                          {category.description && (
-                            <div className="text-xs text-muted-foreground">
-                              {category.description}
-                            </div>
-                          )}
+            <ResponsiveDataTable
+              data={flatCategories}
+              getKey={(category) => category.id}
+              columns={[
+                {
+                  header: "Kategori",
+                  cell: (category) => (
+                    <div style={{ paddingLeft: `${category.depth * 16}px` }}>
+                      <div className="font-medium">{category.name}</div>
+                      {category.description && (
+                        <div className="text-xs text-muted-foreground">
+                          {category.description}
                         </div>
-                      </td>
-                      <td className="py-3 text-muted-foreground">{category.slug}</td>
-                      <td className="py-3">
-                        <span
-                          className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
-                            category.isActive
-                              ? "bg-green-100 text-green-700"
-                              : "bg-gray-100 text-gray-700"
-                          }`}
-                        >
-                          {category.isActive ? "Aktif" : "Pasif"}
-                        </span>
-                      </td>
-                      <td className="py-3">{category.sortOrder}</td>
-                      <td className="py-3">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => openEdit(category)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
-                              if (window.confirm("Bu kategori pasife cekilsin mi?")) {
-                                deleteCategory.mutate(category.id);
-                              }
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                      )}
+                    </div>
+                  ),
+                },
+                {
+                  header: "Slug",
+                  cell: (category) => (
+                    <span className="text-muted-foreground">{category.slug}</span>
+                  ),
+                },
+                {
+                  header: "Durum",
+                  cell: (category) => (
+                    <span
+                      className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
+                        category.isActive
+                          ? "bg-green-100 text-green-700"
+                          : "bg-gray-100 text-gray-700"
+                      }`}
+                    >
+                      {category.isActive ? "Aktif" : "Pasif"}
+                    </span>
+                  ),
+                },
+                {
+                  header: "Sira",
+                  cell: (category) => category.sortOrder,
+                },
+                {
+                  header: "Islemler",
+                  className: "text-right",
+                  cell: (category) => (
+                    <div className="flex justify-end gap-2">
+                      <Button variant="ghost" size="icon" onClick={() => openEdit(category)}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => deleteCategory.mutate(category.id)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  ),
+                },
+              ]}
+              mobileCard={(category) => (
+                <div className="space-y-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-foreground">
+                        {`${"• ".repeat(category.depth)}${category.name}`}
+                      </p>
+                      {category.description && (
+                        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                          {category.description}
+                        </p>
+                      )}
+                    </div>
+                    <span
+                      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
+                        category.isActive
+                          ? "bg-green-100 text-green-700"
+                          : "bg-gray-100 text-gray-700"
+                      }`}
+                    >
+                      {category.isActive ? "Aktif" : "Pasif"}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                        Slug
+                      </p>
+                      <p className="mt-1 text-foreground">{category.slug}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                        Sira
+                      </p>
+                      <p className="mt-1 text-foreground">{category.sortOrder}</p>
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-1">
+                    <Button variant="ghost" size="icon" onClick={() => openEdit(category)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => deleteCategory.mutate(category.id)}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            />
           )}
         </CardContent>
       </Card>

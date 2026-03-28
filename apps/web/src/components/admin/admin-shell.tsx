@@ -1,14 +1,19 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Loader2, Store } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import { AdminTopbar } from "@/components/admin/admin-topbar";
+import { getAdminPageTitle } from "@/components/admin/admin-nav";
 import { Sidebar } from "@/components/admin/sidebar";
 import { StoreOnboardingCard } from "@/components/admin/store-onboarding-card";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useAuthStore } from "@/lib/store";
 import { useStores } from "@/hooks/use-stores";
 import { useAuthHydration } from "@/hooks/use-auth-hydration";
 import { Button } from "@/components/ui/button";
+
+const SIDEBAR_STORAGE_KEY = "gase-admin-sidebar-collapsed";
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -20,12 +25,41 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     (state) => Boolean(state.isAuthenticated && state.user && state.accessToken)
   );
   const stores = useAuthStore((state) => state.stores);
+  const activeStoreId = useAuthStore((state) => state.activeStoreId);
   const setStores = useAuthStore((state) => state.setStores);
+  const setActiveStoreId = useAuthStore((state) => state.setActiveStoreId);
   const logout = useAuthStore((state) => state.logout);
+
+  const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(false);
+  const [hasLoadedSidebarState, setHasLoadedSidebarState] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const { data: storesResponse, isLoading, isError, error, refetch } = useStores(
     hasHydrated && isAuthenticated
   );
+
+  useEffect(() => {
+    const savedValue =
+      typeof window !== "undefined"
+        ? window.localStorage.getItem(SIDEBAR_STORAGE_KEY)
+        : null;
+
+    setIsDesktopCollapsed(savedValue === "true");
+    setHasLoadedSidebarState(true);
+  }, []);
+
+  useEffect(() => {
+    if (hasLoadedSidebarState && typeof window !== "undefined") {
+      window.localStorage.setItem(
+        SIDEBAR_STORAGE_KEY,
+        String(isDesktopCollapsed)
+      );
+    }
+  }, [hasLoadedSidebarState, isDesktopCollapsed]);
+
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     if (!hasHydrated) {
@@ -46,7 +80,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
   if (!hasHydrated) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="theme-app-gradient flex min-h-screen items-center justify-center">
         <div className="flex items-center gap-3 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
           Oturum kontrol ediliyor...
@@ -61,7 +95,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
   if (isLoading && stores.length === 0) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="theme-app-gradient flex min-h-screen items-center justify-center">
         <div className="flex items-center gap-3 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
           Magaza bilgileri yukleniyor...
@@ -72,8 +106,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
   if (isError && stores.length === 0) {
     return (
-      <div className="flex min-h-screen items-center justify-center px-6">
-        <div className="w-full max-w-md rounded-xl border bg-card p-6 text-center">
+      <div className="theme-app-gradient flex min-h-screen items-center justify-center px-6">
+        <div className="w-full max-w-md rounded-[2rem] border border-border bg-card p-7 text-center shadow-[var(--card-shadow)]">
           <h1 className="text-xl font-semibold">Magazalara erisilemedi</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             {error instanceof Error
@@ -111,10 +145,41 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     );
   }
 
+  const pageTitle = getAdminPageTitle(pathname);
+
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar />
-      <main className="flex-1 overflow-y-auto bg-muted/30 p-6">{children}</main>
+    <div className="min-h-screen bg-background lg:flex">
+      <aside
+        className={`hidden h-screen shrink-0 border-r border-border bg-card lg:flex ${
+          isDesktopCollapsed ? "w-[5.5rem]" : "w-80"
+        }`}
+      >
+        <Sidebar collapsed={isDesktopCollapsed} />
+      </aside>
+
+      <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+        <SheetContent side="left" className="w-[min(92vw,24rem)] p-0 lg:hidden">
+          <Sidebar mobile onNavigate={() => setIsMobileMenuOpen(false)} />
+        </SheetContent>
+      </Sheet>
+
+      <div className="theme-app-gradient flex min-w-0 flex-1 flex-col">
+        <AdminTopbar
+          title={pageTitle}
+          stores={stores}
+          activeStoreId={activeStoreId}
+          onStoreChange={setActiveStoreId}
+          collapsed={isDesktopCollapsed}
+          onToggleCollapsed={() => setIsDesktopCollapsed((current) => !current)}
+          onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
+        />
+
+        <main className="flex-1 overflow-y-auto">
+          <div className="mx-auto min-h-[calc(100vh-9rem)] max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+            {children}
+          </div>
+        </main>
+      </div>
     </div>
   );
 }

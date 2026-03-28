@@ -1,9 +1,9 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, ImageIcon, Loader2, Trash2, Upload } from "lucide-react";
+import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { ModelViewer } from "@/components/menu/model-viewer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -443,23 +443,20 @@ function ProductFormPageContent() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Link href="/admin/products">
-          <Button variant="ghost" size="icon">
-            <ArrowLeft className="h-4 w-4" />
+      <AdminPageHeader
+        title={isEditMode ? "Urun duzenle" : "Yeni urun"}
+        description={
+          activeStore
+            ? `${activeStore.name} icin urun bilgilerini kaydedin.`
+            : "Aktif magaza secimi bekleniyor."
+        }
+        action={
+          <Button variant="outline" onClick={() => router.push("/admin/products")}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Listeye don
           </Button>
-        </Link>
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            {isEditMode ? "Urun duzenle" : "Yeni urun"}
-          </h1>
-          <p className="text-muted-foreground">
-            {activeStore
-              ? `${activeStore.name} icin urun bilgilerini kaydedin.`
-              : "Aktif magaza secimi bekleniyor."}
-          </p>
-        </div>
-      </div>
+        }
+      />
 
       {isEditMode && productLoading ? (
         <Card>
@@ -470,11 +467,11 @@ function ProductFormPageContent() {
         </Card>
       ) : (
         <form className="space-y-6" onSubmit={handleSubmit}>
-          <Card>
+          <Card className="border-border/80 bg-card/90 shadow-[var(--card-shadow)]">
             <CardHeader>
               <CardTitle>Genel bilgiler</CardTitle>
             </CardHeader>
-            <CardContent className="grid gap-4 md:grid-cols-2">
+            <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Urun adi (TR)</label>
                 <Input
@@ -494,10 +491,10 @@ function ProductFormPageContent() {
                   }
                 />
               </div>
-              <div className="space-y-2 md:col-span-2">
+              <div className="space-y-2 md:col-span-2 xl:col-span-3">
                 <label className="text-sm font-medium">Aciklama (TR)</label>
                 <textarea
-                  className="flex min-h-[96px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  className="flex min-h-[112px] w-full rounded-[1rem] border border-input bg-background px-3 py-3 text-sm"
                   value={form.descriptionTr}
                   onChange={(event) =>
                     setForm((current) => ({
@@ -507,10 +504,10 @@ function ProductFormPageContent() {
                   }
                 />
               </div>
-              <div className="space-y-2 md:col-span-2">
+              <div className="space-y-2 md:col-span-2 xl:col-span-3">
                 <label className="text-sm font-medium">Aciklama (EN)</label>
                 <textarea
-                  className="flex min-h-[96px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  className="flex min-h-[112px] w-full rounded-[1rem] border border-input bg-background px-3 py-3 text-sm"
                   value={form.descriptionEn}
                   onChange={(event) =>
                     setForm((current) => ({
@@ -533,7 +530,7 @@ function ProductFormPageContent() {
               <div className="space-y-2">
                 <label className="text-sm font-medium">Kategori</label>
                 <select
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  className="flex h-11 w-full rounded-[1rem] border border-input bg-background px-3 py-2 text-sm"
                   value={form.categoryId}
                   onChange={(event) =>
                     setForm((current) => ({
@@ -554,7 +551,7 @@ function ProductFormPageContent() {
               <div className="space-y-2">
                 <label className="text-sm font-medium">Birim</label>
                 <select
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  className="flex h-11 w-full rounded-[1rem] border border-input bg-background px-3 py-2 text-sm"
                   value={form.unitId}
                   onChange={(event) =>
                     setForm((current) => ({ ...current, unitId: event.target.value }))
@@ -582,7 +579,7 @@ function ProductFormPageContent() {
                 />
               </div>
               {isEditMode && (
-                <div className="flex items-center gap-3 pt-6">
+                <div className="flex items-center gap-3 rounded-[1rem] border border-border bg-secondary/40 px-4 py-3">
                   <label className="text-sm font-medium">Aktif</label>
                   <input
                     type="checkbox"
@@ -599,11 +596,11 @@ function ProductFormPageContent() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-border/80 bg-card/90 shadow-[var(--card-shadow)]">
             <CardHeader>
               <CardTitle>Fiyat ve medya</CardTitle>
             </CardHeader>
-            <CardContent className="grid gap-4 md:grid-cols-2">
+            <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Satis fiyati</label>
                 <Input
@@ -633,7 +630,7 @@ function ProductFormPageContent() {
               <div className="space-y-2">
                 <label className="text-sm font-medium">Para birimi</label>
                 <select
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  className="flex h-11 w-full rounded-[1rem] border border-input bg-background px-3 py-2 text-sm"
                   value={form.currency}
                   onChange={(event) =>
                     setForm((current) => ({
@@ -647,10 +644,10 @@ function ProductFormPageContent() {
                   <option value="EUR">EUR</option>
                 </select>
               </div>
-              <div className="space-y-3">
+              <div className="space-y-3 xl:col-span-1">
                 <div className="flex items-center justify-between gap-3">
                   <label className="text-sm font-medium">3D model</label>
-                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted">
+                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-[1rem] border px-3 py-2 text-sm font-medium hover:bg-muted">
                     <Upload className="h-4 w-4" />
                     {uploadModel.isPending ? "Yukleniyor..." : "GLB yukle"}
                     <input
@@ -673,7 +670,7 @@ function ProductFormPageContent() {
                   placeholder="https://.../model.glb"
                 />
                 {form.model3dUrl && (
-                  <div className="overflow-hidden rounded-lg border bg-card">
+                  <div className="overflow-hidden rounded-[1.25rem] border bg-card">
                     <div className="h-52 bg-gradient-to-br from-muted via-muted/60 to-background">
                       <ModelViewer
                         src={form.model3dUrl}
@@ -703,10 +700,10 @@ function ProductFormPageContent() {
                   </div>
                 )}
               </div>
-              <div className="space-y-3">
+              <div className="space-y-3 xl:col-span-1">
                 <div className="flex items-center justify-between gap-3">
                   <label className="text-sm font-medium">Kapak gorseli</label>
-                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted">
+                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-[1rem] border px-3 py-2 text-sm font-medium hover:bg-muted">
                     <Upload className="h-4 w-4" />
                     {uploadCoverImage.isPending ? "Yukleniyor..." : "Kapak yukle"}
                     <input
@@ -729,7 +726,7 @@ function ProductFormPageContent() {
                   placeholder="https://.../cover.jpg"
                 />
                 {form.coverImage.trim() && (
-                  <div className="overflow-hidden rounded-lg border bg-card">
+                  <div className="overflow-hidden rounded-[1.25rem] border bg-card">
                     <div className="mx-auto aspect-[4/3] max-h-52 max-w-sm overflow-hidden rounded-b-none bg-muted">
                       <img
                         src={form.coverImage}
@@ -755,16 +752,16 @@ function ProductFormPageContent() {
                 )}
               </div>
               {uploadErrorMessage && (
-                <div className="md:col-span-2 rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                <div className="md:col-span-2 xl:col-span-3 rounded-[1rem] border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive">
                   {uploadErrorMessage}
                 </div>
               )}
-              <div className="md:col-span-2 text-xs text-muted-foreground">
+              <div className="md:col-span-2 xl:col-span-3 text-xs text-muted-foreground">
                 Bu ekranda su an sadece kapak gorseli ve 3D model yonetiliyor.
                 50MB'a kadar tek bir 3D model yukleyebilirsiniz.
               </div>
               {!form.coverImage.trim() && !form.model3dUrl.trim() && (
-                <div className="md:col-span-2 rounded-lg border border-dashed bg-muted/20 px-4 py-8 text-center">
+                <div className="md:col-span-2 xl:col-span-3 rounded-[1.25rem] border border-dashed bg-muted/20 px-4 py-8 text-center">
                   <ImageIcon className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
                   <p className="text-sm text-muted-foreground">
                     Kapak gorseli veya 3D model yuklediginizde burada kompakt onizlemeler gosterilecek.
@@ -774,7 +771,7 @@ function ProductFormPageContent() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-border/80 bg-card/90 shadow-[var(--card-shadow)]">
             <CardHeader>
               <CardTitle>Malzemeler ve alerjenler</CardTitle>
             </CardHeader>
@@ -783,7 +780,7 @@ function ProductFormPageContent() {
                 <div className="flex items-center justify-between">
                   <label className="text-sm font-medium">Malzemeler</label>
                   <select
-                    className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    className="flex h-11 rounded-[1rem] border border-input bg-background px-3 py-2 text-sm"
                     value=""
                     onChange={(event) => {
                       if (!event.target.value) {
@@ -821,7 +818,7 @@ function ProductFormPageContent() {
                       return (
                         <div
                           key={`${ingredientRow.ingredientId}-${index}`}
-                          className="grid gap-2 rounded-md border p-3 md:grid-cols-[1fr_120px_auto]"
+                          className="grid gap-2 rounded-[1rem] border p-3 md:grid-cols-[1fr_120px_auto]"
                         >
                           <div className="text-sm font-medium">
                             {ingredient?.name || ingredientRow.ingredientId}
@@ -869,7 +866,7 @@ function ProductFormPageContent() {
                   {allergens.map((allergen) => (
                     <label
                       key={allergen.id}
-                      className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
+                      className="flex items-center gap-2 rounded-[1rem] border px-3 py-2 text-sm"
                     >
                       <input
                         type="checkbox"
@@ -900,16 +897,21 @@ function ProductFormPageContent() {
             </Card>
           )}
 
-          <div className="flex gap-2">
-            <Button type="submit" disabled={!canSubmit || isSubmitting}>
-              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isEditMode ? "Degisiklikleri kaydet" : "Urunu kaydet"}
-            </Button>
-            <Link href="/admin/products">
-              <Button type="button" variant="outline">
+          <div className="sticky bottom-3 z-10 -mx-2 rounded-[1.4rem] border border-border/80 bg-background/92 p-3 shadow-[var(--card-shadow-hover)] backdrop-blur lg:static lg:mx-0 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button type="submit" disabled={!canSubmit || isSubmitting}>
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isEditMode ? "Degisiklikleri kaydet" : "Urunu kaydet"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full sm:w-auto"
+                onClick={() => router.push("/admin/products")}
+              >
                 Iptal
               </Button>
-            </Link>
+            </div>
           </div>
         </form>
       )}

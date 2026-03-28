@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Pencil, Trash2, Search } from "lucide-react";
+import { Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { AdminPageHeader } from "@/components/admin/admin-page-header";
+import { ResponsiveDataTable } from "@/components/admin/responsive-data-table";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -98,9 +100,10 @@ export default function IngredientsPage() {
     setForm(emptyForm);
   }
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
     if (!activeStoreId) return;
+
     if (editingId) {
       updateIngredient.mutate(
         {
@@ -133,83 +136,87 @@ export default function IngredientsPage() {
   }
 
   function getTypeLabel(type: string) {
-    return INGREDIENT_TYPES.find((t) => t.value === type)?.label ?? type;
+    return INGREDIENT_TYPES.find((item) => item.value === type)?.label ?? type;
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Malzemeler</h1>
-          <p className="text-muted-foreground">
-            {activeStore
-              ? `${activeStore.name} icin malzeme ve stok bilgilerini yonetin.`
-              : "Aktif magaza secimi bekleniyor."}
-          </p>
-        </div>
-        <Button onClick={handleOpenCreate}>
-          <Plus className="mr-2 h-4 w-4" />
-          Yeni Malzeme
-        </Button>
-      </div>
+      <AdminPageHeader
+        title="Malzemeler"
+        description={
+          activeStore
+            ? `${activeStore.name} icin malzeme ve stok bilgilerini yonetin.`
+            : "Aktif magaza secimi bekleniyor."
+        }
+        action={
+          <Button onClick={handleOpenCreate}>
+            <Plus className="mr-2 h-4 w-4" />
+            Yeni malzeme
+          </Button>
+        }
+      />
 
       {showForm && (
         <Card>
           <CardHeader>
-            <CardTitle>
-              {editingId ? "Malzemeyi Duzenle" : "Yeni Malzeme Ekle"}
-            </CardTitle>
+            <CardTitle>{editingId ? "Malzemeyi duzenle" : "Yeni malzeme ekle"}</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Malzeme Adi</label>
+                <label className="text-sm font-medium">Malzeme adi</label>
                 <Input
                   placeholder="orn. Domates"
                   value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  onChange={(event) => setForm({ ...form, name: event.target.value })}
                   required
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Tur</label>
                 <select
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  className="flex h-11 w-full rounded-[1rem] border border-input bg-background px-3 py-2 text-sm"
                   value={form.type}
-                  onChange={(e) => setForm({ ...form, type: e.target.value })}
+                  onChange={(event) => setForm({ ...form, type: event.target.value })}
                 >
-                  {INGREDIENT_TYPES.filter((t) => t.value !== "").map((t) => (
-                    <option key={t.value} value={t.value}>
-                      {t.label}
+                  {INGREDIENT_TYPES.filter((item) => item.value !== "").map((item) => (
+                    <option key={item.value} value={item.value}>
+                      {item.label}
                     </option>
                   ))}
                 </select>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Stok Miktari</label>
+                <label className="text-sm font-medium">Stok miktari</label>
                 <Input
                   type="number"
                   min={0}
                   step="0.01"
                   value={form.stockQuantity}
-                  onChange={(e) =>
-                    setForm({ ...form, stockQuantity: parseFloat(e.target.value) || 0 })
+                  onChange={(event) =>
+                    setForm({
+                      ...form,
+                      stockQuantity: parseFloat(event.target.value) || 0,
+                    })
                   }
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Min. Stok Seviyesi</label>
+                <label className="text-sm font-medium">Min. stok seviyesi</label>
                 <Input
                   type="number"
                   min={0}
                   step="0.01"
                   value={form.minStockLevel}
-                  onChange={(e) =>
-                    setForm({ ...form, minStockLevel: parseFloat(e.target.value) || 0 })
+                  onChange={(event) =>
+                    setForm({
+                      ...form,
+                      minStockLevel: parseFloat(event.target.value) || 0,
+                    })
                   }
                 />
               </div>
-              <div className="sm:col-span-2 lg:col-span-4 flex gap-2">
+              <div className="flex flex-col gap-2 sm:col-span-2 lg:col-span-4 sm:flex-row">
                 <Button
                   type="submit"
                   disabled={createIngredient.isPending || updateIngredient.isPending}
@@ -225,31 +232,31 @@ export default function IngredientsPage() {
         </Card>
       )}
 
-      <div className="flex flex-wrap items-center gap-4">
-        <div className="relative flex-1 min-w-[200px] max-w-sm">
+      <div className="flex flex-col gap-4">
+        <div className="relative max-w-sm flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Malzeme ara..."
             className="pl-10"
             value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
+            onChange={(event) => {
+              setSearch(event.target.value);
               setPage(1);
             }}
           />
         </div>
-        <div className="flex gap-2 flex-wrap">
-          {INGREDIENT_TYPES.map((t) => (
+        <div className="flex flex-wrap gap-2">
+          {INGREDIENT_TYPES.map((item) => (
             <Button
-              key={t.value}
-              variant={typeFilter === t.value ? "default" : "outline"}
+              key={item.value}
+              variant={typeFilter === item.value ? "default" : "outline"}
               size="sm"
               onClick={() => {
-                setTypeFilter(t.value);
+                setTypeFilter(item.value);
                 setPage(1);
               }}
             >
-              {t.label}
+              {item.label}
             </Button>
           ))}
         </div>
@@ -257,10 +264,8 @@ export default function IngredientsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Malzeme Listesi</CardTitle>
-          <CardDescription>
-            Tanimli tum malzemeler ve stok durumlari.
-          </CardDescription>
+          <CardTitle>Malzeme listesi</CardTitle>
+          <CardDescription>Tanimli tum malzemeler ve stok durumlari.</CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -271,79 +276,140 @@ export default function IngredientsPage() {
             </p>
           ) : ingredients.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Henuz malzeme eklenmemis. &quot;Yeni Malzeme&quot; butonuna
-              tiklayarak baslayabilirsiniz.
+              Henuz malzeme eklenmemis. "Yeni Malzeme" butonuna tiklayarak baslayabilirsiniz.
             </p>
           ) : (
             <>
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b text-left text-sm text-muted-foreground">
-                    <th className="pb-3 font-medium">Malzeme Adi</th>
-                    <th className="pb-3 font-medium">Tur</th>
-                    <th className="pb-3 font-medium text-right">Stok Miktari</th>
-                    <th className="pb-3 font-medium text-right">Min. Stok</th>
-                    <th className="pb-3 font-medium text-center">Durum</th>
-                    <th className="pb-3 font-medium text-right">Islemler</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {ingredients.map((ingredient) => {
-                    const isLowStock =
-                      ingredient.stockQuantity <= ingredient.minStockLevel;
-                    return (
-                      <tr key={ingredient.id} className="border-b last:border-0">
-                        <td className="py-3 text-sm font-medium">{ingredient.name}</td>
-                        <td className="py-3 text-sm">{getTypeLabel(ingredient.type)}</td>
-                        <td className="py-3 text-sm text-right">
-                          <span className={isLowStock ? "text-destructive font-medium" : ""}>
-                            {ingredient.stockQuantity}
+              <ResponsiveDataTable
+                data={ingredients}
+                getKey={(ingredient) => ingredient.id}
+                columns={[
+                  {
+                    header: "Malzeme adi",
+                    cell: (ingredient) => (
+                      <span className="font-medium">{ingredient.name}</span>
+                    ),
+                  },
+                  {
+                    header: "Tur",
+                    cell: (ingredient) => getTypeLabel(ingredient.type),
+                  },
+                  {
+                    header: "Stok miktari",
+                    className: "text-right",
+                    cell: (ingredient) => {
+                      const isLowStock =
+                        ingredient.stockQuantity <= ingredient.minStockLevel;
+                      return (
+                        <span className={isLowStock ? "font-medium text-destructive" : ""}>
+                          {ingredient.stockQuantity}
+                        </span>
+                      );
+                    },
+                  },
+                  {
+                    header: "Min. stok",
+                    className: "text-right",
+                    cell: (ingredient) => ingredient.minStockLevel,
+                  },
+                  {
+                    header: "Durum",
+                    className: "text-center",
+                    cell: (ingredient) =>
+                      ingredient.stockQuantity <= ingredient.minStockLevel ? (
+                        <span className="inline-flex items-center rounded-full bg-destructive/10 px-2 py-1 text-xs font-medium text-destructive">
+                          Dusuk stok
+                        </span>
+                      ) : ingredient.isActive ? (
+                        <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700">
+                          Aktif
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700">
+                          Pasif
+                        </span>
+                      ),
+                  },
+                  {
+                    header: "Islemler",
+                    className: "text-right",
+                    cell: (ingredient) => (
+                      <div className="flex justify-end gap-2">
+                        <Button variant="ghost" size="icon" onClick={() => handleEdit(ingredient)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDelete(ingredient.id)}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    ),
+                  },
+                ]}
+                mobileCard={(ingredient) => {
+                  const isLowStock = ingredient.stockQuantity <= ingredient.minStockLevel;
+
+                  return (
+                    <div className="space-y-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">
+                            {ingredient.name}
+                          </p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {getTypeLabel(ingredient.type)}
+                          </p>
+                        </div>
+                        {isLowStock ? (
+                          <span className="inline-flex items-center rounded-full bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive">
+                            Dusuk stok
                           </span>
-                        </td>
-                        <td className="py-3 text-sm text-right">
-                          {ingredient.minStockLevel}
-                        </td>
-                        <td className="py-3 text-center">
-                          {isLowStock ? (
-                            <span className="inline-flex items-center rounded-full bg-destructive/10 px-2 py-1 text-xs font-medium text-destructive">
-                              Dusuk Stok
-                            </span>
-                          ) : ingredient.isActive ? (
-                            <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700">
-                              Aktif
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700">
-                              Pasif
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-3 text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleEdit(ingredient)}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDelete(ingredient.id)}
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                        ) : (
+                          <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700">
+                            Aktif
+                          </span>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                            Stok
+                          </p>
+                          <p className="mt-1 font-medium text-foreground">
+                            {ingredient.stockQuantity}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                            Min. stok
+                          </p>
+                          <p className="mt-1 font-medium text-foreground">
+                            {ingredient.minStockLevel}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => handleEdit(ingredient)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDelete(ingredient.id)}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                }}
+              />
 
               {meta && meta.totalPages > 1 && (
-                <div className="flex items-center justify-between pt-4">
+                <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-sm text-muted-foreground">
                     Toplam {meta.total} malzeme, Sayfa {meta.page} / {meta.totalPages}
                   </p>

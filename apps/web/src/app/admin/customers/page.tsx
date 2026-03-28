@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Eye, X, Users, CreditCard, Star } from "lucide-react";
+import { CreditCard, Eye, Search, Star, Users, X } from "lucide-react";
+import { AdminPageHeader } from "@/components/admin/admin-page-header";
+import { ResponsiveDataTable } from "@/components/admin/responsive-data-table";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -34,16 +36,14 @@ export default function CustomersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Musteriler</h1>
-          <p className="text-muted-foreground">
-            {activeStore
-              ? `${activeStore.name} icin musteri verilerini inceleyin.`
-              : "Aktif magaza secimi bekleniyor."}
-          </p>
-        </div>
-      </div>
+      <AdminPageHeader
+        title="Musteriler"
+        description={
+          activeStore
+            ? `${activeStore.name} icin musteri verilerini inceleyin.`
+            : "Aktif magaza secimi bekleniyor."
+        }
+      />
 
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -51,22 +51,19 @@ export default function CustomersPage() {
           placeholder="Musteri ara (isim, email, telefon)..."
           className="pl-10"
           value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
+          onChange={(event) => {
+            setSearch(event.target.value);
             setPage(1);
           }}
         />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Customer List */}
         <div className={selectedCustomerId ? "lg:col-span-2" : "lg:col-span-3"}>
           <Card>
             <CardHeader>
-              <CardTitle>Musteri Listesi</CardTitle>
-              <CardDescription>
-                Kayitli tum musteriler ve istatistikleri.
-              </CardDescription>
+              <CardTitle>Musteri listesi</CardTitle>
+              <CardDescription>Kayitli tum musteriler ve istatistikleri.</CardDescription>
             </CardHeader>
             <CardContent>
               {isLoading ? (
@@ -81,58 +78,104 @@ export default function CustomersPage() {
                 </p>
               ) : (
                 <>
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b text-left text-sm text-muted-foreground">
-                        <th className="pb-3 font-medium">Isim</th>
-                        <th className="pb-3 font-medium">Email</th>
-                        <th className="pb-3 font-medium">Telefon</th>
-                        <th className="pb-3 font-medium text-right">Ziyaret</th>
-                        <th className="pb-3 font-medium text-right">Toplam Harcama</th>
-                        <th className="pb-3 font-medium text-right">Islemler</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {customers.map((customer) => (
-                        <tr
-                          key={customer.id}
-                          className={`border-b last:border-0 cursor-pointer transition-colors ${
-                            selectedCustomerId === customer.id
-                              ? "bg-accent"
-                              : "hover:bg-muted/50"
-                          }`}
-                          onClick={() => setSelectedCustomerId(customer.id)}
-                        >
-                          <td className="py-3 text-sm font-medium">{customer.name}</td>
-                          <td className="py-3 text-sm text-muted-foreground">
+                  <ResponsiveDataTable
+                    data={customers}
+                    getKey={(customer) => customer.id}
+                    rowClassName="cursor-pointer hover:bg-muted/40"
+                    columns={[
+                      {
+                        header: "Isim",
+                        cell: (customer) => (
+                          <span className="font-medium">{customer.name}</span>
+                        ),
+                      },
+                      {
+                        header: "Email",
+                        cell: (customer) => (
+                          <span className="text-muted-foreground">
                             {customer.email || "-"}
-                          </td>
-                          <td className="py-3 text-sm text-muted-foreground">
+                          </span>
+                        ),
+                      },
+                      {
+                        header: "Telefon",
+                        cell: (customer) => (
+                          <span className="text-muted-foreground">
                             {customer.phone || "-"}
-                          </td>
-                          <td className="py-3 text-sm text-right">{customer.visitCount}</td>
-                          <td className="py-3 text-sm text-right font-medium">
+                          </span>
+                        ),
+                      },
+                      {
+                        header: "Ziyaret",
+                        className: "text-right",
+                        cell: (customer) => customer.visitCount,
+                      },
+                      {
+                        header: "Toplam harcama",
+                        className: "text-right",
+                        cell: (customer) => (
+                          <span className="font-medium">
                             {formatCurrency(customer.totalSpent)}
-                          </td>
-                          <td className="py-3 text-right">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedCustomerId(customer.id);
-                              }}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                          </span>
+                        ),
+                      },
+                      {
+                        header: "Islemler",
+                        className: "text-right",
+                        cell: (customer) => (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setSelectedCustomerId(customer.id)}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        ),
+                      },
+                    ]}
+                    mobileCard={(customer) => (
+                      <div className="space-y-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-semibold text-foreground">
+                              {customer.name}
+                            </p>
+                            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                              {customer.email || customer.phone || "Iletisim bilgisi yok"}
+                            </p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setSelectedCustomerId(customer.id)}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                              Ziyaret
+                            </p>
+                            <p className="mt-1 font-medium text-foreground">
+                              {customer.visitCount}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                              Harcama
+                            </p>
+                            <p className="mt-1 font-medium text-foreground">
+                              {formatCurrency(customer.totalSpent)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  />
 
                   {meta && meta.totalPages > 1 && (
-                    <div className="flex items-center justify-between pt-4">
+                    <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:items-center sm:justify-between">
                       <p className="text-sm text-muted-foreground">
                         Toplam {meta.total} musteri, Sayfa {meta.page} / {meta.totalPages}
                       </p>
@@ -162,13 +205,12 @@ export default function CustomersPage() {
           </Card>
         </div>
 
-        {/* Customer Detail Panel */}
         {selectedCustomerId && (
           <div className="lg:col-span-1">
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg">Musteri Detayi</CardTitle>
+                  <CardTitle className="text-lg">Musteri detayi</CardTitle>
                   <Button
                     variant="ghost"
                     size="icon"
@@ -187,7 +229,6 @@ export default function CustomersPage() {
                   </p>
                 ) : (
                   <div className="space-y-6">
-                    {/* Customer Info */}
                     <div className="space-y-2">
                       <h3 className="font-semibold">{customerDetail.name}</h3>
                       {customerDetail.email && (
@@ -202,15 +243,14 @@ export default function CustomersPage() {
                       )}
                     </div>
 
-                    {/* Stats */}
                     <div className="grid grid-cols-2 gap-3">
                       <div className="rounded-lg border p-3 text-center">
-                        <Users className="mx-auto h-4 w-4 text-muted-foreground mb-1" />
+                        <Users className="mx-auto mb-1 h-4 w-4 text-muted-foreground" />
                         <p className="text-lg font-bold">{customerDetail.visitCount}</p>
                         <p className="text-xs text-muted-foreground">Ziyaret</p>
                       </div>
                       <div className="rounded-lg border p-3 text-center">
-                        <CreditCard className="mx-auto h-4 w-4 text-muted-foreground mb-1" />
+                        <CreditCard className="mx-auto mb-1 h-4 w-4 text-muted-foreground" />
                         <p className="text-lg font-bold">
                           {formatCurrency(customerDetail.totalSpent)}
                         </p>
@@ -218,12 +258,11 @@ export default function CustomersPage() {
                       </div>
                     </div>
 
-                    {/* Loyalty */}
                     {customerDetail.loyalty && (
                       <div className="rounded-lg border p-4 space-y-2">
                         <div className="flex items-center gap-2">
                           <Star className="h-4 w-4 text-yellow-500" />
-                          <h4 className="text-sm font-medium">Sadakat Programi</h4>
+                          <h4 className="text-sm font-medium">Sadakat programi</h4>
                         </div>
                         <div className="grid grid-cols-2 gap-2 text-sm">
                           <div>
@@ -246,17 +285,16 @@ export default function CustomersPage() {
                       </div>
                     )}
 
-                    {/* Visit History */}
                     <div className="space-y-2">
-                      <h4 className="text-sm font-medium">Ziyaret Gecmisi</h4>
+                      <h4 className="text-sm font-medium">Ziyaret gecmisi</h4>
                       {customerDetail.visits && customerDetail.visits.length > 0 ? (
-                        <div className="space-y-2 max-h-64 overflow-y-auto">
+                        <div className="max-h-64 space-y-2 overflow-y-auto">
                           {customerDetail.visits.map((visit) => (
                             <div
                               key={visit.id}
                               className="rounded-lg border p-3 text-sm space-y-1"
                             >
-                              <div className="flex justify-between">
+                              <div className="flex justify-between gap-3">
                                 <span className="text-muted-foreground">
                                   {formatDate(visit.date)}
                                 </span>

@@ -1,7 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, AlertTriangle, ArrowDownCircle, ArrowUpCircle, RefreshCw } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowDownCircle,
+  ArrowUpCircle,
+  Plus,
+  RefreshCw,
+} from "lucide-react";
+import { AdminPageHeader } from "@/components/admin/admin-page-header";
+import { ResponsiveDataTable } from "@/components/admin/responsive-data-table";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -12,9 +20,9 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
-  useStockMovements,
-  useLowStockAlerts,
   useCreateStockMovement,
+  useLowStockAlerts,
+  useStockMovements,
 } from "@/hooks/use-stock";
 import { formatDate } from "@/lib/utils";
 import { useCurrentStore } from "@/hooks/use-current-store";
@@ -44,7 +52,10 @@ const emptyForm: MovementForm = {
 export default function StockPage() {
   const { activeStoreId, activeStore } = useCurrentStore();
   const [page, setPage] = useState(1);
-  const { data: movementsData, isLoading: movementsLoading } = useStockMovements(activeStoreId ?? "", { page });
+  const { data: movementsData, isLoading: movementsLoading } = useStockMovements(
+    activeStoreId ?? "",
+    { page }
+  );
   const { data: alerts, isLoading: alertsLoading } = useLowStockAlerts(activeStoreId ?? "");
   const createMovement = useCreateStockMovement();
 
@@ -54,9 +65,10 @@ export default function StockPage() {
   const movements = movementsData?.data ?? [];
   const meta = movementsData?.meta;
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
     if (!activeStoreId) return;
+
     createMovement.mutate(
       {
         storeId: activeStoreId,
@@ -86,32 +98,31 @@ export default function StockPage() {
   }
 
   function getMovementLabel(type: MovementType) {
-    return MOVEMENT_TYPES.find((t) => t.value === type)?.label ?? type;
+    return MOVEMENT_TYPES.find((item) => item.value === type)?.label ?? type;
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Stok Yonetimi</h1>
-          <p className="text-muted-foreground">
-            {activeStore
-              ? `${activeStore.name} icin stok hareketlerini izleyin.`
-              : "Aktif magaza secimi bekleniyor."}
-          </p>
-        </div>
-        <Button onClick={() => setShowForm(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Stok Hareketi Ekle
-        </Button>
-      </div>
+      <AdminPageHeader
+        title="Stok yonetimi"
+        description={
+          activeStore
+            ? `${activeStore.name} icin stok hareketlerini izleyin.`
+            : "Aktif magaza secimi bekleniyor."
+        }
+        action={
+          <Button onClick={() => setShowForm(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Stok hareketi ekle
+          </Button>
+        }
+      />
 
-      {/* Low Stock Alerts */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-destructive" />
-            Dusuk Stok Uyarilari
+            Dusuk stok uyarilari
           </CardTitle>
           <CardDescription>
             Minimum stok seviyesinin altina dusen malzemeler.
@@ -125,11 +136,11 @@ export default function StockPage() {
               Dusuk stok uyarisi bulunmuyor. Tum malzemeler yeterli seviyede.
             </p>
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               {alerts.map((alert) => (
                 <div
                   key={alert.ingredientId}
-                  className="flex items-center justify-between rounded-lg border border-destructive/20 bg-destructive/5 p-3"
+                  className="flex items-center justify-between rounded-[1.25rem] border border-destructive/20 bg-destructive/5 p-4"
                 >
                   <div>
                     <p className="text-sm font-medium">{alert.ingredientName}</p>
@@ -138,9 +149,7 @@ export default function StockPage() {
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-lg font-bold text-destructive">
-                      {alert.currentStock}
-                    </p>
+                    <p className="text-lg font-bold text-destructive">{alert.currentStock}</p>
                     <p className="text-xs text-muted-foreground">{alert.unitAbbreviation}</p>
                   </div>
                 </div>
@@ -150,33 +159,36 @@ export default function StockPage() {
         </CardContent>
       </Card>
 
-      {/* Add Movement Form */}
       {showForm && (
         <Card>
           <CardHeader>
-            <CardTitle>Yeni Stok Hareketi</CardTitle>
+            <CardTitle>Yeni stok hareketi</CardTitle>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Malzeme ID</label>
                 <Input
                   placeholder="Malzeme ID girin"
                   value={form.ingredientId}
-                  onChange={(e) => setForm({ ...form, ingredientId: e.target.value })}
+                  onChange={(event) =>
+                    setForm({ ...form, ingredientId: event.target.value })
+                  }
                   required
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Hareket Tipi</label>
+                <label className="text-sm font-medium">Hareket tipi</label>
                 <select
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  className="flex h-11 w-full rounded-[1rem] border border-input bg-background px-3 py-2 text-sm"
                   value={form.type}
-                  onChange={(e) => setForm({ ...form, type: e.target.value as MovementType })}
+                  onChange={(event) =>
+                    setForm({ ...form, type: event.target.value as MovementType })
+                  }
                 >
-                  {MOVEMENT_TYPES.map((t) => (
-                    <option key={t.value} value={t.value}>
-                      {t.label}
+                  {MOVEMENT_TYPES.map((item) => (
+                    <option key={item.value} value={item.value}>
+                      {item.label}
                     </option>
                   ))}
                 </select>
@@ -188,8 +200,11 @@ export default function StockPage() {
                   min={0}
                   step="0.01"
                   value={form.quantity}
-                  onChange={(e) =>
-                    setForm({ ...form, quantity: parseFloat(e.target.value) || 0 })
+                  onChange={(event) =>
+                    setForm({
+                      ...form,
+                      quantity: parseFloat(event.target.value) || 0,
+                    })
                   }
                   required
                 />
@@ -199,10 +214,10 @@ export default function StockPage() {
                 <Input
                   placeholder="Opsiyonel aciklama"
                   value={form.reason}
-                  onChange={(e) => setForm({ ...form, reason: e.target.value })}
+                  onChange={(event) => setForm({ ...form, reason: event.target.value })}
                 />
               </div>
-              <div className="sm:col-span-2 lg:col-span-4 flex gap-2">
+              <div className="flex flex-col gap-2 sm:col-span-2 xl:col-span-4 sm:flex-row">
                 <Button type="submit" disabled={createMovement.isPending}>
                   Kaydet
                 </Button>
@@ -222,13 +237,10 @@ export default function StockPage() {
         </Card>
       )}
 
-      {/* Stock Movement History */}
       <Card>
         <CardHeader>
-          <CardTitle>Stok Hareket Gecmisi</CardTitle>
-          <CardDescription>
-            Tum stok giris, cikis ve duzeltme kayitlari.
-          </CardDescription>
+          <CardTitle>Stok hareket gecmisi</CardTitle>
+          <CardDescription>Tum stok giris, cikis ve duzeltme kayitlari.</CardDescription>
         </CardHeader>
         <CardContent>
           {movementsLoading ? (
@@ -243,45 +255,89 @@ export default function StockPage() {
             </p>
           ) : (
             <>
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b text-left text-sm text-muted-foreground">
-                    <th className="pb-3 font-medium">Tarih</th>
-                    <th className="pb-3 font-medium">Malzeme</th>
-                    <th className="pb-3 font-medium">Tip</th>
-                    <th className="pb-3 font-medium text-right">Miktar</th>
-                    <th className="pb-3 font-medium">Aciklama</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {movements.map((movement) => (
-                    <tr key={movement.id} className="border-b last:border-0">
-                      <td className="py-3 text-sm text-muted-foreground">
+              <ResponsiveDataTable
+                data={movements}
+                getKey={(movement) => movement.id}
+                columns={[
+                  {
+                    header: "Tarih",
+                    cell: (movement) => (
+                      <span className="text-muted-foreground">
                         {formatDate(movement.createdAt)}
-                      </td>
-                      <td className="py-3 text-sm font-medium">
-                        {movement.ingredientName}
-                      </td>
-                      <td className="py-3 text-sm">
-                        <span className="inline-flex items-center gap-1">
-                          {getMovementIcon(movement.type as MovementType)}
-                          {getMovementLabel(movement.type as MovementType)}
-                        </span>
-                      </td>
-                      <td className="py-3 text-sm text-right font-mono">
+                      </span>
+                    ),
+                  },
+                  {
+                    header: "Malzeme",
+                    cell: (movement) => (
+                      <span className="font-medium">{movement.ingredientName}</span>
+                    ),
+                  },
+                  {
+                    header: "Tip",
+                    cell: (movement) => (
+                      <span className="inline-flex items-center gap-1">
+                        {getMovementIcon(movement.type as MovementType)}
+                        {getMovementLabel(movement.type as MovementType)}
+                      </span>
+                    ),
+                  },
+                  {
+                    header: "Miktar",
+                    className: "text-right",
+                    cell: (movement) => (
+                      <span className="font-mono">
                         {movement.type === "OUT" ? "-" : "+"}
                         {movement.quantity}
-                      </td>
-                      <td className="py-3 text-sm text-muted-foreground">
-                        {movement.reason || "-"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      </span>
+                    ),
+                  },
+                  {
+                    header: "Aciklama",
+                    cell: (movement) => (
+                      <span className="text-muted-foreground">{movement.reason || "-"}</span>
+                    ),
+                  },
+                ]}
+                mobileCard={(movement) => (
+                  <div className="space-y-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">
+                          {movement.ingredientName}
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {formatDate(movement.createdAt)}
+                        </p>
+                      </div>
+                      <span className="inline-flex items-center gap-1 text-sm font-medium text-foreground">
+                        {getMovementIcon(movement.type as MovementType)}
+                        {getMovementLabel(movement.type as MovementType)}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                          Miktar
+                        </p>
+                        <p className="mt-1 font-mono font-medium text-foreground">
+                          {movement.type === "OUT" ? "-" : "+"}
+                          {movement.quantity}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                          Aciklama
+                        </p>
+                        <p className="mt-1 text-foreground">{movement.reason || "-"}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              />
 
               {meta && meta.totalPages > 1 && (
-                <div className="flex items-center justify-between pt-4">
+                <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-sm text-muted-foreground">
                     Toplam {meta.total} hareket, Sayfa {meta.page} / {meta.totalPages}
                   </p>

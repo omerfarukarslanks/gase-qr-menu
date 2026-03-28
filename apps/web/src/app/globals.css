@@ -3,49 +3,89 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+  :root,
+  .theme-light {
+    color-scheme: light;
+    --background: 240 100% 99.4%;
+    --foreground: 222.2 47.4% 11.2%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 222.2 47.4% 11.2%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
+    --popover-foreground: 222.2 47.4% 11.2%;
+    --primary: 243.4 75.4% 58.6%;
+    --primary-hover: 244.5 57.9% 50.6%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 225.9 100% 96.7%;
+    --secondary-hover: 228 100% 98%;
+    --secondary-foreground: 244.5 57.9% 50.6%;
+    --muted: 228 100% 98%;
+    --muted-foreground: 222.6 14.6% 41.8%;
+    --accent: 228 100% 98%;
     --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
+    --destructive: 0 72.2% 50.6%;
     --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-    --radius: 0.5rem;
+    --border: 231.4 56% 90.2%;
+    --input: 231.4 56% 90.2%;
+    --ring: 229.7 93.5% 81.8%;
+    --surface-muted: 228 100% 98%;
+    --surface-elevated: 0 0% 100%;
+    --brand-300: 234.5 89.5% 73.9%;
+    --brand-400: 238.7 83.5% 66.7%;
+    --brand-500: 243.4 75.4% 58.6%;
+    --brand-600: 244.5 57.9% 50.6%;
+    --warm: 17.5 88.3% 40.4%;
+    --warm-surface: 33.3 100% 96.5%;
+    --success: 142.8 64.2% 24.1%;
+    --success-surface: 151.8 81% 95.9%;
+    --secondary-border: 231.4 56% 90.2%;
+    --card-shadow: 0 20px 50px -32px rgba(79, 70, 229, 0.18);
+    --card-shadow-hover: 0 28px 68px -34px rgba(79, 70, 229, 0.24);
+    --hero-glow: radial-gradient(circle at top left, rgba(129, 140, 248, 0.26), transparent 38%),
+      radial-gradient(circle at bottom right, rgba(194, 65, 12, 0.12), transparent 32%);
+    --app-gradient: linear-gradient(180deg, #eef2ff 0%, #fcfcff 22%, #f5f7ff 100%);
+    --radius: 1rem;
   }
 
-  .dark {
-    --background: 222.2 84% 4.9%;
+  .dark,
+  .theme-dark {
+    color-scheme: dark;
+    --background: 225.7 48.8% 8.4%;
     --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
+    --card: 226.9 47.1% 13.3%;
     --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
+    --popover: 226.9 47.1% 13.3%;
     --popover-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
+    --primary: 229.7 93.5% 81.8%;
+    --primary-hover: 234.5 89.5% 73.9%;
+    --primary-foreground: 225.7 48.8% 8.4%;
+    --secondary: 226.5 43.5% 18%;
+    --secondary-hover: 227.4 33.9% 24.9%;
     --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
+    --muted: 226.5 43.5% 18%;
+    --muted-foreground: 219.4 35.7% 76.3%;
+    --accent: 226.5 43.5% 18%;
     --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
+    --destructive: 0 62.8% 45%;
     --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --border: 227.4 33.9% 24.9%;
+    --input: 227.4 33.9% 24.9%;
+    --ring: 229.7 93.5% 81.8%;
+    --surface-muted: 226.5 43.5% 18%;
+    --surface-elevated: 226.9 47.1% 13.3%;
+    --brand-300: 228 96.5% 88.8%;
+    --brand-400: 229.7 93.5% 81.8%;
+    --brand-500: 234.5 89.5% 73.9%;
+    --brand-600: 238.7 83.5% 66.7%;
+    --warm: 38.1 92.1% 50.2%;
+    --warm-surface: 29.8 89.1% 12.6%;
+    --success: 142.1 70.6% 45.3%;
+    --success-surface: 141.2 84.2% 10%;
+    --secondary-border: 227.4 33.9% 24.9%;
+    --card-shadow: 0 24px 72px -40px rgba(8, 12, 28, 0.88);
+    --card-shadow-hover: 0 32px 92px -42px rgba(99, 102, 241, 0.42);
+    --hero-glow: radial-gradient(circle at top left, rgba(165, 180, 252, 0.24), transparent 34%),
+      radial-gradient(circle at bottom right, rgba(34, 197, 94, 0.12), transparent 28%);
+    --app-gradient: linear-gradient(180deg, #080d1c 0%, #0b1020 24%, #121932 100%);
   }
 }
 
@@ -53,7 +93,90 @@
   * {
     @apply border-border;
   }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-sans), system-ui, sans-serif;
+    min-height: 100vh;
+    text-rendering: optimizeLegibility;
+    isolation: isolate;
+    position: relative;
+  }
+
+  ::selection {
+    background-color: hsl(var(--brand-400) / 0.24);
+    color: hsl(var(--foreground));
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: var(--font-display), Georgia, serif;
+    font-variation-settings: "opsz" 48;
+  }
+
+  .theme-surface {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+  }
+
+  .theme-app-gradient {
+    background-color: hsl(var(--background));
+    background-image: var(--app-gradient);
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  body::before {
+    content: "";
+    position: fixed;
+    inset: -12%;
+    z-index: 90;
+    pointer-events: none;
+    opacity: 0;
+    transform: scale(1.08);
+    background-image:
+      radial-gradient(circle at 20% 20%, hsl(var(--primary) / 0.24), transparent 28%),
+      radial-gradient(circle at 78% 26%, hsl(var(--brand-400) / 0.16), transparent 24%),
+      radial-gradient(circle at 50% 78%, hsl(var(--warm) / 0.14), transparent 26%);
+    filter: blur(18px);
+    transition:
+      opacity 320ms cubic-bezier(0.22, 1, 0.36, 1),
+      transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  body,
+  .theme-surface,
+  .theme-app-gradient {
+    transition:
+      background-color 320ms cubic-bezier(0.22, 1, 0.36, 1),
+      color 320ms cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 320ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  html[data-theme-animating="true"] *,
+  html[data-theme-animating="true"] *::before,
+  html[data-theme-animating="true"] *::after {
+    transition-property: background-color, border-color, color, fill, stroke, box-shadow, opacity;
+    transition-duration: 320ms;
+    transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  html[data-theme-animating="true"] body::before {
+    opacity: 0.72;
+    transform: scale(1);
   }
 }

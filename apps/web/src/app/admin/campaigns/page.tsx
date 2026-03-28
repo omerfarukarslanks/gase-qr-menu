@@ -13,6 +13,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -329,28 +330,28 @@ export default function CampaignsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Kampanyalar</h1>
-          <p className="text-muted-foreground">
-            {activeStore?.name
-              ? `${activeStore.name} icin indirim ve kupon akisini yonetin.`
-              : "Aktif magazaya ait kampanyalari yonetin."}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => refetch()}>
-            Yenile
-          </Button>
-          <Button onClick={openCreateForm}>
-            <Plus className="mr-2 h-4 w-4" />
-            Yeni kampanya
-          </Button>
-        </div>
-      </div>
+      <AdminPageHeader
+        title="Kampanyalar"
+        description={
+          activeStore?.name
+            ? `${activeStore.name} icin indirim ve kupon akisini yonetin.`
+            : "Aktif magazaya ait kampanyalari yonetin."
+        }
+        action={
+          <>
+            <Button variant="outline" onClick={() => refetch()}>
+              Yenile
+            </Button>
+            <Button onClick={openCreateForm}>
+              <Plus className="mr-2 h-4 w-4" />
+              Yeni kampanya
+            </Button>
+          </>
+        }
+      />
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Card>
+        <Card className="border-border/80 bg-card/85 shadow-[var(--card-shadow)]">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Toplam kampanya
@@ -360,7 +361,7 @@ export default function CampaignsPage() {
             <div className="text-2xl font-bold">{campaigns.length}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-border/80 bg-card/85 shadow-[var(--card-shadow)]">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Aktif kampanya
@@ -370,7 +371,7 @@ export default function CampaignsPage() {
             <div className="text-2xl font-bold">{activeCount}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-border/80 bg-card/85 shadow-[var(--card-shadow)]">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Toplam kullanim
@@ -385,20 +386,24 @@ export default function CampaignsPage() {
         </Card>
       </div>
 
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          className="pl-9"
-          placeholder="Kampanya ara..."
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-        />
-      </div>
+      <Card className="border-border/80 bg-card/85 shadow-[var(--card-shadow)]">
+        <CardContent className="pt-6">
+          <div className="relative max-w-md">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              className="pl-9"
+              placeholder="Kampanya ara..."
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+          </div>
+        </CardContent>
+      </Card>
 
       {showForm && (
-        <Card>
+        <Card className="overflow-hidden border-border/80 bg-card/90 shadow-[var(--card-shadow)]">
           <CardHeader className="pb-4">
-            <div className="flex items-center justify-between gap-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <CardTitle>
                   {editingCampaign ? "Kampanya duzenle" : "Yeni kampanya"}
@@ -413,8 +418,8 @@ export default function CampaignsPage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              <div className="space-y-2 xl:col-span-2">
                 <label className="text-sm font-medium">Kampanya adi</label>
                 <Input
                   value={form.name}
@@ -430,7 +435,7 @@ export default function CampaignsPage() {
               <div className="space-y-2">
                 <label className="text-sm font-medium">Kampanya tipi</label>
                 <select
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  className="flex h-11 w-full rounded-[1rem] border border-input bg-background px-3 py-2 text-sm"
                   value={form.type}
                   onChange={(event) =>
                     setForm((current) => ({
@@ -446,10 +451,10 @@ export default function CampaignsPage() {
                 </select>
               </div>
 
-              <div className="space-y-2 md:col-span-2">
+              <div className="space-y-2 md:col-span-2 xl:col-span-3">
                 <label className="text-sm font-medium">Aciklama</label>
                 <textarea
-                  className="flex min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  className="flex min-h-28 w-full rounded-[1rem] border border-input bg-background px-3 py-3 text-sm"
                   value={form.description}
                   onChange={(event) =>
                     setForm((current) => ({
@@ -601,9 +606,7 @@ export default function CampaignsPage() {
               )}
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">
-                  Kullanim limiti
-                </label>
+                <label className="text-sm font-medium">Kullanim limiti</label>
                 <Input
                   type="number"
                   min={0}
@@ -618,7 +621,7 @@ export default function CampaignsPage() {
                 />
               </div>
 
-              <div className="flex items-center gap-3 pt-6">
+              <div className="flex items-center gap-3 rounded-[1rem] border border-border bg-secondary/40 px-4 py-3">
                 <label className="text-sm font-medium">Aktif</label>
                 <button
                   type="button"
@@ -641,12 +644,12 @@ export default function CampaignsPage() {
               </div>
             </div>
 
-            <div className="grid gap-4 lg:grid-cols-2">
-              <Card>
+            <div className="grid gap-4 xl:grid-cols-2">
+              <Card className="border-border/70">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base">Bagli kategoriler</CardTitle>
                 </CardHeader>
-                <CardContent className="max-h-64 space-y-2 overflow-auto">
+                <CardContent className="max-h-72 space-y-2 overflow-auto">
                   {categories.length === 0 ? (
                     <p className="text-sm text-muted-foreground">
                       Henuz kategori yok.
@@ -655,7 +658,7 @@ export default function CampaignsPage() {
                     categories.map((category) => (
                       <label
                         key={category.id}
-                        className="flex items-center gap-3 rounded-md border px-3 py-2 text-sm"
+                        className="flex items-center gap-3 rounded-[1rem] border border-border px-3 py-3 text-sm"
                       >
                         <input
                           type="checkbox"
@@ -671,11 +674,11 @@ export default function CampaignsPage() {
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="border-border/70">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base">Bagli urunler</CardTitle>
                 </CardHeader>
-                <CardContent className="max-h-64 space-y-2 overflow-auto">
+                <CardContent className="max-h-72 space-y-2 overflow-auto">
                   {products.length === 0 ? (
                     <p className="text-sm text-muted-foreground">
                       Henuz urun yok.
@@ -684,7 +687,7 @@ export default function CampaignsPage() {
                     products.map((product) => (
                       <label
                         key={product.id}
-                        className="flex items-center gap-3 rounded-md border px-3 py-2 text-sm"
+                        className="flex items-center gap-3 rounded-[1rem] border border-border px-3 py-3 text-sm"
                       >
                         <input
                           type="checkbox"
@@ -702,19 +705,21 @@ export default function CampaignsPage() {
             </div>
 
             {formError && (
-              <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+              <div className="rounded-[1rem] border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive">
                 {formError}
               </div>
             )}
 
-            <div className="flex gap-2">
-              <Button onClick={handleSubmit} disabled={isSaving}>
-                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {editingCampaign ? "Guncelle" : "Kaydet"}
-              </Button>
-              <Button variant="outline" onClick={resetForm}>
-                Iptal
-              </Button>
+            <div className="sticky bottom-3 z-10 -mx-2 rounded-[1.4rem] border border-border/80 bg-background/92 p-3 shadow-[var(--card-shadow-hover)] backdrop-blur xl:static xl:mx-0 xl:rounded-none xl:border-0 xl:bg-transparent xl:p-0 xl:shadow-none">
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button onClick={handleSubmit} disabled={isSaving}>
+                  {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {editingCampaign ? "Guncelle" : "Kaydet"}
+                </Button>
+                <Button variant="outline" onClick={resetForm}>
+                  Iptal
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -723,6 +728,7 @@ export default function CampaignsPage() {
       {isLoading ? (
         <Card>
           <CardContent className="flex items-center gap-3 py-10 text-sm text-muted-foreground">
+            Yenile
             <Loader2 className="h-4 w-4 animate-spin" />
             Kampanyalar yukleniyor...
           </CardContent>

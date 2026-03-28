@@ -176,9 +176,9 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
   // Loading skeleton
   if (isLoading) {
     return (
-      <div className="flex flex-col pb-24 animate-pulse">
-        <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur">
-          <div className="flex items-center gap-3 px-4 py-3">
+      <div className="theme-app-gradient flex flex-col pb-28 animate-pulse">
+        <header className="sticky top-0 z-10 border-b border-border bg-background/92 backdrop-blur-xl">
+          <div className="mx-auto flex max-w-3xl items-center gap-3 px-4 py-3">
             <div className="h-9 w-9 rounded bg-muted" />
             <div className="h-5 w-40 rounded bg-muted" />
           </div>
@@ -197,7 +197,7 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
   // Error state - no product
   if (isError || !product) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] px-4 text-center">
+      <div className="theme-app-gradient flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
         <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
         <h2 className="text-xl font-semibold mb-2">Ürün Bulunamadı</h2>
         <p className="text-sm text-muted-foreground mb-4">
@@ -211,10 +211,10 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
   }
 
   return (
-    <div className="flex flex-col pb-24">
+    <div className="theme-app-gradient flex flex-col pb-32">
       {/* Header */}
-      <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur">
-        <div className="flex items-center gap-3 px-4 py-3">
+      <header className="sticky top-0 z-10 border-b border-border bg-background/92 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-3xl items-center gap-3 px-4 py-3">
           <Link href={`/m/${params.menuSlug}`}>
             <Button variant="ghost" size="icon">
               <ArrowLeft className="h-5 w-5" />
@@ -238,7 +238,7 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
       )}
 
       {/* Product Info */}
-      <div className="space-y-4 px-4 py-4">
+      <div className="mx-auto w-full max-w-3xl space-y-4 px-4 py-4">
         <div>
           <h2 className="text-2xl font-bold">{product.name}</h2>
           <p className="mt-1 text-2xl font-semibold text-primary">
@@ -311,7 +311,7 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
         {product.nutritionInfo && (
           <div>
             <h3 className="text-sm font-semibold mb-2">Besin Değerleri</h3>
-            <div className="grid grid-cols-4 gap-2 text-center">
+            <div className="grid grid-cols-2 gap-2 text-center sm:grid-cols-4">
               {product.nutritionInfo.calories != null && (
                 <div className="rounded-md bg-muted p-2">
                   <p className="text-xs text-muted-foreground">Kalori</p>
@@ -354,9 +354,9 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
       </div>
 
       {/* Bottom Bar */}
-      <div className="fixed bottom-0 left-0 right-0 border-t bg-background p-4">
+      <div className="fixed bottom-0 left-0 right-0 z-20 border-t border-border bg-background/94 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] backdrop-blur-xl">
         <div className="mx-auto flex max-w-lg items-center gap-4">
-          <div className="flex items-center gap-3 rounded-md border px-2">
+          <div className="flex items-center gap-3 rounded-[1rem] border border-border bg-card/80 px-2">
             <Button
               variant="ghost"
               size="icon"

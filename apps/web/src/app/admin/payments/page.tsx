@@ -12,6 +12,8 @@ import {
   Search,
   XCircle,
 } from "lucide-react";
+import { AdminPageHeader } from "@/components/admin/admin-page-header";
+import { ResponsiveDataTable } from "@/components/admin/responsive-data-table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -148,9 +150,7 @@ export default function PaymentsPage() {
   ];
 
   const handleRefund = async (paymentId: string) => {
-    const confirmed = window.confirm(
-      "Bu odeme icin iade islemi baslatilsin mi?"
-    );
+    const confirmed = window.confirm("Bu odeme icin iade islemi baslatilsin mi?");
 
     if (!confirmed) {
       return;
@@ -159,26 +159,26 @@ export default function PaymentsPage() {
     try {
       await refundPayment.mutateAsync(paymentId);
     } catch {
-      // The backend error state is enough for now; keep the table responsive.
+      // Backend hata durumu yeterli.
     }
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Odemeler</h1>
-          <p className="text-muted-foreground">
-            {activeStore?.name
-              ? `${activeStore.name} odeme kayitlarini canli olarak izleyin.`
-              : "Magazaya ait odeme kayitlarini yonetin."}
-          </p>
-        </div>
-        <Button variant="outline" onClick={() => refetch()}>
-          <RefreshCw className="mr-2 h-4 w-4" />
-          Yenile
-        </Button>
-      </div>
+      <AdminPageHeader
+        title="Odemeler"
+        description={
+          activeStore?.name
+            ? `${activeStore.name} odeme kayitlarini canli olarak izleyin.`
+            : "Magazaya ait odeme kayitlarini yonetin."
+        }
+        action={
+          <Button variant="outline" onClick={() => refetch()}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Yenile
+          </Button>
+        }
+      />
 
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
@@ -200,9 +200,7 @@ export default function PaymentsPage() {
           <CardContent>
             <div className="flex items-center gap-2">
               <Banknote className="h-5 w-5 text-green-600" />
-              <span className="text-2xl font-bold">
-                {formatCurrency(totalCash)}
-              </span>
+              <span className="text-2xl font-bold">{formatCurrency(totalCash)}</span>
             </div>
           </CardContent>
         </Card>
@@ -215,15 +213,13 @@ export default function PaymentsPage() {
           <CardContent>
             <div className="flex items-center gap-2">
               <CreditCard className="h-5 w-5 text-blue-600" />
-              <span className="text-2xl font-bold">
-                {formatCurrency(totalCard)}
-              </span>
+              <span className="text-2xl font-bold">{formatCurrency(totalCard)}</span>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row">
+      <div className="flex flex-col gap-3">
         <div className="relative max-w-sm flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -248,7 +244,7 @@ export default function PaymentsPage() {
       </div>
 
       <Card>
-        <CardContent className="p-0">
+        <CardContent className="p-0 sm:p-0">
           {isLoading ? (
             <div className="flex items-center gap-3 p-6 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -263,77 +259,168 @@ export default function PaymentsPage() {
               Odeme kaydi bulunamadi.
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[760px]">
-                <thead>
-                  <tr className="border-b text-left text-sm text-muted-foreground">
-                    <th className="p-4 font-medium">Siparis</th>
-                    <th className="p-4 font-medium">Masa</th>
-                    <th className="p-4 font-medium">Yontem</th>
-                    <th className="p-4 font-medium text-right">Tutar</th>
-                    <th className="p-4 font-medium">Durum</th>
-                    <th className="p-4 font-medium">Tarih</th>
-                    <th className="p-4 font-medium text-right">Islem</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {payments.map((payment) => {
-                    const status = statusConfig[payment.status];
-                    const method = methodConfig[payment.method];
-                    const StatusIcon = status.icon;
-                    const MethodIcon = method.icon;
+            <div className="p-4 sm:p-6">
+              <ResponsiveDataTable
+                data={payments}
+                getKey={(payment) => payment.id}
+                tableClassName="min-w-[760px]"
+                columns={[
+                  {
+                    header: "Siparis",
+                    className: "p-0 pr-4 align-top",
+                    cell: (payment) => (
+                      <span className="font-medium">
+                        {payment.orderNumber
+                          ? `#${String(payment.orderNumber).padStart(3, "0")}`
+                          : "-"}
+                      </span>
+                    ),
+                  },
+                  {
+                    header: "Masa",
+                    className: "p-0 pr-4 align-top",
+                    cell: (payment) => payment.tableName,
+                  },
+                  {
+                    header: "Yontem",
+                    className: "p-0 pr-4 align-top",
+                    cell: (payment) => {
+                      const method = methodConfig[payment.method];
+                      const MethodIcon = method.icon;
+                      return (
+                        <div className="flex items-center gap-2 text-sm">
+                          <MethodIcon className="h-4 w-4 text-muted-foreground" />
+                          <span>{method.label}</span>
+                        </div>
+                      );
+                    },
+                  },
+                  {
+                    header: "Tutar",
+                    className: "p-0 pr-4 text-right align-top",
+                    cell: (payment) => (
+                      <span className="font-semibold">
+                        {formatCurrency(payment.amount, payment.currency)}
+                      </span>
+                    ),
+                  },
+                  {
+                    header: "Durum",
+                    className: "p-0 pr-4 align-top",
+                    cell: (payment) => {
+                      const status = statusConfig[payment.status];
+                      const StatusIcon = status.icon;
+                      return (
+                        <span
+                          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${status.bg} ${status.color}`}
+                        >
+                          <StatusIcon className="h-3 w-3" />
+                          {status.label}
+                        </span>
+                      );
+                    },
+                  },
+                  {
+                    header: "Tarih",
+                    className: "p-0 pr-4 align-top",
+                    cell: (payment) => (
+                      <span className="text-sm text-muted-foreground">
+                        {formatDate(payment.createdAt)}
+                      </span>
+                    ),
+                  },
+                  {
+                    header: "Islem",
+                    className: "p-0 text-right align-top",
+                    cell: (payment) =>
+                      payment.status === "COMPLETED" ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs"
+                          onClick={() => handleRefund(payment.id)}
+                          disabled={refundPayment.isPending}
+                        >
+                          Iade
+                        </Button>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">-</span>
+                      ),
+                  },
+                ]}
+                mobileCard={(payment) => {
+                  const status = statusConfig[payment.status];
+                  const method = methodConfig[payment.method];
+                  const StatusIcon = status.icon;
+                  const MethodIcon = method.icon;
 
-                    return (
-                      <tr
-                        key={payment.id}
-                        className="border-b align-top last:border-0 hover:bg-muted/40"
-                      >
-                        <td className="p-4 font-medium">
-                          {payment.orderNumber
-                            ? `#${String(payment.orderNumber).padStart(3, "0")}`
-                            : "-"}
-                        </td>
-                        <td className="p-4 text-sm">{payment.tableName}</td>
-                        <td className="p-4">
-                          <div className="flex items-center gap-2 text-sm">
+                  return (
+                    <div className="space-y-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">
+                            {payment.orderNumber
+                              ? `#${String(payment.orderNumber).padStart(3, "0")}`
+                              : "Siparis baglanmadi"}
+                          </p>
+                          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                            {payment.tableName}
+                          </p>
+                        </div>
+                        <span
+                          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${status.bg} ${status.color}`}
+                        >
+                          <StatusIcon className="h-3 w-3" />
+                          {status.label}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                            Yontem
+                          </p>
+                          <p className="mt-1 flex items-center gap-2 font-medium text-foreground">
                             <MethodIcon className="h-4 w-4 text-muted-foreground" />
-                            <span>{method.label}</span>
-                          </div>
-                        </td>
-                        <td className="p-4 text-right font-semibold">
-                          {formatCurrency(payment.amount, payment.currency)}
-                        </td>
-                        <td className="p-4">
-                          <span
-                            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${status.bg} ${status.color}`}
+                            {method.label}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                            Tutar
+                          </p>
+                          <p className="mt-1 font-semibold text-foreground">
+                            {formatCurrency(payment.amount, payment.currency)}
+                          </p>
+                        </div>
+                        <div className="col-span-2">
+                          <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                            Tarih
+                          </p>
+                          <p className="mt-1 text-foreground">
+                            {formatDate(payment.createdAt)}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end">
+                        {payment.status === "COMPLETED" ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleRefund(payment.id)}
+                            disabled={refundPayment.isPending}
                           >
-                            <StatusIcon className="h-3 w-3" />
-                            {status.label}
-                          </span>
-                        </td>
-                        <td className="p-4 text-sm text-muted-foreground">
-                          {formatDate(payment.createdAt)}
-                        </td>
-                        <td className="p-4 text-right">
-                          {payment.status === "COMPLETED" ? (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-xs"
-                              onClick={() => handleRefund(payment.id)}
-                              disabled={refundPayment.isPending}
-                            >
-                              Iade
-                            </Button>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">-</span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                            Iade baslat
+                          </Button>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Iade uygun degil</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                }}
+              />
             </div>
           )}
         </CardContent>
