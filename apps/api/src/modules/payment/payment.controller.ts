@@ -4,14 +4,17 @@ import {
   Post,
   Body,
   Param,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { PaymentService } from './payment.service';
 import {
   CreatePaymentDto,
+  CreateCashPaymentDto,
   Initiate3DSecureDto,
   Complete3DSecureCallbackDto,
+  PaymentListQueryDto,
 } from './dto/payment.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { Public } from '../../common/decorators/public.decorator';
@@ -27,6 +30,13 @@ export class PaymentController {
   @ApiOperation({ summary: 'Create a payment record (cash, etc.)' })
   create(@Body() dto: CreatePaymentDto) {
     return this.paymentService.createPayment(dto);
+  }
+
+  @Public()
+  @Post('cash')
+  @ApiOperation({ summary: 'Create a public cash payment for a customer order' })
+  createCashPayment(@Body() dto: CreateCashPaymentDto) {
+    return this.paymentService.createCashPayment(dto);
   }
 
   @Public()
@@ -49,6 +59,17 @@ export class PaymentController {
   @ApiOperation({ summary: 'Get payments for an order' })
   findByOrder(@Param('orderId') orderId: string) {
     return this.paymentService.findByOrder(orderId);
+  }
+
+  @Get('store/:storeId')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'List payments for a store' })
+  findByStore(
+    @Param('storeId') storeId: string,
+    @Query() query: PaymentListQueryDto,
+  ) {
+    return this.paymentService.findByStore(storeId, query);
   }
 
   @Get(':id')

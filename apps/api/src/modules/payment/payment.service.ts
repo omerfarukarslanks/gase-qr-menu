@@ -3,8 +3,10 @@ import { ConfigService } from '@nestjs/config';
 import { Prisma, prisma } from '@gase/database';
 import {
   CreatePaymentDto,
+  CreateCashPaymentDto,
   Initiate3DSecureDto,
   Complete3DSecureCallbackDto,
+  PaymentListQueryDto,
 } from './dto/payment.dto';
 import { IyzicoProvider, PaymentProvider } from './providers/iyzico.provider';
 import { EventsGateway } from '../../gateway/events.gateway';
@@ -31,12 +33,19 @@ export class PaymentService {
     if (order.status === 'CANCELLED') {
       throw new BadRequestException('Cannot pay for a cancelled order');
     }
+    if (order.isPaid) {
+      throw new BadRequestException('Order is already paid');
+    }
+
+    const payableAmount =
+      order.finalAmount || order.totalAmount - order.discountAmount;
 
     const payment = await prisma.payment.create({
       data: {
         orderId: dto.orderId,
+        tableSessionId: order.tableSessionId,
         storeId: order.storeId,
-        amount: dto.amount,
+        amount: payableAmount,
         currency: dto.currency || 'TRY',
         method: dto.method as any,
         provider: dto.method === 'CASH' ? 'CASH' : 'IYZICO',
@@ -47,14 +56,21 @@ export class PaymentService {
     if (dto.method === 'CASH') {
       await this.markOrderPaid(dto.orderId);
       this.eventsGateway.sendToStore(order.storeId, 'paymentCompleted', {
-        orderId: order.id,
-        paymentId: payment.id,
-        method: 'CASH',
-        amount: dto.amount,
-      });
-    }
+          orderId: order.id,
+          paymentId: payment.id,
+          method: 'CASH',
+          amount: payableAmount,
+        });
+      }
 
     return payment;
+  }
+
+  async createCashPayment(dto: CreateCashPaymentDto) {
+    return this.createPayment({
+      ...dto,
+      method: 'CASH',
+    });
   }
 
   // 3D Secure - Step 1: Initiate
@@ -74,6 +90,7 @@ export class PaymentService {
     const payment = await prisma.payment.create({
       data: {
         orderId: dto.orderId,
+        tableSessionId: order.tableSessionId,
         storeId: order.storeId,
         amount,
         currency: dto.currency || 'TRY',
@@ -207,6 +224,85 @@ export class PaymentService {
       where: { orderId },
       orderBy: { createdAt: 'desc' },
     });
+  }
+
+  async findByStore(storeId: string, query: PaymentListQueryDto) {
+    const where: Prisma.PaymentWhereInput = {
+      storeId,
+    };
+
+    if (query.status) {
+      where.status = query.status as any;
+    }
+
+    if (query.method) {
+      where.method = query.method as any;
+    }
+
+    if (query.search?.trim()) {
+      const search = query.search.trim();
+      const searchOrderNumber = Number(search);
+
+      where.OR = [
+        {
+          tableSession: {
+            tableRef: {
+              name: {
+                contains: search,
+                mode: 'insensitive',
+              },
+            },
+          },
+        },
+      ];
+
+      if (!Number.isNaN(searchOrderNumber)) {
+        where.OR.push({
+          order: {
+            orderNumber: searchOrderNumber,
+          },
+        });
+      }
+    }
+
+    const [items, total] = await Promise.all([
+      prisma.payment.findMany({
+        where,
+        skip: query.skip,
+        take: query.limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          order: {
+            select: {
+              id: true,
+              orderNumber: true,
+              isPaid: true,
+            },
+          },
+          tableSession: {
+            include: {
+              tableRef: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+      prisma.payment.count({ where }),
+    ]);
+
+    return {
+      items,
+      meta: {
+        total,
+        page: query.page,
+        limit: query.limit,
+        totalPages: Math.ceil(total / (query.limit || 20)),
+      },
+    };
   }
 
   async findOne(id: string) {

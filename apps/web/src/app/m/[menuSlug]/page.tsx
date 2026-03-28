@@ -167,7 +167,9 @@ export default function MenuPage({ params }: MenuPageProps) {
     search: "",
     excludeAllergens: [],
   });
-  const totalItems = useCartStore((state) => state.totalItems);
+  const totalItemsCount = useCartStore((state) =>
+    state.items.reduce((sum, item) => sum + item.quantity, 0)
+  );
   const setTable = useCartStore((state) => state.setTable);
 
   useEffect(() => {
@@ -325,9 +327,9 @@ export default function MenuPage({ params }: MenuPageProps) {
           <Link href={`/m/${params.menuSlug}/cart`}>
             <Button variant="outline" size="sm" className="relative">
               <ShoppingCart className="h-4 w-4" />
-              {totalItems() > 0 && (
+              {totalItemsCount > 0 && (
                 <span className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
-                  {totalItems()}
+                  {totalItemsCount}
                 </span>
               )}
             </Button>
@@ -421,11 +423,11 @@ export default function MenuPage({ params }: MenuPageProps) {
       </div>
 
       {/* Floating Cart Button */}
-      {totalItems() > 0 && (
+      {totalItemsCount > 0 && (
         <Link href={`/m/${params.menuSlug}/cart`} className="fixed bottom-4 left-4 right-4 z-20 mx-auto max-w-lg">
           <Button className="w-full h-12 text-base shadow-lg">
             <ShoppingCart className="mr-2 h-5 w-5" />
-            Sepeti Görüntüle ({totalItems()} ürün)
+            Sepeti Görüntüle ({totalItemsCount} ürün)
           </Button>
         </Link>
       )}

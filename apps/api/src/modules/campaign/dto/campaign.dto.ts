@@ -73,6 +73,12 @@ export class CreateCampaignDto {
   @IsString()
   couponCode?: string;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  usageLimit?: number;
+
   @ApiPropertyOptional({ description: 'Product IDs to link to campaign' })
   @IsOptional()
   @IsArray()
@@ -97,6 +103,11 @@ export class UpdateCampaignDto {
   @IsString()
   description?: string;
 
+  @ApiPropertyOptional({ enum: ['PERCENTAGE', 'FIXED_AMOUNT', 'BUY_X_GET_Y', 'HAPPY_HOUR'] })
+  @IsOptional()
+  @IsString()
+  type?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
@@ -107,6 +118,26 @@ export class UpdateCampaignDto {
   @IsNumber()
   @Min(0)
   minOrderAmount?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  buyQuantity?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  getQuantity?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  happyHourStart?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  happyHourEnd?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -127,6 +158,12 @@ export class UpdateCampaignDto {
   @IsOptional()
   @IsString()
   couponCode?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  usageLimit?: number;
 
   @ApiPropertyOptional()
   @IsOptional()

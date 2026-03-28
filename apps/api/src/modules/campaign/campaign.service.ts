@@ -31,6 +31,7 @@ export class CampaignService {
         happyHourStart: dto.happyHourStart,
         happyHourEnd: dto.happyHourEnd,
         couponCode: dto.couponCode,
+        usageLimit: dto.usageLimit,
         startDate: new Date(dto.startDate),
         endDate: new Date(dto.endDate),
       },

@@ -1,5 +1,6 @@
 import { IsString, IsOptional, IsNumber, Min } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { PaginationQueryDto } from '../../../common/dto/pagination.dto';
 
 export class CreatePaymentDto {
   @ApiProperty()
@@ -14,6 +15,22 @@ export class CreatePaymentDto {
   @ApiProperty({ enum: ['CREDIT_CARD', 'CASH', 'ONLINE'] })
   @IsString()
   method: string;
+
+  @ApiPropertyOptional({ default: 'TRY' })
+  @IsOptional()
+  @IsString()
+  currency?: string;
+}
+
+export class CreateCashPaymentDto {
+  @ApiProperty()
+  @IsString()
+  orderId: string;
+
+  @ApiProperty({ example: 150.0 })
+  @IsNumber()
+  @Min(0)
+  amount: number;
 
   @ApiPropertyOptional({ default: 'TRY' })
   @IsOptional()
@@ -115,4 +132,16 @@ export class Complete3DSecureCallbackDto {
   @IsOptional()
   @IsString()
   conversationId?: string;
+}
+
+export class PaymentListQueryDto extends PaginationQueryDto {
+  @ApiPropertyOptional({ enum: ['PENDING', 'COMPLETED', 'FAILED', 'REFUNDED'] })
+  @IsOptional()
+  @IsString()
+  status?: string;
+
+  @ApiPropertyOptional({ enum: ['CREDIT_CARD', 'CASH', 'ONLINE'] })
+  @IsOptional()
+  @IsString()
+  method?: string;
 }
