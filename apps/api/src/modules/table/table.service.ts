@@ -5,6 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { TableStatus, UserRole, prisma } from '@gase/database';
+import { EventsGateway } from '../../gateway/events.gateway';
 import { CreateTableDto, UpdateTableDto } from './dto/table.dto';
 
 type CurrentUser = {
@@ -16,6 +17,8 @@ type CurrentUser = {
 
 @Injectable()
 export class TableService {
+  constructor(private readonly eventsGateway: EventsGateway) {}
+
   async create(dto: CreateTableDto) {
     return prisma.restaurantTable.create({
       data: {
@@ -141,6 +144,14 @@ export class TableService {
       },
     });
 
+    this.eventsGateway.sendToStore(table.storeId, 'tableSessionOpened', {
+      tableId: table.id,
+      tableName: table.name,
+      sessionId: session.id,
+      customerName: session.customerName,
+      openedAt: session.openedAt,
+    });
+
     return session;
   }
 
@@ -178,6 +189,24 @@ export class TableService {
         currentSessionId: null,
       },
     });
+
+    const table = await prisma.restaurantTable.findUnique({
+      where: { id: session.tableId },
+      select: {
+        id: true,
+        name: true,
+        storeId: true,
+      },
+    });
+
+    if (table) {
+      this.eventsGateway.sendToStore(table.storeId, 'tableSessionClosed', {
+        tableId: table.id,
+        tableName: table.name,
+        sessionId,
+        closedAt: new Date().toISOString(),
+      });
+    }
 
     return { message: 'Session closed' };
   }
