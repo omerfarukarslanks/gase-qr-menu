@@ -18,136 +18,11 @@ import { cn } from "@/lib/utils";
 import {
   usePublicMenu,
   PublicProduct,
-  PublicCategory,
 } from "@/hooks/use-public-menu";
 
 interface MenuPageProps {
   params: { menuSlug: string };
 }
-
-const mockCategories: PublicCategory[] = [
-  {
-    id: "mock-1",
-    name: "Başlangıçlar",
-    order: 1,
-    products: [
-      {
-        id: "mock-p1",
-        name: "Mercimek Çorbası",
-        description:
-          "Geleneksel kırmızı mercimek çorbası, limon ve ekmek ile servis edilir.",
-        price: 85,
-        images: [],
-        allergens: [{ id: "a1", code: "gluten", name: "Gluten" }],
-        ingredients: [{ id: "i1", name: "Mercimek", isRemovable: false }],
-        categoryId: "mock-1",
-        isAvailable: true,
-      },
-      {
-        id: "mock-p2",
-        name: "Sigara Böreği",
-        description: "Peynirli el açması sigara böreği (4 adet).",
-        price: 110,
-        images: [],
-        allergens: [
-          { id: "a1", code: "gluten", name: "Gluten" },
-          { id: "a2", code: "milk", name: "Süt" },
-        ],
-        ingredients: [],
-        categoryId: "mock-1",
-        isAvailable: true,
-      },
-    ],
-  },
-  {
-    id: "mock-2",
-    name: "Ana Yemekler",
-    order: 2,
-    products: [
-      {
-        id: "mock-p3",
-        name: "Izgara Köfte",
-        description: "Dana kıyma köfte, pilav ve ızgara sebze ile.",
-        price: 240,
-        images: [],
-        allergens: [{ id: "a1", code: "gluten", name: "Gluten" }],
-        ingredients: [],
-        categoryId: "mock-2",
-        isAvailable: true,
-      },
-      {
-        id: "mock-p4",
-        name: "Tavuk Şiş",
-        description: "Marine edilmiş tavuk şiş, bulgur pilavı ve salata ile.",
-        price: 210,
-        images: [],
-        allergens: [],
-        ingredients: [],
-        categoryId: "mock-2",
-        isAvailable: true,
-      },
-    ],
-  },
-  {
-    id: "mock-3",
-    name: "Tatlılar",
-    order: 3,
-    products: [
-      {
-        id: "mock-p5",
-        name: "Künefe",
-        description: "Sıcak servis edilen peynirli künefe, dondurma ile.",
-        price: 150,
-        images: [],
-        allergens: [
-          { id: "a1", code: "gluten", name: "Gluten" },
-          { id: "a2", code: "milk", name: "Süt" },
-        ],
-        ingredients: [],
-        categoryId: "mock-3",
-        isAvailable: true,
-      },
-    ],
-  },
-  {
-    id: "mock-4",
-    name: "İçecekler",
-    order: 4,
-    products: [
-      {
-        id: "mock-p6",
-        name: "Ayran",
-        description: "Taze yayık ayranı.",
-        price: 35,
-        images: [],
-        allergens: [{ id: "a2", code: "milk", name: "Süt" }],
-        ingredients: [],
-        categoryId: "mock-4",
-        isAvailable: true,
-      },
-      {
-        id: "mock-p7",
-        name: "Türk Çayı",
-        description: "Geleneksel demlenmiş Türk çayı.",
-        price: 25,
-        images: [],
-        allergens: [],
-        ingredients: [],
-        categoryId: "mock-4",
-        isAvailable: true,
-      },
-    ],
-  },
-];
-
-const mockMenuData: import("@/hooks/use-public-menu").PublicMenuData = {
-  id: "mock-menu",
-  name: "Ana Menü",
-  slug: "demo",
-  store: { id: "mock-store", name: "GASE Demo Restoran" },
-  categories: mockCategories,
-  allergens: [],
-};
 
 function ProductCardSkeleton() {
   return (
@@ -194,7 +69,7 @@ export default function MenuPage({ params }: MenuPageProps) {
     setTableFromQr(search.get("table") ?? "");
   }, []);
 
-  const { data: menuData, isLoading, isError } = usePublicMenu(
+  const { data: menuData, isLoading, isError, error } = usePublicMenu(
     params.menuSlug,
     tableFromQr ? { table: tableFromQr } : undefined
   );
@@ -216,12 +91,9 @@ export default function MenuPage({ params }: MenuPageProps) {
     setTable,
   ]);
 
-  const resolvedMenuData =
-    menuData ?? (process.env.NODE_ENV === "development" ? mockMenuData : undefined);
-
-  const categories = resolvedMenuData?.categories ?? [];
-  const storeName = resolvedMenuData?.store?.name ?? "Menü";
-  const storeLogo = resolvedMenuData?.store?.logo;
+  const categories = menuData?.categories ?? [];
+  const storeName = menuData?.store?.name ?? "Menu";
+  const storeLogo = menuData?.store?.logo;
 
   const allProducts = useMemo(() => {
     const products: (PublicProduct & { categoryName?: string })[] = [];
@@ -360,7 +232,7 @@ export default function MenuPage({ params }: MenuPageProps) {
     );
   }
 
-  if (isError && !resolvedMenuData) {
+  if (isError) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <div className="w-full max-w-lg rounded-[2rem] border border-border bg-card p-8 text-center shadow-[var(--card-shadow)]">
@@ -371,8 +243,27 @@ export default function MenuPage({ params }: MenuPageProps) {
             Menü şu anda yüklenemedi
           </h2>
           <p className="mt-3 text-sm leading-6 text-muted-foreground">
-            Bu QR kod ile ilişkili menüye erişemedik. İnternet bağlantısını veya
-            restoran ekibinden paylaşılan bağlantıyı kontrol edin.
+            {error instanceof Error
+              ? error.message
+              : "Bu QR kod ile ilişkili menüye erişemedik. İnternet bağlantısını veya restoran ekibinden paylaşılan bağlantıyı kontrol edin."}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!menuData) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="w-full max-w-lg rounded-[2rem] border border-border bg-card p-8 text-center shadow-[var(--card-shadow)]">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-muted text-primary">
+            <AlertCircle className="h-6 w-6" />
+          </div>
+          <h2 className="mt-5 font-display text-[28px] leading-[34px] text-foreground">
+            Menü bulunamadı
+          </h2>
+          <p className="mt-3 text-sm leading-6 text-muted-foreground">
+            Bu bağlantı için yayınlanmış bir menü bulunmuyor olabilir.
           </p>
         </div>
       </div>

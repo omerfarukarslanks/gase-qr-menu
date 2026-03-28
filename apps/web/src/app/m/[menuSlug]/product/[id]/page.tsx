@@ -8,7 +8,6 @@ import {
   ShoppingCart,
   ChevronLeft,
   ChevronRight,
-  Loader2,
   AlertCircle,
   ImageIcon,
 } from "lucide-react";
@@ -17,36 +16,11 @@ import { Button } from "@/components/ui/button";
 import { ModelViewer } from "@/components/menu/model-viewer";
 import { useCartStore } from "@/lib/store";
 import { formatCurrency } from "@/lib/utils";
-import { usePublicProduct, PublicProduct } from "@/hooks/use-public-menu";
+import { usePublicProduct } from "@/hooks/use-public-menu";
 
 interface ProductDetailPageProps {
   params: { menuSlug: string; id: string };
 }
-
-// Mock fallback product
-const mockProduct: PublicProduct = {
-  id: "mock-p1",
-  name: "Mercimek Çorbası",
-  description:
-    "Geleneksel kırmızı mercimek çorbası, taze sıkılmış limon ve ev yapımı ekmek ile servis edilir. Hafif baharatlı, vegan dostu bir başlangıç.",
-  price: 85,
-  images: [],
-  modelUrl: null,
-  allergens: [
-    { id: "a1", code: "gluten", name: "Gluten" },
-    { id: "a2", code: "celery", name: "Kereviz" },
-  ],
-  ingredients: [
-    { id: "i1", name: "Kırmızı Mercimek", isRemovable: false },
-    { id: "i2", name: "Soğan", isRemovable: true },
-    { id: "i3", name: "Havuç", isRemovable: true },
-    { id: "i4", name: "Limon", isRemovable: true },
-    { id: "i5", name: "Nane", isRemovable: true },
-  ],
-  categoryId: "mock-1",
-  isAvailable: true,
-  nutritionInfo: { calories: 180, protein: 12, carbs: 28, fat: 3 },
-};
 
 // ---- Image Gallery ----
 function ImageGallery({ images, name }: { images: { url: string }[]; name: string }) {
@@ -139,7 +113,7 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
   const [removedIngredients, setRemovedIngredients] = useState<string[]>([]);
   const addItem = useCartStore((state) => state.addItem);
 
-  const { data: product, isLoading, isError } = usePublicProduct(params.id);
+  const { data: product, isLoading, isError, error } = usePublicProduct(params.id);
 
   const toggleIngredient = (id: string) => {
     setRemovedIngredients((prev) =>
@@ -195,13 +169,30 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
   }
 
   // Error state - no product
-  if (isError || !product) {
+  if (isError) {
     return (
       <div className="theme-app-gradient flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
         <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
-        <h2 className="text-xl font-semibold mb-2">Ürün Bulunamadı</h2>
+        <h2 className="text-xl font-semibold mb-2">Ürün yüklenemedi</h2>
         <p className="text-sm text-muted-foreground mb-4">
-          Bu ürün artık mevcut olmayabilir.
+          {error instanceof Error
+            ? error.message
+            : "Bu ürün bilgisine şu anda erişilemiyor."}
+        </p>
+        <Link href={`/m/${params.menuSlug}`}>
+          <Button variant="outline">Menüye Dön</Button>
+        </Link>
+      </div>
+    );
+  }
+
+  if (!product) {
+    return (
+      <div className="theme-app-gradient flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
+        <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
+        <h2 className="text-xl font-semibold mb-2">Ürün bulunamadı</h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Bu ürün artık menüde olmayabilir veya bağlantı geçersiz olabilir.
         </p>
         <Link href={`/m/${params.menuSlug}`}>
           <Button variant="outline">Menüye Dön</Button>
