@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Copy, ExternalLink, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Pencil, Plus, Trash2, X } from "lucide-react";
+import { MenuQrCard } from "@/components/admin/menu-qr-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -31,7 +32,6 @@ export default function MenusPage() {
 
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<MenuFormState>(emptyForm);
-  const [copiedToken, setCopiedToken] = useState<string | null>(null);
 
   const resetForm = () => {
     setForm(emptyForm);
@@ -56,13 +56,6 @@ export default function MenusPage() {
         onSuccess: resetForm,
       }
     );
-  };
-
-  const copyUrl = async (token: string) => {
-    const url = `${window.location.origin}/m/${token}`;
-    await navigator.clipboard.writeText(url);
-    setCopiedToken(token);
-    window.setTimeout(() => setCopiedToken(null), 1500);
   };
 
   return (
@@ -177,7 +170,7 @@ export default function MenusPage() {
               Henuz menu bulunmuyor. Ilk menuyu olusturarak baslayabilirsiniz.
             </p>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 xl:grid-cols-2">
               {menus.map((menu) => (
                 <div key={menu.id} className="rounded-xl border p-4">
                   <div className="flex items-start justify-between gap-3">
@@ -233,30 +226,12 @@ export default function MenusPage() {
                     </div>
                   </div>
 
-                  <div className="mt-4 rounded-md bg-muted/50 p-3 text-sm">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="truncate text-muted-foreground">
-                        /m/{menu.qrToken}
-                      </span>
-                      <div className="flex gap-1">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => copyUrl(menu.qrToken)}
-                        >
-                          <Copy className="h-4 w-4" />
-                        </Button>
-                        <Link href={`/m/${menu.qrToken}`} target="_blank">
-                          <Button variant="ghost" size="icon">
-                            <ExternalLink className="h-4 w-4" />
-                          </Button>
-                        </Link>
-                      </div>
-                    </div>
-                    {copiedToken === menu.qrToken && (
-                      <p className="mt-2 text-xs text-green-600">URL kopyalandi.</p>
-                    )}
+                  <div className="mt-4">
+                    <MenuQrCard
+                      qrToken={menu.qrToken}
+                      menuName={menu.name}
+                      size={156}
+                    />
                   </div>
                 </div>
               ))}

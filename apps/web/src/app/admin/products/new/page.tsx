@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Loader2, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, ImageIcon, Loader2, Trash2, Upload } from "lucide-react";
+import { ModelViewer } from "@/components/menu/model-viewer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -16,6 +17,11 @@ import {
   useProduct,
   useUpdateProduct,
 } from "@/hooks/use-products";
+import {
+  useDeleteUploadedFile,
+  useUploadFile,
+  useUploadImage,
+} from "@/hooks/use-upload";
 import { useUnits } from "@/hooks/use-units";
 
 interface IngredientRow {
@@ -37,7 +43,6 @@ interface ProductFormState {
   preparationTime: string;
   model3dUrl: string;
   coverImage: string;
-  images: string[];
   allergenIds: string[];
   ingredients: IngredientRow[];
   isActive: boolean;
@@ -57,11 +62,12 @@ const emptyForm: ProductFormState = {
   preparationTime: "",
   model3dUrl: "",
   coverImage: "",
-  images: [""],
   allergenIds: [],
   ingredients: [],
   isActive: true,
 };
+
+const BUCKET_PATH_MARKER = "/gase-uploads/";
 
 function slugify(value: string) {
   return value
@@ -70,6 +76,88 @@ function slugify(value: string) {
     .replace(/[^a-z0-9\s-]/g, "")
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-");
+}
+
+function getErrorMessage(error: unknown) {
+  if (!error) {
+    return null;
+  }
+
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "response" in error &&
+    typeof (error as { response?: { data?: { message?: string | string[] } } }).response?.data
+      ?.message !== "undefined"
+  ) {
+    const message = (error as { response?: { data?: { message?: string | string[] } } })
+      .response?.data?.message;
+    return Array.isArray(message) ? message.join(", ") : message;
+  }
+
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return "Medya islemi tamamlanamadi.";
+}
+
+function extractManagedUploadKey(fileUrl: string) {
+  const trimmedUrl = fileUrl.trim();
+
+  if (!trimmedUrl) {
+    return null;
+  }
+
+  try {
+    const parsedUrl = new URL(trimmedUrl);
+    const markerIndex = parsedUrl.pathname.indexOf(BUCKET_PATH_MARKER);
+
+    if (markerIndex === -1) {
+      return null;
+    }
+
+    return decodeURIComponent(
+      parsedUrl.pathname.slice(markerIndex + BUCKET_PATH_MARKER.length)
+    );
+  } catch {
+    if (!trimmedUrl.startsWith(BUCKET_PATH_MARKER)) {
+      return null;
+    }
+
+    return decodeURIComponent(trimmedUrl.slice(BUCKET_PATH_MARKER.length));
+  }
+}
+
+function getManagedAssetKeys(fileUrl: string, includeThumbnail: boolean) {
+  const key = extractManagedUploadKey(fileUrl);
+
+  if (!key) {
+    return [];
+  }
+
+  const keys = new Set([key]);
+
+  if (includeThumbnail && key.endsWith(".webp") && !key.endsWith("_thumb.webp")) {
+    keys.add(key.replace(/\.webp$/, "_thumb.webp"));
+  }
+
+  return Array.from(keys);
+}
+
+function getFileName(fileUrl: string) {
+  const trimmedUrl = fileUrl.trim();
+
+  if (!trimmedUrl) {
+    return "";
+  }
+
+  try {
+    const parsedUrl = new URL(trimmedUrl);
+    return decodeURIComponent(parsedUrl.pathname.split("/").pop() || trimmedUrl);
+  } catch {
+    return decodeURIComponent(trimmedUrl.split("/").pop() || trimmedUrl);
+  }
 }
 
 export default function ProductFormPage() {
@@ -88,9 +176,13 @@ export default function ProductFormPage() {
   const { data: product, isLoading: productLoading } = useProduct(editId ?? "");
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
+  const uploadCoverImage = useUploadImage();
+  const uploadModel = useUploadFile();
+  const deleteUploadedFile = useDeleteUploadedFile();
 
   const [form, setForm] = useState<ProductFormState>(emptyForm);
   const [slugTouched, setSlugTouched] = useState(false);
+  const [mediaError, setMediaError] = useState<string | null>(null);
 
   const ingredients = ingredientsData?.data ?? [];
 
@@ -130,8 +222,6 @@ export default function ProductFormPage() {
       preparationTime: product.preparationTime ? String(product.preparationTime) : "",
       model3dUrl: product.model3dUrl ?? "",
       coverImage: product.coverImage ?? "",
-      images:
-        product.images && product.images.length > 0 ? product.images : [product.coverImage ?? ""],
       allergenIds: product.allergens?.map((allergen) => allergen.id) ?? [],
       ingredients:
         product.ingredients?.map((ingredient) => ({
@@ -151,9 +241,17 @@ export default function ProductFormPage() {
     [form.ingredients, ingredients]
   );
 
-  const isSubmitting = createProduct.isPending || updateProduct.isPending;
-
-  const normalizedImages = form.images.map((value) => value.trim()).filter(Boolean);
+  const uploadErrorMessage =
+    mediaError ||
+    getErrorMessage(uploadCoverImage.error) ||
+    getErrorMessage(uploadModel.error) ||
+    getErrorMessage(deleteUploadedFile.error);
+  const isMediaUploading =
+    uploadCoverImage.isPending ||
+    uploadModel.isPending ||
+    deleteUploadedFile.isPending;
+  const isSubmitting =
+    createProduct.isPending || updateProduct.isPending || isMediaUploading;
   const canSubmit =
     Boolean(activeStoreId) &&
     Boolean(form.nameTr.trim()) &&
@@ -184,8 +282,7 @@ export default function ProductFormPage() {
         : []),
     ];
 
-    const payload = {
-      storeId: activeStoreId,
+    const basePayload = {
       name: form.nameTr.trim(),
       description: form.descriptionTr.trim() || undefined,
       slug: form.slug.trim() || undefined,
@@ -197,8 +294,8 @@ export default function ProductFormPage() {
       preparationTime: form.preparationTime
         ? Number(form.preparationTime)
         : undefined,
-      images: normalizedImages,
-      coverImage: form.coverImage.trim() || normalizedImages[0] || undefined,
+      images: [],
+      coverImage: form.coverImage.trim() || undefined,
       model3dUrl: form.model3dUrl.trim() || undefined,
       allergenIds: form.allergenIds,
       ingredients: form.ingredients
@@ -214,7 +311,7 @@ export default function ProductFormPage() {
       updateProduct.mutate(
         {
           id: editId,
-          ...payload,
+          ...basePayload,
           isActive: form.isActive,
         },
         {
@@ -226,11 +323,122 @@ export default function ProductFormPage() {
       return;
     }
 
-    createProduct.mutate(payload, {
-      onSuccess: () => {
-        router.push("/admin/products");
+    createProduct.mutate(
+      {
+        storeId: activeStoreId,
+        ...basePayload,
       },
-    });
+      {
+        onSuccess: () => {
+          router.push("/admin/products");
+        },
+      }
+    );
+  };
+
+  const handleCoverImageUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const selectedFile = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!selectedFile) {
+      return;
+    }
+
+    setMediaError(null);
+
+    uploadCoverImage.mutate(
+      {
+        file: selectedFile,
+        folder: "products",
+      },
+      {
+        onSuccess: (uploadedFile) => {
+          const coverUrl = uploadedFile?.url ?? "";
+
+          setForm((current) => {
+            return {
+              ...current,
+              coverImage: coverUrl,
+            };
+          });
+        },
+      }
+    );
+  };
+
+  const handleModelUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const selectedFile = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!selectedFile) {
+      return;
+    }
+
+    setMediaError(null);
+
+    uploadModel.mutate(
+      {
+        file: selectedFile,
+        folder: "model3d",
+      },
+      {
+        onSuccess: (uploadedFile) => {
+          setForm((current) => ({
+            ...current,
+            model3dUrl: uploadedFile.url,
+          }));
+        },
+      }
+    );
+  };
+
+  const deleteManagedAsset = async (
+    fileUrl: string,
+    options?: { includeThumbnail?: boolean }
+  ) => {
+    const keys = getManagedAssetKeys(fileUrl, options?.includeThumbnail ?? false);
+
+    for (const key of keys) {
+      await deleteUploadedFile.mutateAsync({ key });
+    }
+  };
+
+  const handleRemoveModel = async () => {
+    const currentUrl = form.model3dUrl.trim();
+
+    if (!currentUrl) {
+      return;
+    }
+
+    setMediaError(null);
+
+    try {
+      await deleteManagedAsset(currentUrl);
+      setForm((current) => ({ ...current, model3dUrl: "" }));
+    } catch (error) {
+      setMediaError(getErrorMessage(error) ?? "Medya islemi tamamlanamadi.");
+    }
+  };
+
+  const handleRemoveCoverImage = async () => {
+    const currentUrl = form.coverImage.trim();
+
+    if (!currentUrl) {
+      return;
+    }
+
+    setMediaError(null);
+
+    try {
+      await deleteManagedAsset(currentUrl, { includeThumbnail: true });
+      setForm((current) => ({ ...current, coverImage: "" }));
+    } catch (error) {
+      setMediaError(getErrorMessage(error) ?? "Medya islemi tamamlanamadi.");
+    }
   };
 
   return (
@@ -439,8 +647,21 @@ export default function ProductFormPage() {
                   <option value="EUR">EUR</option>
                 </select>
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">3D model URL</label>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <label className="text-sm font-medium">3D model</label>
+                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted">
+                    <Upload className="h-4 w-4" />
+                    {uploadModel.isPending ? "Yukleniyor..." : "GLB yukle"}
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept=".glb,.gltf,model/gltf-binary,model/gltf+json"
+                      onChange={handleModelUpload}
+                      disabled={isMediaUploading}
+                    />
+                  </label>
+                </div>
                 <Input
                   value={form.model3dUrl}
                   onChange={(event) =>
@@ -451,9 +672,52 @@ export default function ProductFormPage() {
                   }
                   placeholder="https://.../model.glb"
                 />
+                {form.model3dUrl && (
+                  <div className="overflow-hidden rounded-lg border bg-card">
+                    <div className="h-52 bg-gradient-to-br from-muted via-muted/60 to-background">
+                      <ModelViewer
+                        src={form.model3dUrl}
+                        alt={form.nameTr || "Urun 3D modeli"}
+                        className="h-full w-full"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between gap-2 p-3">
+                      <a
+                        className="truncate text-xs text-primary underline-offset-4 hover:underline"
+                        href={form.model3dUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {getFileName(form.model3dUrl)}
+                      </a>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleRemoveModel}
+                        disabled={isMediaUploading}
+                      >
+                        Kaldir
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
-              <div className="space-y-2 md:col-span-2">
-                <label className="text-sm font-medium">Kapak gorseli</label>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <label className="text-sm font-medium">Kapak gorseli</label>
+                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted">
+                    <Upload className="h-4 w-4" />
+                    {uploadCoverImage.isPending ? "Yukleniyor..." : "Kapak yukle"}
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      onChange={handleCoverImageUpload}
+                      disabled={isMediaUploading}
+                    />
+                  </label>
+                </div>
                 <Input
                   value={form.coverImage}
                   onChange={(event) =>
@@ -464,60 +728,49 @@ export default function ProductFormPage() {
                   }
                   placeholder="https://.../cover.jpg"
                 />
-              </div>
-              <div className="space-y-3 md:col-span-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium">Ek gorseller</label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      setForm((current) => ({
-                        ...current,
-                        images: [...current.images, ""],
-                      }))
-                    }
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Gorsel ekle
-                  </Button>
-                </div>
-                <div className="space-y-2">
-                  {form.images.map((image, index) => (
-                    <div key={`${index}-${image}`} className="flex gap-2">
-                      <Input
-                        value={image}
-                        onChange={(event) =>
-                          setForm((current) => ({
-                            ...current,
-                            images: current.images.map((currentImage, currentIndex) =>
-                              currentIndex === index ? event.target.value : currentImage
-                            ),
-                          }))
-                        }
-                        placeholder="https://.../image.jpg"
+                {form.coverImage.trim() && (
+                  <div className="overflow-hidden rounded-lg border bg-card">
+                    <div className="mx-auto aspect-[4/3] max-h-52 max-w-sm overflow-hidden rounded-b-none bg-muted">
+                      <img
+                        src={form.coverImage}
+                        alt="Kapak gorseli"
+                        className="h-full w-full object-cover"
                       />
+                    </div>
+                    <div className="flex items-center justify-between gap-2 p-3">
+                      <div className="truncate text-xs text-muted-foreground">
+                        {getFileName(form.coverImage)}
+                      </div>
                       <Button
                         type="button"
                         variant="ghost"
-                        size="icon"
-                        onClick={() =>
-                          setForm((current) => ({
-                            ...current,
-                            images:
-                              current.images.length === 1
-                                ? [""]
-                                : current.images.filter((_, currentIndex) => currentIndex !== index),
-                          }))
-                        }
+                        size="sm"
+                        onClick={handleRemoveCoverImage}
+                        disabled={isMediaUploading}
                       >
-                        <Trash2 className="h-4 w-4 text-destructive" />
+                        Kaldir
                       </Button>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                )}
               </div>
+              {uploadErrorMessage && (
+                <div className="md:col-span-2 rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                  {uploadErrorMessage}
+                </div>
+              )}
+              <div className="md:col-span-2 text-xs text-muted-foreground">
+                Bu ekranda su an sadece kapak gorseli ve 3D model yonetiliyor.
+                50MB'a kadar tek bir 3D model yukleyebilirsiniz.
+              </div>
+              {!form.coverImage.trim() && !form.model3dUrl.trim() && (
+                <div className="md:col-span-2 rounded-lg border border-dashed bg-muted/20 px-4 py-8 text-center">
+                  <ImageIcon className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">
+                    Kapak gorseli veya 3D model yuklediginizde burada kompakt onizlemeler gosterilecek.
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
 

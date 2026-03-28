@@ -1,8 +1,8 @@
 import {
+  BadRequestException,
   Controller,
   Post,
   Delete,
-  Param,
   Query,
   UseGuards,
   UseInterceptors,
@@ -48,6 +48,10 @@ export class UploadController {
     @UploadedFiles() files: Express.Multer.File[],
     @Query('folder') folder?: string,
   ) {
+    if (!files?.length) {
+      throw new BadRequestException('No files provided');
+    }
+
     const results = await Promise.all(
       files.map((file) => this.uploadService.uploadImage(file, folder || 'general')),
     );
@@ -73,9 +77,13 @@ export class UploadController {
     return this.uploadService.uploadFile(file, folder || 'model3d');
   }
 
-  @Delete(':key')
+  @Delete()
   @ApiOperation({ summary: 'Delete an uploaded file' })
-  deleteFile(@Param('key') key: string) {
+  deleteFile(@Query('key') key?: string) {
+    if (!key?.trim()) {
+      throw new BadRequestException('File key is required');
+    }
+
     return this.uploadService.deleteFile(decodeURIComponent(key));
   }
 }

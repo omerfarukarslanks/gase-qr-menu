@@ -5,17 +5,16 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
-  Copy,
-  ExternalLink,
   Loader2,
   Save,
 } from "lucide-react";
+import { MenuQrCard } from "@/components/admin/menu-qr-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useCategories } from "@/hooks/use-categories";
 import { useCurrentStore } from "@/hooks/use-current-store";
-import { useMenu, useMenuQrCode, useUpdateMenu } from "@/hooks/use-menus";
+import { useMenu, useUpdateMenu } from "@/hooks/use-menus";
 
 interface MenuDetailPageProps {
   params: { id: string };
@@ -39,7 +38,6 @@ export default function MenuDetailPage({ params }: MenuDetailPageProps) {
   const router = useRouter();
   const { activeStoreId } = useCurrentStore();
   const { data: menu, isLoading, isError } = useMenu(params.id);
-  const { data: qrData, isLoading: qrLoading } = useMenuQrCode(params.id);
   const { data: categories = [] } = useCategories(activeStoreId ?? "");
   const updateMenu = useUpdateMenu();
 
@@ -62,12 +60,6 @@ export default function MenuDetailPage({ params }: MenuDetailPageProps) {
     () => categories.filter((category) => form.categoryIds.includes(category.id)),
     [categories, form.categoryIds]
   );
-
-  const publicUrl =
-    qrData?.url ??
-    (menu
-      ? `${typeof window !== "undefined" ? window.location.origin : ""}/m/${menu.qrToken}`
-      : "");
 
   const handleSave = (event: React.FormEvent) => {
     event.preventDefault();
@@ -210,45 +202,8 @@ export default function MenuDetailPage({ params }: MenuDetailPageProps) {
           <CardHeader>
             <CardTitle>QR ve onizleme</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-center rounded-xl border bg-white p-4">
-              {qrLoading ? (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  QR olusturuluyor...
-                </div>
-              ) : qrData?.qrCode ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={qrData.qrCode}
-                  alt={`${menu.name} QR`}
-                  className="h-56 w-56 object-contain"
-                />
-              ) : (
-                <div className="text-sm text-muted-foreground">QR verisi yok.</div>
-              )}
-            </div>
-
-            <div className="rounded-md bg-muted/50 p-3 text-sm">
-              <div className="truncate font-mono">{publicUrl}</div>
-            </div>
-
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => navigator.clipboard.writeText(publicUrl)}
-              >
-                <Copy className="mr-2 h-4 w-4" />
-                URL kopyala
-              </Button>
-              <Link href={`/m/${menu.qrToken}`} target="_blank">
-                <Button type="button" variant="outline">
-                  <ExternalLink className="mr-2 h-4 w-4" />
-                  Menuyu ac
-                </Button>
-              </Link>
-            </div>
+          <CardContent>
+            <MenuQrCard qrToken={menu.qrToken} menuName={menu.name} size={224} />
           </CardContent>
         </Card>
       </div>
