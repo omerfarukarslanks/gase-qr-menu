@@ -10,6 +10,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { PaginationQueryDto } from '../../../common/dto/pagination.dto';
 
 export class ProductTranslationDto {
   @ApiProperty()
@@ -243,4 +244,11 @@ export class UpdateProductDto {
   @ValidateNested({ each: true })
   @Type(() => ProductTranslationDto)
   translations?: ProductTranslationDto[];
+}
+
+export class ProductListQueryDto extends PaginationQueryDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  categoryId?: string;
 }

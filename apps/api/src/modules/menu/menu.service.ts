@@ -60,6 +60,17 @@ export class MenuService {
 
   private formatCategory(category: any, lang?: string, fallbackLanguage = 'tr') {
     const translation = this.pickTranslation(category.translations, lang, fallbackLanguage);
+    const seenProductIds = new Set<string>();
+    const products = category.products
+      .map((product: any) => this.formatProduct(product, lang, fallbackLanguage))
+      .filter((product: any) => {
+        if (seenProductIds.has(product.id)) {
+          return false;
+        }
+
+        seenProductIds.add(product.id);
+        return true;
+      });
 
     return {
       id: category.id,
@@ -67,10 +78,32 @@ export class MenuService {
       description: translation?.description ?? null,
       icon: undefined,
       order: category.sortOrder,
-      products: category.products.map((product: any) =>
-        this.formatProduct(product, lang, fallbackLanguage),
-      ),
+      products,
     };
+  }
+
+  private flattenUniqueCategories(categories: any[], lang?: string, fallbackLanguage = 'tr') {
+    const visited = new Set<string>();
+    const flattened: ReturnType<MenuService['formatCategory']>[] = [];
+
+    const visit = (category: any) => {
+      if (!category || visited.has(category.id)) {
+        return;
+      }
+
+      visited.add(category.id);
+      flattened.push(this.formatCategory(category, lang, fallbackLanguage));
+
+      const sortedChildren = [...(category.children ?? [])].sort(
+        (left, right) => left.sortOrder - right.sortOrder,
+      );
+
+      sortedChildren.forEach((child) => visit(child));
+    };
+
+    categories.forEach((category) => visit(category));
+
+    return flattened;
   }
 
   private applyProductFilters(products: any[], filters: PublicMenuFiltersDto) {
@@ -319,14 +352,17 @@ export class MenuService {
     const fallbackLanguage = menu.store.defaultLanguage || 'tr';
     const lang = filters.lang || fallbackLanguage;
 
-    const flatCategories = menu.menuCategories.flatMap((menuCategory) => {
-      const rootCategory = this.formatCategory(menuCategory.category, lang, fallbackLanguage);
-      const childCategories = menuCategory.category.children.map((child: any) =>
-        this.formatCategory(child, lang, fallbackLanguage),
-      );
+    const selectedCategories = menu.menuCategories.map((menuCategory) => menuCategory.category);
+    const selectedCategoryIds = new Set(selectedCategories.map((category) => category.id));
+    const rootCategories = selectedCategories.filter(
+      (category) => !category.parentId || !selectedCategoryIds.has(category.parentId),
+    );
 
-      return [rootCategory, ...childCategories];
-    });
+    const flatCategories = this.flattenUniqueCategories(
+      rootCategories,
+      lang,
+      fallbackLanguage,
+    );
 
     const filteredCategories = flatCategories
       .map((category) => ({

@@ -11,8 +11,11 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ProductService } from './product.service';
-import { CreateProductDto, UpdateProductDto } from './dto/product.dto';
-import { PaginationQueryDto } from '../../common/dto/pagination.dto';
+import {
+  CreateProductDto,
+  ProductListQueryDto,
+  UpdateProductDto,
+} from './dto/product.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { Public } from '../../common/decorators/public.decorator';
 
@@ -34,7 +37,7 @@ export class ProductController {
   @ApiOperation({ summary: 'List products for a store (public)' })
   findAll(
     @Param('storeId') storeId: string,
-    @Query() query: PaginationQueryDto & { categoryId?: string },
+    @Query() query: ProductListQueryDto,
   ) {
     return this.productService.findAll(storeId, query);
   }

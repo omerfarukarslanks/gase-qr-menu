@@ -5,8 +5,11 @@ import {
 } from '@nestjs/common';
 import { prisma } from '@gase/database';
 import slugify from 'slugify';
-import { CreateProductDto, UpdateProductDto } from './dto/product.dto';
-import { PaginationQueryDto } from '../../common/dto/pagination.dto';
+import {
+  CreateProductDto,
+  ProductListQueryDto,
+  UpdateProductDto,
+} from './dto/product.dto';
 import { mapTranslationsWithLanguageIds } from '../../common/utils/language.util';
 
 @Injectable()
@@ -237,7 +240,7 @@ export class ProductService {
 
   async findAll(
     storeId: string,
-    query: PaginationQueryDto & { categoryId?: string },
+    query: ProductListQueryDto,
   ) {
     const where: any = { storeId };
 
