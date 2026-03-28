@@ -226,12 +226,16 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
 
       {/* 3D Model / Image Gallery */}
       {product.modelUrl ? (
-        <div className="aspect-square w-full bg-muted">
-          <ModelViewer
-            src={product.modelUrl}
-            alt={product.name}
-            className="h-full w-full"
-          />
+        <div className="mx-auto w-full max-w-3xl px-4 pt-4">
+          <div className="overflow-hidden rounded-[1.75rem] border border-border/60 bg-gradient-to-b from-muted via-muted/70 to-background shadow-sm">
+            <div className="mx-auto aspect-[4/3] max-h-[24rem] w-full max-w-xl sm:aspect-[16/11]">
+              <ModelViewer
+                src={product.modelUrl}
+                alt={product.name}
+                className="h-full w-full"
+              />
+            </div>
+          </div>
         </div>
       ) : (
         <ImageGallery images={product.images} name={product.name} />

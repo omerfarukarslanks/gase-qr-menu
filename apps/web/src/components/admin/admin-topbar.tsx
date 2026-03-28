@@ -2,9 +2,9 @@
 
 import { ChevronLeft, Menu, PanelLeftClose, PanelLeftOpen, Store } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { AdminNotifications } from "@/components/admin/admin-notifications";
-import { cn } from "@/lib/utils";
 import type { StoreSummary } from "@/lib/auth-session";
 
 interface AdminTopbarProps {
@@ -95,24 +95,24 @@ export function AdminTopbar({
 
           <label className="flex w-full items-center gap-3 rounded-[1.2rem] border border-border bg-card/75 px-4 py-3 shadow-[var(--card-shadow)] sm:max-w-sm">
             <Store className="h-4 w-4 shrink-0 text-muted-foreground" />
-            <select
-              className={cn(
-                "w-full bg-transparent text-sm font-medium text-foreground outline-none",
-                stores.length === 0 && "text-muted-foreground"
-              )}
+            <SearchableSelect
+              className="border-0 bg-transparent px-0 py-0 shadow-none hover:bg-transparent"
+              triggerClassName="h-auto min-h-0 border-0 bg-transparent px-0 py-0 shadow-none hover:bg-transparent focus-visible:ring-0"
+              contentClassName="min-w-[18rem]"
+              options={
+                stores.length === 0
+                  ? [{ value: "", label: "Magaza bulunamadi", disabled: true }]
+                  : stores.map((store) => ({
+                      value: store.id,
+                      label: store.name,
+                    }))
+              }
               value={activeStoreId ?? ""}
-              onChange={(event) => onStoreChange(event.target.value || null)}
-            >
-              {stores.length === 0 ? (
-                <option value="">Magaza bulunamadi</option>
-              ) : (
-                stores.map((store) => (
-                  <option key={store.id} value={store.id}>
-                    {store.name}
-                  </option>
-                ))
-              )}
-            </select>
+              onChange={(value) => onStoreChange(String(value) || null)}
+              placeholder="Magaza secin"
+              searchPlaceholder="Magaza ara..."
+              disabled={stores.length === 0}
+            />
           </label>
         </div>
       </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus } from "lucide-react";
 import { AdminDrawer } from "@/components/admin/admin-drawer";
 import { MenuEditor } from "@/components/admin/menu-editor";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
@@ -9,9 +9,10 @@ import { MenuQrCard } from "@/components/admin/menu-qr-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { useCategories } from "@/hooks/use-categories";
 import { useCurrentStore } from "@/hooks/use-current-store";
-import { useCreateMenu, useDeleteMenu, useMenus } from "@/hooks/use-menus";
+import { type MenuSummary, useCreateMenu, useMenus, useUpdateMenu } from "@/hooks/use-menus";
 
 interface MenuFormState {
   name: string;
@@ -30,7 +31,7 @@ export default function MenusPage() {
   const { data: menus = [], isLoading, isError } = useMenus(activeStoreId ?? "");
   const { data: categories = [] } = useCategories(activeStoreId ?? "");
   const createMenu = useCreateMenu();
-  const deleteMenu = useDeleteMenu();
+  const updateMenu = useUpdateMenu();
 
   const [showForm, setShowForm] = useState(false);
   const [editingMenuId, setEditingMenuId] = useState<string | null>(null);
@@ -61,6 +62,13 @@ export default function MenusPage() {
     );
   };
 
+  const handleToggleActive = (menu: MenuSummary) => {
+    updateMenu.mutate({
+      id: menu.id,
+      isActive: !menu.isActive,
+    });
+  };
+
   return (
     <div className="space-y-6">
       <AdminPageHeader
@@ -88,7 +96,13 @@ export default function MenusPage() {
         title="Yeni menu"
         description="QR menunun temel bilgilerini drawer icinden olusturun."
       >
-        <form className="space-y-6" onSubmit={handleCreate}>
+        <form
+          className="space-y-6"
+          onSubmit={handleCreate}
+          onInvalidCapture={(event) =>
+            event.currentTarget.classList.add("form-validation-submitted")
+          }
+        >
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <label className="text-sm font-medium">Menu adi</label>
@@ -199,17 +213,14 @@ export default function MenusPage() {
                 <div key={menu.id} className="rounded-xl border p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-3">
                         <h2 className="text-lg font-semibold">{menu.name}</h2>
-                        <span
-                          className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
-                            menu.isActive
-                              ? "bg-green-100 text-green-700"
-                              : "bg-gray-100 text-gray-700"
-                          }`}
-                        >
-                          {menu.isActive ? "Aktif" : "Pasif"}
-                        </span>
+                        <Switch
+                          checked={menu.isActive}
+                          disabled={updateMenu.isPending}
+                          onCheckedChange={() => handleToggleActive(menu)}
+                          aria-label={`${menu.name} durumunu degistir`}
+                        />
                       </div>
                       <p className="mt-1 text-sm text-muted-foreground">
                         {menu.description || "Aciklama yok"}
@@ -222,17 +233,6 @@ export default function MenusPage() {
                         onClick={() => setEditingMenuId(menu.id)}
                       >
                         <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => {
-                          if (window.confirm("Bu menu pasife cekilsin mi?")) {
-                            deleteMenu.mutate(menu.id);
-                          }
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     </div>
                   </div>

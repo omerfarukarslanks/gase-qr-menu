@@ -102,7 +102,13 @@ export default function SettingsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleStoreSubmit} className="space-y-4 max-w-lg">
+            <form
+              onSubmit={handleStoreSubmit}
+              className="space-y-4 max-w-lg"
+              onInvalidCapture={(event) =>
+                event.currentTarget.classList.add("form-validation-submitted")
+              }
+            >
               <div className="space-y-2">
                 <label className="text-sm font-medium">Magaza Adi</label>
                 <Input
@@ -165,7 +171,13 @@ export default function SettingsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handlePaymentSubmit} className="space-y-4 max-w-lg">
+            <form
+              onSubmit={handlePaymentSubmit}
+              className="space-y-4 max-w-lg"
+              onInvalidCapture={(event) =>
+                event.currentTarget.classList.add("form-validation-submitted")
+              }
+            >
               <div className="space-y-2">
                 <label className="text-sm font-medium">iyzico API Key</label>
                 <Input

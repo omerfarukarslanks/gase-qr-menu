@@ -10,13 +10,13 @@ import {
   Plus,
   Search,
   Tag,
-  Trash2,
 } from "lucide-react";
 import { AdminDrawer } from "@/components/admin/admin-drawer";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useCurrentStore } from "@/hooks/use-current-store";
 import { useCategories } from "@/hooks/use-categories";
 import { useProducts } from "@/hooks/use-products";
@@ -25,7 +25,6 @@ import {
   type CampaignType,
   useCampaigns,
   useCreateCampaign,
-  useDeleteCampaign,
   useUpdateCampaign,
 } from "@/hooks/use-campaigns";
 
@@ -162,7 +161,6 @@ export default function CampaignsPage() {
   });
   const createCampaign = useCreateCampaign();
   const updateCampaign = useUpdateCampaign();
-  const deleteCampaign = useDeleteCampaign();
 
   const campaigns = campaignResult?.data ?? [];
   const products = productResult?.data ?? [];
@@ -312,22 +310,6 @@ export default function CampaignsPage() {
     }
   };
 
-  const handleDelete = async (campaign: Campaign) => {
-    const confirmed = window.confirm(
-      `${campaign.name} kampanyasini pasife almak istiyor musunuz?`
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    try {
-      await deleteCampaign.mutateAsync(campaign.id);
-    } catch {
-      // Keep the page state stable; user can retry after refetch.
-    }
-  };
-
   return (
     <div className="space-y-6">
       <AdminPageHeader
@@ -428,21 +410,22 @@ export default function CampaignsPage() {
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Kampanya tipi</label>
-                <select
-                  className="flex h-11 w-full rounded-[1rem] border border-input bg-background px-3 py-2 text-sm"
+                <SearchableSelect
+                  options={[
+                    { value: "PERCENTAGE", label: "Yuzde indirim" },
+                    { value: "FIXED_AMOUNT", label: "Sabit tutar" },
+                    { value: "BUY_X_GET_Y", label: "X al Y ode" },
+                    { value: "HAPPY_HOUR", label: "Happy hour" },
+                  ]}
                   value={form.type}
-                  onChange={(event) =>
+                  onChange={(value) =>
                     setForm((current) => ({
                       ...current,
-                      type: event.target.value as CampaignType,
+                      type: String(value) as CampaignType,
                     }))
                   }
-                >
-                  <option value="PERCENTAGE">Yuzde indirim</option>
-                  <option value="FIXED_AMOUNT">Sabit tutar</option>
-                  <option value="BUY_X_GET_Y">X al Y ode</option>
-                  <option value="HAPPY_HOUR">Happy hour</option>
-                </select>
+                  searchPlaceholder="Kampanya tipi ara..."
+                />
               </div>
 
               <div className="space-y-2 md:col-span-2 xl:col-span-3">
@@ -761,15 +744,6 @@ export default function CampaignsPage() {
                           {campaign.description || "Aciklama eklenmedi."}
                         </p>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-destructive hover:text-destructive"
-                        onClick={() => handleDelete(campaign)}
-                        disabled={deleteCampaign.isPending}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">

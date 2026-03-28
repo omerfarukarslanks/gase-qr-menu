@@ -1,18 +1,19 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus } from "lucide-react";
 import { AdminDrawer } from "@/components/admin/admin-drawer";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { ResponsiveDataTable } from "@/components/admin/responsive-data-table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { SearchableSelect } from "@/components/ui/searchable-select";
+import { Switch } from "@/components/ui/switch";
 import {
   type Category,
   useCategories,
   useCreateCategory,
-  useDeleteCategory,
   useUpdateCategory,
 } from "@/hooks/use-categories";
 import { useCurrentStore } from "@/hooks/use-current-store";
@@ -80,7 +81,6 @@ export default function CategoriesPage() {
   const { data: categories = [], isLoading, isError } = useCategories(activeStoreId ?? "");
   const createCategory = useCreateCategory();
   const updateCategory = useUpdateCategory();
-  const deleteCategory = useDeleteCategory();
 
   const [showForm, setShowForm] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
@@ -163,6 +163,13 @@ export default function CategoriesPage() {
     );
   };
 
+  const handleToggleActive = (category: Category) => {
+    updateCategory.mutate({
+      id: category.id,
+      isActive: !category.isActive,
+    });
+  };
+
   return (
     <div className="space-y-6">
       <AdminPageHeader
@@ -190,7 +197,13 @@ export default function CategoriesPage() {
         title={editingCategory ? "Kategori duzenle" : "Yeni kategori"}
         description="Kategori hiyerarsisini sag panelden hizlica yonetin."
       >
-        <form className="space-y-6" onSubmit={handleSubmit}>
+        <form
+          className="space-y-6"
+          onSubmit={handleSubmit}
+          onInvalidCapture={(event) =>
+            event.currentTarget.classList.add("form-validation-submitted")
+          }
+        >
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <label className="text-sm font-medium">Kategori adi</label>
@@ -205,22 +218,24 @@ export default function CategoriesPage() {
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Ust kategori</label>
-              <select
-                className="flex h-11 w-full rounded-[1rem] border border-input bg-background px-3 py-2 text-sm"
+              <SearchableSelect
+                options={[
+                  { value: "", label: "Ana kategori" },
+                  ...flatCategories
+                    .filter((category) => category.id !== editingCategory?.id)
+                    .map((category) => ({
+                      value: category.id,
+                      label: `${"  ".repeat(category.depth)}${category.name}`,
+                      keywords: [category.name],
+                    })),
+                ]}
                 value={form.parentId}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, parentId: event.target.value }))
+                onChange={(value) =>
+                  setForm((current) => ({ ...current, parentId: String(value) }))
                 }
-              >
-                <option value="">Ana kategori</option>
-                {flatCategories
-                  .filter((category) => category.id !== editingCategory?.id)
-                  .map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {`${"  ".repeat(category.depth)}${category.name}`}
-                    </option>
-                  ))}
-              </select>
+                placeholder="Ana kategori"
+                searchPlaceholder="Kategori ara..."
+              />
             </div>
             <div className="space-y-2 md:col-span-2">
               <label className="text-sm font-medium">Aciklama</label>
@@ -336,20 +351,6 @@ export default function CategoriesPage() {
                   ),
                 },
                 {
-                  header: "Durum",
-                  cell: (category) => (
-                    <span
-                      className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
-                        category.isActive
-                          ? "bg-green-100 text-green-700"
-                          : "bg-gray-100 text-gray-700"
-                      }`}
-                    >
-                      {category.isActive ? "Aktif" : "Pasif"}
-                    </span>
-                  ),
-                },
-                {
                   header: "Sira",
                   cell: (category) => category.sortOrder,
                 },
@@ -357,16 +358,17 @@ export default function CategoriesPage() {
                   header: "Islemler",
                   className: "text-right",
                   cell: (category) => (
-                    <div className="flex justify-end gap-2">
+                    <div className="flex items-center justify-end gap-3">
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          checked={category.isActive}
+                          disabled={updateCategory.isPending}
+                          onCheckedChange={() => handleToggleActive(category)}
+                          aria-label={`${category.name} durumunu degistir`}
+                        />
+                      </div>
                       <Button variant="ghost" size="icon" onClick={() => openEdit(category)}>
                         <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => deleteCategory.mutate(category.id)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     </div>
                   ),
@@ -392,7 +394,6 @@ export default function CategoriesPage() {
                           : "bg-gray-100 text-gray-700"
                       }`}
                     >
-                      {category.isActive ? "Aktif" : "Pasif"}
                     </span>
                   </div>
                   <div className="grid grid-cols-2 gap-3 text-sm">
@@ -409,16 +410,17 @@ export default function CategoriesPage() {
                       <p className="mt-1 text-foreground">{category.sortOrder}</p>
                     </div>
                   </div>
-                  <div className="flex justify-end gap-1">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <Switch
+                        checked={category.isActive}
+                        disabled={updateCategory.isPending}
+                        onCheckedChange={() => handleToggleActive(category)}
+                        aria-label={`${category.name} durumunu degistir`}
+                      />
+                    </div>
                     <Button variant="ghost" size="icon" onClick={() => openEdit(category)}>
                       <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => deleteCategory.mutate(category.id)}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   </div>
                 </div>

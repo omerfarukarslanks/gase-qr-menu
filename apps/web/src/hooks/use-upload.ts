@@ -32,9 +32,33 @@ interface DeleteUploadedFilePayload {
   key: string;
 }
 
+function validateImageFile(file: File) {
+  const normalizedType = file.type.toLowerCase();
+  const normalizedName = file.name.toLowerCase();
+
+  if (
+    normalizedType.includes("heic") ||
+    normalizedType.includes("heif") ||
+    normalizedName.endsWith(".heic") ||
+    normalizedName.endsWith(".heif")
+  ) {
+    throw new Error(
+      "HEIC/HEIF gorseller su an desteklenmiyor. Lutfen gorseli JPEG, PNG, WebP veya GIF formatina cevirip tekrar deneyin."
+    );
+  }
+
+  if (normalizedType.includes("avif") || normalizedName.endsWith(".avif")) {
+    throw new Error(
+      "AVIF gorseller su an desteklenmiyor. Lutfen JPEG, PNG, WebP veya GIF kullanin."
+    );
+  }
+}
+
 export function useUploadImage() {
   return useMutation({
     mutationFn: async ({ file, folder = "products" }: UploadImagePayload) => {
+      validateImageFile(file);
+
       const formData = new FormData();
       formData.append("file", file);
 
@@ -51,6 +75,8 @@ export function useUploadImage() {
 export function useUploadImages() {
   return useMutation({
     mutationFn: async ({ files, folder = "products" }: UploadImagesPayload) => {
+      files.forEach(validateImageFile);
+
       const formData = new FormData();
 
       files.forEach((file) => {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { Pencil, Plus, Search } from "lucide-react";
 import { AdminDrawer } from "@/components/admin/admin-drawer";
 import { ProductEditor } from "@/components/admin/product-editor";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
@@ -9,9 +9,11 @@ import { ResponsiveDataTable } from "@/components/admin/responsive-data-table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { SearchableSelect } from "@/components/ui/searchable-select";
+import { Switch } from "@/components/ui/switch";
 import { useCurrentStore } from "@/hooks/use-current-store";
 import { useCategories } from "@/hooks/use-categories";
-import { useDeleteProduct, useProducts } from "@/hooks/use-products";
+import { type Product, useProducts, useUpdateProduct } from "@/hooks/use-products";
 import { formatCurrency } from "@/lib/utils";
 
 export default function ProductsPage() {
@@ -28,10 +30,17 @@ export default function ProductsPage() {
     categoryId: categoryId || undefined,
     search: search || undefined,
   });
-  const deleteProduct = useDeleteProduct();
+  const updateProduct = useUpdateProduct();
 
   const products = data?.data ?? [];
   const meta = data?.meta;
+
+  const handleToggleActive = (product: Product) => {
+    updateProduct.mutate({
+      id: product.id,
+      isActive: !product.isActive,
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -88,21 +97,22 @@ export default function ProductsPage() {
               placeholder="Urun ara..."
             />
           </div>
-          <select
-            className="flex h-11 w-full rounded-[1rem] border border-input bg-background px-3 py-2 text-sm"
+          <SearchableSelect
+            options={[
+              { value: "", label: "Tum kategoriler" },
+              ...categories.map((category) => ({
+                value: category.id,
+                label: category.name,
+              })),
+            ]}
             value={categoryId}
-            onChange={(event) => {
-              setCategoryId(event.target.value);
+            onChange={(value) => {
+              setCategoryId(String(value));
               setPage(1);
             }}
-          >
-            <option value="">Tum kategoriler</option>
-            {categories.map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.name}
-              </option>
-            ))}
-          </select>
+            placeholder="Tum kategoriler"
+            searchPlaceholder="Kategori ara..."
+          />
         </CardContent>
       </Card>
 
@@ -165,41 +175,24 @@ export default function ProductsPage() {
                     cell: (product) => formatCurrency(product.price),
                   },
                   {
-                    header: "Durum",
-                    cell: (product) => (
-                      <span
-                        className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
-                          product.isActive
-                            ? "bg-green-100 text-green-700"
-                            : "bg-gray-100 text-gray-700"
-                        }`}
-                      >
-                        {product.isActive ? "Aktif" : "Pasif"}
-                      </span>
-                    ),
-                  },
-                  {
                     header: "Islemler",
                     className: "text-right",
                     cell: (product) => (
-                      <div className="flex justify-end gap-2">
+                      <div className="flex items-center justify-end gap-3">
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            checked={product.isActive}
+                            disabled={updateProduct.isPending}
+                            onCheckedChange={() => handleToggleActive(product)}
+                            aria-label={`${product.name} durumunu degistir`}
+                          />
+                        </div>
                         <Button
                           variant="ghost"
                           size="icon"
                           onClick={() => setEditingProductId(product.id)}
                         >
                           <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            if (window.confirm("Bu urun pasife cekilsin mi?")) {
-                              deleteProduct.mutate(product.id);
-                            }
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
                     ),
@@ -248,15 +241,14 @@ export default function ProductsPage() {
                     </div>
 
                     <div className="flex items-center justify-between gap-3">
-                      <span
-                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
-                          product.isActive
-                            ? "bg-green-100 text-green-700"
-                            : "bg-gray-100 text-gray-700"
-                        }`}
-                      >
-                        {product.isActive ? "Aktif" : "Pasif"}
-                      </span>
+                      <div className="flex items-center gap-3">
+                        <Switch
+                          checked={product.isActive}
+                          disabled={updateProduct.isPending}
+                          onCheckedChange={() => handleToggleActive(product)}
+                          aria-label={`${product.name} durumunu degistir`}
+                        />
+                      </div>
                       <div className="flex gap-1">
                         <Button
                           variant="ghost"
@@ -264,17 +256,6 @@ export default function ProductsPage() {
                           onClick={() => setEditingProductId(product.id)}
                         >
                           <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            if (window.confirm("Bu urun pasife cekilsin mi?")) {
-                              deleteProduct.mutate(product.id);
-                            }
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
                     </div>

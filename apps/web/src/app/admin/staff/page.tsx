@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Pencil, Plus, Trash2, UserCog } from "lucide-react";
+import { Pencil, Plus, UserCog } from "lucide-react";
 import { AdminDrawer } from "@/components/admin/admin-drawer";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { ResponsiveDataTable } from "@/components/admin/responsive-data-table";
@@ -14,6 +14,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { SearchableSelect } from "@/components/ui/searchable-select";
+import { Switch } from "@/components/ui/switch";
 
 const ROLES = [
   { value: "MANAGER", label: "Mudur" },
@@ -48,7 +50,7 @@ const emptyForm: StaffForm = {
 const demoStaff: StaffMember[] = [];
 
 export default function StaffPage() {
-  const [staff] = useState<StaffMember[]>(demoStaff);
+  const [staff, setStaff] = useState<StaffMember[]>(demoStaff);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<StaffForm>(emptyForm);
@@ -86,10 +88,12 @@ export default function StaffPage() {
     handleCancel();
   }
 
-  function handleDelete(id: string) {
-    if (confirm("Bu personeli silmek istediginize emin misiniz?")) {
-      alert(`Personel silindi: ${id}`);
-    }
+  function handleToggleActive(id: string) {
+    setStaff((current) =>
+      current.map((member) =>
+        member.id === id ? { ...member, isActive: !member.isActive } : member
+      )
+    );
   }
 
   function getRoleLabel(role: string) {
@@ -134,7 +138,13 @@ export default function StaffPage() {
         title={editingId ? "Personeli duzenle" : "Yeni personel ekle"}
         description="Personel, rol ve giris bilgilerini drawer uzerinden yonetin."
       >
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-6"
+          onInvalidCapture={(event) =>
+            event.currentTarget.classList.add("form-validation-submitted")
+          }
+        >
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <label className="text-sm font-medium">Ad soyad</label>
@@ -169,17 +179,12 @@ export default function StaffPage() {
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Rol</label>
-              <select
-                className="flex h-11 w-full rounded-[1rem] border border-input bg-background px-3 py-2 text-sm"
+              <SearchableSelect
+                options={ROLES}
                 value={form.role}
-                onChange={(event) => setForm({ ...form, role: event.target.value })}
-              >
-                {ROLES.map((role) => (
-                  <option key={role.value} value={role.value}>
-                    {role.label}
-                  </option>
-                ))}
-              </select>
+                onChange={(value) => setForm({ ...form, role: String(value) })}
+                searchPlaceholder="Rol ara..."
+              />
             </div>
           </div>
 
@@ -255,33 +260,19 @@ export default function StaffPage() {
                   cell: (member) => member.storeName,
                 },
                 {
-                  header: "Durum",
-                  className: "text-center",
-                  cell: (member) =>
-                    member.isActive ? (
-                      <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700">
-                        Aktif
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700">
-                        Pasif
-                      </span>
-                    ),
-                },
-                {
                   header: "Islemler",
                   className: "text-right",
                   cell: (member) => (
-                    <div className="flex justify-end gap-2">
+                    <div className="flex items-center justify-end gap-3">
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          checked={member.isActive}
+                          onCheckedChange={() => handleToggleActive(member.id)}
+                          aria-label={`${member.name} durumunu degistir`}
+                        />
+                      </div>
                       <Button variant="ghost" size="icon" onClick={() => handleEdit(member)}>
                         <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDelete(member.id)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     </div>
                   ),
@@ -313,21 +304,18 @@ export default function StaffPage() {
                       <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
                         Durum
                       </p>
-                      <p className="mt-1 text-foreground">
-                        {member.isActive ? "Aktif" : "Pasif"}
-                      </p>
                     </div>
                   </div>
-                  <div className="flex justify-end gap-1">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <Switch
+                        checked={member.isActive}
+                        onCheckedChange={() => handleToggleActive(member.id)}
+                        aria-label={`${member.name} durumunu degistir`}
+                      />
+                    </div>
                     <Button variant="ghost" size="icon" onClick={() => handleEdit(member)}>
                       <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDelete(member.id)}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   </div>
                 </div>

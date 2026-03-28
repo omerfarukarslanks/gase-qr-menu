@@ -32,6 +32,7 @@ interface IngredientApiRecord {
   stockUnitId?: string | null;
   unit?: { id: string; name: string; abbreviation: string } | null;
   storeId: string;
+  isActive?: boolean;
 }
 
 interface CreateIngredientPayload {
@@ -67,7 +68,7 @@ function mapIngredient(item: IngredientApiRecord): Ingredient {
     unitId: item.stockUnitId ?? item.unit?.id ?? null,
     unit: item.unit ?? null,
     storeId: item.storeId,
-    isActive: true,
+    isActive: item.isActive ?? true,
   };
 }
 

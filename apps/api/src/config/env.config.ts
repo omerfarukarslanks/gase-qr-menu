@@ -30,6 +30,7 @@ export default () => ({
     bucket: process.env.S3_BUCKET || 'gase-uploads',
     region: process.env.S3_REGION || 'us-east-1',
     publicUrl: process.env.S3_PUBLIC_URL || 'http://localhost:9000/gase-uploads',
+    publicRead: process.env.S3_PUBLIC_READ !== 'false',
   },
 
   // Iyzico Payment

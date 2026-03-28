@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { Pencil, Plus, Search } from "lucide-react";
 import { AdminDrawer } from "@/components/admin/admin-drawer";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { ResponsiveDataTable } from "@/components/admin/responsive-data-table";
@@ -14,11 +14,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { SearchableSelect } from "@/components/ui/searchable-select";
+import { Switch } from "@/components/ui/switch";
 import {
   useIngredients,
   useCreateIngredient,
   useUpdateIngredient,
-  useDeleteIngredient,
 } from "@/hooks/use-ingredients";
 import { useCurrentStore } from "@/hooks/use-current-store";
 
@@ -63,7 +64,6 @@ export default function IngredientsPage() {
   });
   const createIngredient = useCreateIngredient();
   const updateIngredient = useUpdateIngredient();
-  const deleteIngredient = useDeleteIngredient();
 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -130,14 +130,18 @@ export default function IngredientsPage() {
     }
   }
 
-  function handleDelete(id: string) {
-    if (confirm("Bu malzemeyi silmek istediginize emin misiniz?")) {
-      deleteIngredient.mutate(id);
-    }
-  }
-
   function getTypeLabel(type: string) {
     return INGREDIENT_TYPES.find((item) => item.value === type)?.label ?? type;
+  }
+
+  function handleToggleActive(ingredient: {
+    id: string;
+    isActive: boolean;
+  }) {
+    updateIngredient.mutate({
+      id: ingredient.id,
+      isActive: !ingredient.isActive,
+    });
   }
 
   return (
@@ -167,7 +171,13 @@ export default function IngredientsPage() {
         title={editingId ? "Malzemeyi duzenle" : "Yeni malzeme ekle"}
         description="Malzeme, tur ve stok esiklerini tek panelden yonetin."
       >
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-6"
+          onInvalidCapture={(event) =>
+            event.currentTarget.classList.add("form-validation-submitted")
+          }
+        >
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <label className="text-sm font-medium">Malzeme adi</label>
@@ -180,17 +190,15 @@ export default function IngredientsPage() {
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Tur</label>
-              <select
-                className="flex h-11 w-full rounded-[1rem] border border-input bg-background px-3 py-2 text-sm"
+              <SearchableSelect
+                options={INGREDIENT_TYPES.filter((item) => item.value !== "").map((item) => ({
+                  value: item.value,
+                  label: item.label,
+                }))}
                 value={form.type}
-                onChange={(event) => setForm({ ...form, type: event.target.value })}
-              >
-                {INGREDIENT_TYPES.filter((item) => item.value !== "").map((item) => (
-                  <option key={item.value} value={item.value}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
+                onChange={(value) => setForm({ ...form, type: String(value) })}
+                searchPlaceholder="Tur ara..."
+              />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Stok miktari</label>
@@ -321,37 +329,28 @@ export default function IngredientsPage() {
                     cell: (ingredient) => ingredient.minStockLevel,
                   },
                   {
-                    header: "Durum",
-                    className: "text-center",
-                    cell: (ingredient) =>
-                      ingredient.stockQuantity <= ingredient.minStockLevel ? (
-                        <span className="inline-flex items-center rounded-full bg-destructive/10 px-2 py-1 text-xs font-medium text-destructive">
-                          Dusuk stok
-                        </span>
-                      ) : ingredient.isActive ? (
-                        <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700">
-                          Aktif
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700">
-                          Pasif
-                        </span>
-                      ),
-                  },
-                  {
                     header: "Islemler",
                     className: "text-right",
                     cell: (ingredient) => (
-                      <div className="flex justify-end gap-2">
+                      <div className="flex items-center justify-end gap-3">
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            checked={ingredient.isActive}
+                            disabled={updateIngredient.isPending}
+                            onCheckedChange={() => handleToggleActive(ingredient)}
+                            aria-label={`${ingredient.name} durumunu degistir`}
+                          />
+                          <span
+                            className={`text-xs font-medium ${
+                              ingredient.stockQuantity <= ingredient.minStockLevel
+                                ? "text-destructive"
+                                : "text-muted-foreground"
+                            }`}
+                          >
+                          </span>
+                        </div>
                         <Button variant="ghost" size="icon" onClick={() => handleEdit(ingredient)}>
                           <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(ingredient.id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
                     ),
@@ -399,16 +398,17 @@ export default function IngredientsPage() {
                           </p>
                         </div>
                       </div>
-                      <div className="flex justify-end gap-1">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <Switch
+                            checked={ingredient.isActive}
+                            disabled={updateIngredient.isPending}
+                            onCheckedChange={() => handleToggleActive(ingredient)}
+                            aria-label={`${ingredient.name} durumunu degistir`}
+                          />
+                        </div>
                         <Button variant="ghost" size="icon" onClick={() => handleEdit(ingredient)}>
                           <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(ingredient.id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
                     </div>

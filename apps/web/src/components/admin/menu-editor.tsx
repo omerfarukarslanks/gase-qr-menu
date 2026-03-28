@@ -141,7 +141,13 @@ export function MenuEditor({
             <CardTitle>Menu bilgileri</CardTitle>
           </CardHeader>
           <CardContent>
-            <form className="space-y-4" onSubmit={handleSave}>
+            <form
+              className="space-y-4"
+              onSubmit={handleSave}
+              onInvalidCapture={(event) =>
+                event.currentTarget.classList.add("form-validation-submitted")
+              }
+            >
               <div className="space-y-2">
                 <label className="text-sm font-medium">Menu adi</label>
                 <Input

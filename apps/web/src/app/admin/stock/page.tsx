@@ -20,6 +20,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { SearchableSelect } from "@/components/ui/searchable-select";
+import { useIngredients } from "@/hooks/use-ingredients";
 import {
   useCreateStockMovement,
   useLowStockAlerts,
@@ -53,6 +55,10 @@ const emptyForm: MovementForm = {
 export default function StockPage() {
   const { activeStoreId, activeStore } = useCurrentStore();
   const [page, setPage] = useState(1);
+  const { data: ingredientsData } = useIngredients(activeStoreId ?? "", {
+    page: 1,
+    pageSize: 100,
+  });
   const { data: movementsData, isLoading: movementsLoading } = useStockMovements(
     activeStoreId ?? "",
     { page }
@@ -64,6 +70,7 @@ export default function StockPage() {
   const [form, setForm] = useState<MovementForm>(emptyForm);
 
   const movements = movementsData?.data ?? [];
+  const ingredients = ingredientsData?.data ?? [];
   const meta = movementsData?.meta;
 
   function handleSubmit(event: React.FormEvent) {
@@ -171,34 +178,45 @@ export default function StockPage() {
         title="Yeni stok hareketi"
         description="Stok girisi, cikisi ve duzeltme kayitlarini drawer uzerinden ekleyin."
       >
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-6"
+          onInvalidCapture={(event) =>
+            event.currentTarget.classList.add("form-validation-submitted")
+          }
+        >
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Malzeme ID</label>
-              <Input
-                placeholder="Malzeme ID girin"
+              <label className="text-sm font-medium">Malzeme</label>
+              <SearchableSelect
+                options={ingredients.map((ingredient) => ({
+                  value: ingredient.id,
+                  label: ingredient.name,
+                  keywords: [ingredient.id],
+                }))}
                 value={form.ingredientId}
-                onChange={(event) =>
-                  setForm({ ...form, ingredientId: event.target.value })
+                onChange={(value) =>
+                  setForm({ ...form, ingredientId: String(value) })
                 }
+                name="ingredientId"
                 required
+                placeholder="Malzeme secin"
+                searchPlaceholder="Malzeme ara..."
               />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Hareket tipi</label>
-              <select
-                className="flex h-11 w-full rounded-[1rem] border border-input bg-background px-3 py-2 text-sm"
+              <SearchableSelect
+                options={MOVEMENT_TYPES.map((item) => ({
+                  value: item.value,
+                  label: item.label,
+                }))}
                 value={form.type}
-                onChange={(event) =>
-                  setForm({ ...form, type: event.target.value as MovementType })
+                onChange={(value) =>
+                  setForm({ ...form, type: String(value) as MovementType })
                 }
-              >
-                {MOVEMENT_TYPES.map((item) => (
-                  <option key={item.value} value={item.value}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
+                searchPlaceholder="Hareket tipi ara..."
+              />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Miktar</label>

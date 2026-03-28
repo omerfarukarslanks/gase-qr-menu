@@ -8,6 +8,7 @@ import { ModelViewer } from "@/components/menu/model-viewer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useAllergens } from "@/hooks/use-allergens";
 import { useCategories } from "@/hooks/use-categories";
 import { useCurrentStore } from "@/hooks/use-current-store";
@@ -479,7 +480,13 @@ export function ProductEditor({
           </CardContent>
         </Card>
       ) : (
-        <form className="space-y-6" onSubmit={handleSubmit}>
+        <form
+          className="space-y-6"
+          onSubmit={handleSubmit}
+          onInvalidCapture={(event) =>
+            event.currentTarget.classList.add("form-validation-submitted")
+          }
+        >
           <Card className="border-border/80 bg-card/90 shadow-[var(--card-shadow)]">
             <CardHeader>
               <CardTitle>Genel bilgiler</CardTitle>
@@ -542,41 +549,45 @@ export function ProductEditor({
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Kategori</label>
-                <select
-                  className="flex h-11 w-full rounded-[1rem] border border-input bg-background px-3 py-2 text-sm"
+                <SearchableSelect
+                  options={[
+                    { value: "", label: "Kategori secin" },
+                    ...categories.map((category) => ({
+                      value: category.id,
+                      label: category.name,
+                    })),
+                  ]}
                   value={form.categoryId}
-                  onChange={(event) =>
+                  onChange={(value) =>
                     setForm((current) => ({
                       ...current,
-                      categoryId: event.target.value,
+                      categoryId: String(value),
                     }))
                   }
+                  name="categoryId"
                   required
-                >
-                  <option value="">Kategori secin</option>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="Kategori secin"
+                  searchPlaceholder="Kategori ara..."
+                />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Birim</label>
-                <select
-                  className="flex h-11 w-full rounded-[1rem] border border-input bg-background px-3 py-2 text-sm"
+                <SearchableSelect
+                  options={[
+                    { value: "", label: "Ilk mevcut birimi kullan" },
+                    ...units.map((unit) => ({
+                      value: unit.id,
+                      label: `${unit.name} (${unit.abbreviation})`,
+                      keywords: [unit.name, unit.abbreviation],
+                    })),
+                  ]}
                   value={form.unitId}
-                  onChange={(event) =>
-                    setForm((current) => ({ ...current, unitId: event.target.value }))
+                  onChange={(value) =>
+                    setForm((current) => ({ ...current, unitId: String(value) }))
                   }
-                >
-                  <option value="">Ilk mevcut birimi kullan</option>
-                  {units.map((unit) => (
-                    <option key={unit.id} value={unit.id}>
-                      {unit.name} ({unit.abbreviation})
-                    </option>
-                  ))}
-                </select>
+                  placeholder="Ilk mevcut birimi kullan"
+                  searchPlaceholder="Birim ara..."
+                />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Hazirlama suresi (dk)</label>
@@ -642,20 +653,21 @@ export function ProductEditor({
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Para birimi</label>
-                <select
-                  className="flex h-11 w-full rounded-[1rem] border border-input bg-background px-3 py-2 text-sm"
+                <SearchableSelect
+                  options={[
+                    { value: "TRY", label: "TRY" },
+                    { value: "USD", label: "USD" },
+                    { value: "EUR", label: "EUR" },
+                  ]}
                   value={form.currency}
-                  onChange={(event) =>
+                  onChange={(value) =>
                     setForm((current) => ({
                       ...current,
-                      currency: event.target.value,
+                      currency: String(value),
                     }))
                   }
-                >
-                  <option value="TRY">TRY</option>
-                  <option value="USD">USD</option>
-                  <option value="EUR">EUR</option>
-                </select>
+                  searchPlaceholder="Para birimi ara..."
+                />
               </div>
               <div className="space-y-3 xl:col-span-1">
                 <div className="flex items-center justify-between gap-3">
@@ -793,30 +805,32 @@ export function ProductEditor({
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <label className="text-sm font-medium">Malzemeler</label>
-                  <select
-                    className="flex h-11 rounded-[1rem] border border-input bg-background px-3 py-2 text-sm"
-                    value=""
-                    onChange={(event) => {
-                      if (!event.target.value) {
-                        return;
-                      }
+                  <div className="w-full max-w-xs">
+                    <SearchableSelect
+                      options={availableIngredients.map((ingredient) => ({
+                        value: ingredient.id,
+                        label: ingredient.name,
+                      }))}
+                      value=""
+                      onChange={(value) => {
+                        const nextIngredientId = String(value);
+                        if (!nextIngredientId) {
+                          return;
+                        }
 
-                      setForm((current) => ({
-                        ...current,
-                        ingredients: [
-                          ...current.ingredients,
-                          { ingredientId: event.target.value, quantity: "1" },
-                        ],
-                      }));
-                    }}
-                  >
-                    <option value="">Malzeme ekle</option>
-                    {availableIngredients.map((ingredient) => (
-                      <option key={ingredient.id} value={ingredient.id}>
-                        {ingredient.name}
-                      </option>
-                    ))}
-                  </select>
+                        setForm((current) => ({
+                          ...current,
+                          ingredients: [
+                            ...current.ingredients,
+                            { ingredientId: nextIngredientId, quantity: "1" },
+                          ],
+                        }));
+                      }}
+                      placeholder="Malzeme ekle"
+                      searchPlaceholder="Malzeme ara..."
+                      emptyMessage="Eklenebilecek malzeme kalmadi."
+                    />
+                  </div>
                 </div>
                 {form.ingredients.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
@@ -876,27 +890,36 @@ export function ProductEditor({
 
               <div className="space-y-3">
                 <label className="text-sm font-medium">Alerjenler</label>
-                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                  {allergens.map((allergen) => (
-                    <label
-                      key={allergen.id}
-                      className="flex items-center gap-2 rounded-[1rem] border px-3 py-2 text-sm"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={form.allergenIds.includes(allergen.id)}
-                        onChange={(event) =>
-                          setForm((current) => ({
-                            ...current,
-                            allergenIds: event.target.checked
-                              ? [...current.allergenIds, allergen.id]
-                              : current.allergenIds.filter((id) => id !== allergen.id),
-                          }))
-                        }
-                      />
-                      <span>{allergen.name}</span>
-                    </label>
-                  ))}
+                <div className="space-y-3">
+                  <SearchableSelect
+                    mode="multiple"
+                    options={allergens.map((allergen) => ({
+                      value: allergen.id,
+                      label: allergen.name,
+                      keywords: [allergen.code],
+                    }))}
+                    value={form.allergenIds}
+                    onChange={(value) =>
+                      setForm((current) => ({
+                        ...current,
+                        allergenIds: Array.isArray(value) ? value : [],
+                      }))
+                    }
+                    placeholder="Alerjen secin"
+                    searchPlaceholder="Alerjen ara..."
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    {allergens
+                      .filter((allergen) => form.allergenIds.includes(allergen.id))
+                      .map((allergen) => (
+                        <span
+                          key={allergen.id}
+                          className="inline-flex items-center rounded-full bg-destructive/10 px-3 py-1 text-xs font-medium text-destructive"
+                        >
+                          {allergen.name}
+                        </span>
+                      ))}
+                  </div>
                 </div>
               </div>
             </CardContent>

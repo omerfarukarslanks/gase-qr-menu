@@ -8,7 +8,6 @@ import {
   Pencil,
   Plus,
   QrCode,
-  Trash2,
   Users,
 } from "lucide-react";
 import { AdminDrawer } from "@/components/admin/admin-drawer";
@@ -17,13 +16,14 @@ import { MenuQrCard } from "@/components/admin/menu-qr-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { SearchableSelect } from "@/components/ui/searchable-select";
+import { Switch } from "@/components/ui/switch";
 import { useMenus } from "@/hooks/use-menus";
 import {
   type RestaurantTable,
   type TableStatus,
   useCloseTableSession,
   useCreateTable,
-  useDeleteTable,
   useOpenTableSession,
   useTables,
   useUpdateTable,
@@ -45,6 +45,11 @@ const sectionColors: Record<Exclude<Section, "ALL">, string> = {
   TERAS: "bg-amber-100 text-amber-700",
   VIP: "bg-purple-100 text-purple-700",
 };
+
+const sectionOptions = Object.entries(sectionLabels).map(([value, label]) => ({
+  value,
+  label,
+}));
 
 const statusConfig: Record<
   TableStatus,
@@ -100,7 +105,6 @@ export default function TablesPage() {
   const { data: menus = [] } = useMenus(activeStoreId ?? "");
   const createTable = useCreateTable();
   const updateTable = useUpdateTable();
-  const deleteTable = useDeleteTable();
   const openTableSession = useOpenTableSession();
   const closeTableSession = useCloseTableSession();
 
@@ -209,6 +213,16 @@ export default function TablesPage() {
     });
   };
 
+  const handleToggleTableActive = (table: RestaurantTable) => {
+    const nextStatus: TableStatus =
+      table.status === "OUT_OF_SERVICE" ? "AVAILABLE" : "OUT_OF_SERVICE";
+
+    updateTable.mutate({
+      id: table.id,
+      status: nextStatus,
+    });
+  };
+
   const formContent = (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -251,22 +265,17 @@ export default function TablesPage() {
         </div>
         <div className="space-y-2">
           <label className="text-sm font-medium">Bolum</label>
-          <select
-            className="flex h-11 w-full rounded-[1rem] border border-input bg-background px-3 py-2 text-sm"
+          <SearchableSelect
+            options={sectionOptions}
             value={formData.section}
-            onChange={(event) =>
+            onChange={(value) =>
               setFormData((current) => ({
                 ...current,
-                section: event.target.value as Exclude<Section, "ALL">,
+                section: String(value) as Exclude<Section, "ALL">,
               }))
             }
-          >
-            {Object.entries(sectionLabels).map(([key, label]) => (
-              <option key={key} value={key}>
-                {label}
-              </option>
-            ))}
-          </select>
+            searchPlaceholder="Bolum ara..."
+          />
         </div>
       </div>
 
@@ -286,17 +295,16 @@ export default function TablesPage() {
       <div className="space-y-6">
         <div className="space-y-2">
           <label className="text-sm font-medium">Menu secimi</label>
-          <select
-            className="flex h-11 w-full rounded-[1rem] border border-input bg-background px-3 py-2 text-sm"
+          <SearchableSelect
+            options={activeMenus.map((menu) => ({
+              value: menu.id,
+              label: menu.name,
+              keywords: [menu.qrToken],
+            }))}
             value={selectedQrMenu.id}
-            onChange={(event) => setQrMenuId(event.target.value)}
-          >
-            {activeMenus.map((menu) => (
-              <option key={menu.id} value={menu.id}>
-                {menu.name}
-              </option>
-            ))}
-          </select>
+            onChange={(value) => setQrMenuId(String(value))}
+            searchPlaceholder="Menu ara..."
+          />
           <p className="text-xs text-muted-foreground">
             Masa bazli QR linki: `/m/{selectedQrMenu.qrToken}?table={qrTable.id}`
           </p>
@@ -471,37 +479,45 @@ export default function TablesPage() {
                       </Button>
                     )}
 
-                    <div className="flex items-center justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        title={
-                          activeMenus.length > 0
-                            ? "Bu masa icin QR olustur"
-                            : "Once aktif bir menu olusturun"
-                        }
-                        disabled={activeMenus.length === 0}
-                        onClick={() => handleOpenQrPanel(table)}
-                      >
-                        <QrCode className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => handleEdit(table)}
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive hover:text-destructive"
-                        onClick={() => deleteTable.mutate(table.id)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <Switch
+                          checked={table.status !== "OUT_OF_SERVICE"}
+                          disabled={
+                            updateTable.isPending ||
+                            Boolean(table.currentSession) ||
+                            table.status === "OCCUPIED" ||
+                            table.status === "RESERVED"
+                          }
+                          onCheckedChange={() => handleToggleTableActive(table)}
+                          aria-label={`${table.name} durumunu degistir`}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          title={
+                            activeMenus.length > 0
+                              ? "Bu masa icin QR olustur"
+                              : "Once aktif bir menu olusturun"
+                          }
+                          disabled={activeMenus.length === 0}
+                          onClick={() => handleOpenQrPanel(table)}
+                        >
+                          <QrCode className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => handleEdit(table)}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </CardContent>

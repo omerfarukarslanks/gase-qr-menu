@@ -47,7 +47,7 @@ export function ResponsiveDataTable<T>({
                 {columns.map((column) => (
                   <th
                     key={column.header}
-                    className={cn("pb-3 font-medium", column.className)}
+                    className={cn(column.className, "pb-4 font-medium")}
                   >
                     {column.header}
                   </th>
@@ -58,10 +58,13 @@ export function ResponsiveDataTable<T>({
               {data.map((item) => (
                 <tr
                   key={getKey(item)}
-                  className={cn("border-b last:border-0", rowClassName)}
+                  className={cn(
+                    "border-b transition-colors odd:bg-muted/20 hover:bg-muted/40 last:border-0",
+                    rowClassName
+                  )}
                 >
                   {columns.map((column) => (
-                    <td key={column.header} className={cn("py-3", column.className)}>
+                    <td key={column.header} className={cn(column.className, "py-3")}>
                       {column.cell(item)}
                     </td>
                   ))}

@@ -137,6 +137,20 @@
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
+
+  .form-validation-submitted input:invalid,
+  .form-validation-submitted textarea:invalid {
+    border-color: hsl(var(--destructive));
+    background-color: hsl(var(--destructive) / 0.05);
+    box-shadow: 0 0 0 1px hsl(var(--destructive) / 0.15);
+  }
+
+  .form-validation-submitted input:invalid:focus,
+  .form-validation-submitted textarea:invalid:focus {
+    box-shadow:
+      0 0 0 1px hsl(var(--destructive) / 0.2),
+      0 0 0 4px hsl(var(--destructive) / 0.12);
+  }
 }
 
 @media (prefers-reduced-motion: no-preference) {

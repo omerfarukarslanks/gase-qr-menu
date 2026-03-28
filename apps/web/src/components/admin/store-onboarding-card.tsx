@@ -121,7 +121,13 @@ export function StoreOnboardingCard({
           </div>
         </CardHeader>
         <CardContent>
-          <form className="space-y-6" onSubmit={handleSubmit}>
+          <form
+            className="space-y-6"
+            onSubmit={handleSubmit}
+            onInvalidCapture={(event) =>
+              event.currentTarget.classList.add("form-validation-submitted")
+            }
+          >
             {!hasOrganization && (
               <div className="space-y-4 rounded-xl border bg-muted/30 p-4">
                 <div>
