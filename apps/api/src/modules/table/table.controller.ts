@@ -12,6 +12,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { TableService } from './table.service';
 import { CreateTableDto, UpdateTableDto, OpenSessionDto } from './dto/table.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { Public } from '../../common/decorators/public.decorator';
 
 @ApiTags('tables')
 @ApiBearerAuth()
@@ -51,6 +52,13 @@ export class TableController {
     @Body() body: OpenSessionDto,
   ) {
     return this.tableService.openSession(id, body.customerName, body.customerPhone);
+  }
+
+  @Public()
+  @Post(':id/public-session')
+  @ApiOperation({ summary: 'Get or create active session for a scanned table' })
+  getOrCreatePublicSession(@Param('id') id: string) {
+    return this.tableService.getOrCreatePublicSession(id);
   }
 
   @Post('sessions/:sessionId/close')

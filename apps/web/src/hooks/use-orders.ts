@@ -1,16 +1,17 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import api from '@/lib/api';
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import api from "@/lib/api";
+import type { ApiResponse, PaginatedResult } from "@/lib/api-response";
 
-type OrderStatus =
-  | 'DRAFT'
-  | 'PENDING'
-  | 'CONFIRMED'
-  | 'PREPARING'
-  | 'READY'
-  | 'SERVED'
-  | 'CANCELLED';
+export type OrderStatus =
+  | "DRAFT"
+  | "PENDING"
+  | "CONFIRMED"
+  | "PREPARING"
+  | "READY"
+  | "SERVED"
+  | "CANCELLED";
 
-interface OrderItem {
+export interface OrderItem {
   id: string;
   productId: string;
   productName: string;
@@ -20,80 +21,172 @@ interface OrderItem {
   notes?: string;
 }
 
-interface Order {
+export interface Order {
   id: string;
-  orderNumber: string;
+  orderNumber: number;
   status: OrderStatus;
-  tableId: string;
+  storeId: string;
+  tableId?: string | null;
   tableName: string;
+  customerName?: string | null;
   items: OrderItem[];
   totalAmount: number;
+  finalAmount?: number;
   createdAt: string;
   updatedAt: string;
+}
+
+interface OrderApiRecord {
+  id: string;
+  orderNumber: number;
+  status: OrderStatus;
+  storeId: string;
+  totalAmount: number;
+  finalAmount?: number;
+  createdAt: string;
+  updatedAt: string;
+  tableSession?: {
+    customerName?: string | null;
+    tableRef?: {
+      id: string;
+      name: string;
+    } | null;
+  } | null;
+  items?: {
+    id: string;
+    productId: string;
+    quantity: number;
+    unitPrice: number;
+    totalPrice: number;
+    notes?: string | null;
+    product?: {
+      slug?: string | null;
+      translations?: { name?: string | null }[];
+    } | null;
+  }[];
 }
 
 interface OrderFilters {
   page?: number;
   pageSize?: number;
   status?: OrderStatus;
-  tableId?: string;
-  sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
 }
 
-interface PaginatedResponse<T> {
-  success: boolean;
-  data: T[];
-  meta: {
-    total: number;
-    page: number;
-    pageSize: number;
-    totalPages: number;
+interface KitchenBucketsApi {
+  pending: OrderApiRecord[];
+  confirmed: OrderApiRecord[];
+  preparing: OrderApiRecord[];
+  ready: OrderApiRecord[];
+  total: number;
+}
+
+export interface KitchenBuckets {
+  pending: Order[];
+  confirmed: Order[];
+  preparing: Order[];
+  ready: Order[];
+  total: number;
+}
+
+function mapOrder(record: OrderApiRecord): Order {
+  return {
+    id: record.id,
+    orderNumber: record.orderNumber,
+    status: record.status,
+    storeId: record.storeId,
+    tableId: record.tableSession?.tableRef?.id ?? null,
+    tableName: record.tableSession?.tableRef?.name ?? "Masa",
+    customerName: record.tableSession?.customerName ?? null,
+    items:
+      record.items?.map((item) => ({
+        id: item.id,
+        productId: item.productId,
+        productName:
+          item.product?.translations?.[0]?.name ?? item.product?.slug ?? "Urun",
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        totalPrice: item.totalPrice,
+        notes: item.notes ?? undefined,
+      })) ?? [],
+    totalAmount: record.totalAmount,
+    finalAmount: record.finalAmount,
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
   };
 }
 
 export function useOrders(storeId: string, filters: OrderFilters = {}) {
-  const { page = 1, pageSize = 20, status, tableId, sortBy, sortOrder } = filters;
+  const { page = 1, pageSize = 20, status } = filters;
   const params = new URLSearchParams({
-    storeId,
     page: String(page),
-    pageSize: String(pageSize),
+    limit: String(pageSize),
   });
-  if (status) params.set('status', status);
-  if (tableId) params.set('tableId', tableId);
-  if (sortBy) params.set('sortBy', sortBy);
-  if (sortOrder) params.set('sortOrder', sortOrder);
+
+  if (status) {
+    params.set("status", status);
+  }
 
   return useQuery({
-    queryKey: ['orders', storeId, filters],
+    queryKey: ["orders", storeId, filters],
     queryFn: () =>
       api
-        .get<PaginatedResponse<Order>>(`/api/orders?${params}`)
-        .then((r) => r.data),
+        .get<ApiResponse<OrderApiRecord[]>>(
+          `/api/orders/store/${storeId}?${params.toString()}`
+        )
+        .then((response) => ({
+          data: (response.data.data ?? []).map(mapOrder),
+          meta: response.data.meta ?? {
+            total: response.data.data?.length ?? 0,
+            page,
+            limit: pageSize,
+            totalPages: 1,
+          },
+        }) satisfies PaginatedResult<Order>),
     enabled: !!storeId,
   });
 }
 
 export function useOrder(id: string) {
   return useQuery({
-    queryKey: ['orders', 'detail', id],
+    queryKey: ["orders", "detail", id],
     queryFn: () =>
       api
-        .get<{ success: boolean; data: Order }>(`/api/orders/${id}`)
-        .then((r) => r.data.data),
+        .get<ApiResponse<OrderApiRecord>>(`/api/orders/${id}`)
+        .then((response) => mapOrder(response.data.data)),
     enabled: !!id,
+  });
+}
+
+export function useKitchenOrders(storeId: string) {
+  return useQuery({
+    queryKey: ["kitchen-orders", storeId],
+    queryFn: () =>
+      api
+        .get<ApiResponse<KitchenBucketsApi>>(`/api/kitchen/store/${storeId}/orders`)
+        .then((response) => {
+          const payload = response.data.data;
+
+          return {
+            pending: (payload?.pending ?? []).map(mapOrder),
+            confirmed: (payload?.confirmed ?? []).map(mapOrder),
+            preparing: (payload?.preparing ?? []).map(mapOrder),
+            ready: (payload?.ready ?? []).map(mapOrder),
+            total: payload?.total ?? 0,
+          } satisfies KitchenBuckets;
+        }),
+    enabled: !!storeId,
   });
 }
 
 export function useUpdateOrderStatus() {
   const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: (payload: { id: string; status: OrderStatus }) =>
-      api
-        .patch(`/api/orders/${payload.id}/status`, { status: payload.status })
-        .then((r) => r.data),
+      api.put(`/api/orders/${payload.id}/status`, { status: payload.status }).then((r) => r.data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: ["kitchen-orders"] });
     },
   });
 }

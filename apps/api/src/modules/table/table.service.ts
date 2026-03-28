@@ -25,6 +25,14 @@ export class TableService {
           where: { status: 'ACTIVE' },
           take: 1,
           orderBy: { openedAt: 'desc' },
+          include: {
+            orders: {
+              where: {
+                status: { in: ['PENDING', 'CONFIRMED', 'PREPARING', 'READY'] },
+              },
+              select: { id: true },
+            },
+          },
         },
       },
     });
@@ -87,6 +95,21 @@ export class TableService {
     });
 
     return session;
+  }
+
+  async getOrCreatePublicSession(tableId: string) {
+    await this.findOne(tableId);
+
+    const activeSession = await prisma.tableSession.findFirst({
+      where: { tableId, status: 'ACTIVE' },
+      orderBy: { openedAt: 'desc' },
+    });
+
+    if (activeSession) {
+      return activeSession;
+    }
+
+    return this.openSession(tableId);
   }
 
   async closeSession(sessionId: string) {

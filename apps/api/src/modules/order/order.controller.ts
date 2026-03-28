@@ -10,9 +10,8 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { OrderService } from './order.service';
-import { CreateOrderDto, UpdateOrderStatusDto } from './dto/order.dto';
+import { CreateOrderDto, OrderListQueryDto, UpdateOrderStatusDto } from './dto/order.dto';
 import { CreateOrderFromCartDto } from './dto/create-order-from-cart.dto';
-import { PaginationQueryDto } from '../../common/dto/pagination.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { Public } from '../../common/decorators/public.decorator';
 
@@ -41,7 +40,7 @@ export class OrderController {
   @ApiOperation({ summary: 'List orders for a store' })
   findAll(
     @Param('storeId') storeId: string,
-    @Query() query: PaginationQueryDto & { status?: string },
+    @Query() query: OrderListQueryDto,
   ) {
     return this.orderService.findAll(storeId, query);
   }

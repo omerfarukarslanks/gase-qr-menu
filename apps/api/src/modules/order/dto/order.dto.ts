@@ -2,6 +2,7 @@ import { IsString, IsOptional, IsArray, IsNumber, IsInt, ValidateNested, Min, Is
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { OrderStatus } from '@gase/database';
+import { PaginationQueryDto } from '../../../common/dto/pagination.dto';
 
 export class OrderItemDto {
   @ApiProperty()
@@ -54,4 +55,11 @@ export class UpdateOrderStatusDto {
   @ApiProperty({ enum: OrderStatus })
   @IsEnum(OrderStatus)
   status: OrderStatus;
+}
+
+export class OrderListQueryDto extends PaginationQueryDto {
+  @ApiPropertyOptional({ enum: OrderStatus })
+  @IsOptional()
+  @IsEnum(OrderStatus)
+  status?: OrderStatus;
 }

@@ -351,6 +351,12 @@ export class MenuService {
 
     const fallbackLanguage = menu.store.defaultLanguage || 'tr';
     const lang = filters.lang || fallbackLanguage;
+    const table = filters.table
+      ? await prisma.restaurantTable.findUnique({
+          where: { id: filters.table },
+          select: { id: true, name: true },
+        })
+      : null;
 
     const selectedCategories = menu.menuCategories.map((menuCategory) => menuCategory.category);
     const selectedCategoryIds = new Set(selectedCategories.map((category) => category.id));
@@ -392,7 +398,11 @@ export class MenuService {
       slug: menu.qrToken,
       description: menu.description,
       qrToken: menu.qrToken,
-      store: menu.store,
+      store: {
+        ...menu.store,
+        tableId: table?.id,
+        tableName: table?.name,
+      },
       categories: filteredCategories,
       allergens,
     };

@@ -8,6 +8,7 @@ export interface MenuFilters {
   minPrice?: number;
   maxPrice?: number;
   excludeAllergens?: string;
+  table?: string;
 }
 
 export interface PublicAllergen {

@@ -1,136 +1,45 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { useEffect, useMemo, useState } from "react";
+import { ArrowRight, Bell, BellOff, CheckCircle2, Clock, Loader2, Maximize2, Minimize2 } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-  Maximize2,
-  Minimize2,
-  Clock,
-  Bell,
-  BellOff,
-  ChefHat,
-  CheckCircle2,
-  ArrowRight,
-} from "lucide-react";
+  type Order,
+  type OrderStatus,
+  useKitchenOrders,
+  useUpdateOrderStatus,
+} from "@/hooks/use-orders";
 import { useSocket } from "@/hooks/use-socket";
 import { useCurrentStore } from "@/hooks/use-current-store";
 
-interface OrderItem {
-  name: string;
-  quantity: number;
-  notes?: string;
+function getElapsedMinutes(dateString: string) {
+  return Math.floor((Date.now() - new Date(dateString).getTime()) / 60000);
 }
 
-interface KitchenOrder {
-  id: string;
-  orderNumber: number;
-  tableName: string;
-  status: "PENDING" | "PREPARING" | "READY";
-  items: OrderItem[];
-  createdAt: Date;
-}
-
-const mockOrders: KitchenOrder[] = [
-  {
-    id: "1",
-    orderNumber: 1,
-    tableName: "Masa 3",
-    status: "PENDING",
-    items: [
-      { name: "Adana Kebap", quantity: 2, notes: "Az acili" },
-      { name: "Ayran", quantity: 2 },
-      { name: "Ezme Salata", quantity: 1 },
-    ],
-    createdAt: new Date(Date.now() - 3 * 60000),
-  },
-  {
-    id: "2",
-    orderNumber: 2,
-    tableName: "Masa 7",
-    status: "PENDING",
-    items: [
-      { name: "Iskender", quantity: 1 },
-      { name: "Mercimek Corbasi", quantity: 1 },
-      { name: "Salgam", quantity: 1 },
-    ],
-    createdAt: new Date(Date.now() - 8 * 60000),
-  },
-  {
-    id: "3",
-    orderNumber: 3,
-    tableName: "Masa 1",
-    status: "PREPARING",
-    items: [
-      { name: "Lahmacun", quantity: 3 },
-      { name: "Pide (Kiymali)", quantity: 1 },
-      { name: "Coca Cola", quantity: 3 },
-    ],
-    createdAt: new Date(Date.now() - 12 * 60000),
-  },
-  {
-    id: "4",
-    orderNumber: 4,
-    tableName: "Masa 5",
-    status: "PREPARING",
-    items: [
-      { name: "Karisik Izgara", quantity: 2, notes: "Iyi piskin" },
-      { name: "Pilav", quantity: 2 },
-      { name: "Kunefe", quantity: 1 },
-    ],
-    createdAt: new Date(Date.now() - 18 * 60000),
-  },
-  {
-    id: "5",
-    orderNumber: 5,
-    tableName: "Masa 12",
-    status: "READY",
-    items: [
-      { name: "Tavuk Sis", quantity: 2 },
-      { name: "Bulgur Pilavi", quantity: 2 },
-    ],
-    createdAt: new Date(Date.now() - 25 * 60000),
-  },
-  {
-    id: "6",
-    orderNumber: 6,
-    tableName: "Masa 9",
-    status: "READY",
-    items: [
-      { name: "Sutlac", quantity: 3 },
-      { name: "Turk Kahvesi", quantity: 3 },
-    ],
-    createdAt: new Date(Date.now() - 30 * 60000),
-  },
-];
-
-function getElapsedMinutes(date: Date): number {
-  return Math.floor((Date.now() - date.getTime()) / 60000);
+function nextKitchenAction(status: OrderStatus) {
+  if (status === "PENDING") return { next: "CONFIRMED" as const, label: "Onayla" };
+  if (status === "CONFIRMED") return { next: "PREPARING" as const, label: "Hazirlamaya Basla" };
+  if (status === "PREPARING") return { next: "READY" as const, label: "Hazir" };
+  if (status === "READY") return { next: "SERVED" as const, label: "Servise Gonder" };
+  return null;
 }
 
 function OrderCard({
   order,
   onAction,
-  actionLabel,
 }: {
-  order: KitchenOrder;
+  order: Order;
   onAction: () => void;
-  actionLabel: string;
 }) {
   const elapsed = getElapsedMinutes(order.createdAt);
   const isUrgent = elapsed > 15;
+  const action = nextKitchenAction(order.status);
 
   return (
-    <Card
-      className={`mb-3 ${isUrgent ? "border-destructive/50 bg-destructive/5" : ""}`}
-    >
+    <Card className={`mb-3 ${isUrgent ? "border-destructive/50 bg-destructive/5" : ""}`}>
       <CardHeader className="p-3 pb-1">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <CardTitle className="text-base">
             #{String(order.orderNumber).padStart(3, "0")} - {order.tableName}
           </CardTitle>
@@ -145,24 +54,26 @@ function OrderCard({
         </div>
       </CardHeader>
       <CardContent className="p-3 pt-1">
-        <ul className="space-y-1.5 mb-3">
-          {order.items.map((item, idx) => (
-            <li key={idx} className="text-sm">
+        <ul className="mb-3 space-y-1.5">
+          {order.items.map((item) => (
+            <li key={item.id} className="text-sm">
               <span className="font-medium">
-                {item.quantity}x {item.name}
+                {item.quantity}x {item.productName}
               </span>
               {item.notes && (
-                <span className="block text-xs italic text-muted-foreground ml-4">
+                <span className="ml-4 block text-xs italic text-muted-foreground">
                   {item.notes}
                 </span>
               )}
             </li>
           ))}
         </ul>
-        <Button onClick={onAction} className="w-full" size="sm">
-          {actionLabel}
-          <ArrowRight className="ml-2 h-4 w-4" />
-        </Button>
+        {action && (
+          <Button onClick={onAction} className="w-full" size="sm">
+            {action.label}
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
+        )}
       </CardContent>
     </Card>
   );
@@ -170,61 +81,44 @@ function OrderCard({
 
 export default function KitchenDisplayPage() {
   const { activeStoreId } = useCurrentStore();
-  const [orders, setOrders] = useState<KitchenOrder[]>(mockOrders);
+  const { joinStore, joinKitchen, onEvent } = useSocket();
+  const { data, isLoading, isError, error, refetch } = useKitchenOrders(activeStoreId ?? "");
+  const updateOrderStatus = useUpdateOrderStatus();
+
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
-  const { joinStore, joinKitchen, onEvent } = useSocket();
-
-  const storeId = activeStoreId ?? "";
 
   useEffect(() => {
-    if (!storeId) return;
-    joinStore(storeId);
-    joinKitchen(storeId);
-  }, [joinStore, joinKitchen, storeId]);
+    if (!activeStoreId) {
+      return;
+    }
 
-  // Listen for new orders and status updates via WebSocket
+    joinStore(activeStoreId);
+    joinKitchen(activeStoreId);
+  }, [activeStoreId, joinKitchen, joinStore]);
+
   useEffect(() => {
-    const cleanupNew = onEvent("newOrder", (data: any) => {
-      const newOrder: KitchenOrder = {
-        id: data.id,
-        orderNumber: data.orderNumber || 0,
-        tableName: data.tableSession?.tableRef?.name || "Masa",
-        status: "PENDING",
-        items: (data.items || []).map((item: any) => ({
-          name: item.product?.translations?.[0]?.name || item.product?.slug || "Urun",
-          quantity: item.quantity,
-          notes: item.notes,
-        })),
-        createdAt: new Date(data.createdAt),
-      };
-      setOrders((prev) => [...prev, newOrder]);
+    const cleanupNew = onEvent("newOrder", () => {
+      refetch();
 
-      // Play notification sound
       if (soundEnabled) {
         try {
           const audio = new Audio("/notification.mp3");
-          audio.play().catch(() => {});
+          void audio.play().catch(() => {});
         } catch {}
       }
     });
 
-    const cleanupStatus = onEvent("orderStatusUpdate", (data: any) => {
-      setOrders((prev) =>
-        prev
-          .map((o) =>
-            o.id === data.id ? { ...o, status: data.status } : o
-          )
-          .filter((o) => o.status !== "SERVED" && o.status !== "CANCELLED")
-      );
+    const cleanupStatus = onEvent("orderStatusUpdate", () => {
+      refetch();
     });
 
     return () => {
       cleanupNew?.();
       cleanupStatus?.();
     };
-  }, [onEvent, soundEnabled]);
+  }, [onEvent, refetch, soundEnabled]);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -239,171 +133,152 @@ export default function KitchenDisplayPage() {
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen?.();
+      void document.documentElement.requestFullscreen?.();
     } else {
-      document.exitFullscreen?.();
+      void document.exitFullscreen?.();
     }
   };
 
-  const moveOrder = (orderId: string) => {
-    setOrders((prev) =>
-      prev
-        .map((o) => {
-          if (o.id !== orderId) return o;
-          if (o.status === "PENDING") return { ...o, status: "PREPARING" as const };
-          if (o.status === "PREPARING") return { ...o, status: "READY" as const };
-          return o;
-        })
-        .filter((o) => !(o.id === orderId && o.status === "READY" && orders.find(x => x.id === orderId)?.status === "READY"))
-    );
-  };
-
-  const deliverOrder = (orderId: string) => {
-    setOrders((prev) => prev.filter((o) => o.id !== orderId));
-  };
-
-  const pending = orders.filter((o) => o.status === "PENDING");
-  const preparing = orders.filter((o) => o.status === "PREPARING");
-  const ready = orders.filter((o) => o.status === "READY");
+  const pending = useMemo(
+    () => [...(data?.pending ?? []), ...(data?.confirmed ?? [])].sort(
+      (left, right) => new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime()
+    ),
+    [data?.confirmed, data?.pending]
+  );
+  const preparing = data?.preparing ?? [];
+  const ready = data?.ready ?? [];
+  const total = data?.total ?? 0;
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)]">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b px-4 py-2 bg-background">
-        <div className="flex items-center gap-3">
-          <ChefHat className="h-6 w-6" />
+    <div className="flex h-[calc(100vh-4rem)] flex-col">
+      <div className="flex items-center justify-between border-b bg-background px-4 py-2">
+        <div>
           <h1 className="text-xl font-bold">Mutfak Ekrani</h1>
+          <p className="text-sm text-muted-foreground">
+            Canli siparis akisi store bazli backend servisinden geliyor.
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <span className="text-lg font-mono text-muted-foreground">
             {currentTime.toLocaleTimeString("tr-TR")}
           </span>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setSoundEnabled(!soundEnabled)}
-          >
-            {soundEnabled ? (
-              <Bell className="h-4 w-4" />
-            ) : (
-              <BellOff className="h-4 w-4" />
-            )}
+          <Button variant="outline" size="icon" onClick={() => setSoundEnabled(!soundEnabled)}>
+            {soundEnabled ? <Bell className="h-4 w-4" /> : <BellOff className="h-4 w-4" />}
           </Button>
           <Button variant="outline" size="icon" onClick={toggleFullscreen}>
-            {isFullscreen ? (
-              <Minimize2 className="h-4 w-4" />
-            ) : (
-              <Maximize2 className="h-4 w-4" />
-            )}
+            {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
           </Button>
         </div>
       </div>
 
-      {/* Kanban Columns */}
-      <div className="flex-1 grid grid-cols-3 gap-0 overflow-hidden">
-        {/* Bekleyen */}
-        <div className="flex flex-col border-r overflow-hidden">
-          <div className="flex items-center justify-between bg-yellow-50 dark:bg-yellow-950/30 px-4 py-2 border-b">
-            <h2 className="font-bold text-yellow-800 dark:text-yellow-200">
-              Bekleyen
-            </h2>
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-yellow-200 dark:bg-yellow-800 text-sm font-bold text-yellow-800 dark:text-yellow-200">
-              {pending.length}
-            </span>
-          </div>
-          <div className="flex-1 overflow-y-auto p-3 bg-yellow-50/30 dark:bg-yellow-950/10">
-            {pending.length === 0 ? (
-              <p className="text-center text-sm text-muted-foreground py-8">
-                Bekleyen siparis yok
-              </p>
-            ) : (
-              pending.map((order) => (
-                <OrderCard
-                  key={order.id}
-                  order={order}
-                  onAction={() => moveOrder(order.id)}
-                  actionLabel="Hazirlamaya Basla"
-                />
-              ))
-            )}
-          </div>
+      {isLoading ? (
+        <div className="flex flex-1 items-center justify-center gap-3 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Mutfak siparisleri yukleniyor...
         </div>
+      ) : isError ? (
+        <div className="flex flex-1 items-center justify-center px-6 text-center text-sm text-destructive">
+          {error instanceof Error ? error.message : "Mutfak siparisleri alinamadi."}
+        </div>
+      ) : (
+        <>
+          <div className="grid flex-1 grid-cols-3 overflow-hidden">
+            <div className="flex flex-col overflow-hidden border-r">
+              <div className="flex items-center justify-between border-b bg-yellow-50 px-4 py-2">
+                <h2 className="font-bold text-yellow-800">Bekleyen</h2>
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-yellow-200 text-sm font-bold text-yellow-800">
+                  {pending.length}
+                </span>
+              </div>
+              <div className="flex-1 overflow-y-auto bg-yellow-50/30 p-3">
+                {pending.length === 0 ? (
+                  <p className="py-8 text-center text-sm text-muted-foreground">
+                    Bekleyen siparis yok
+                  </p>
+                ) : (
+                  pending.map((order) => (
+                    <OrderCard
+                      key={order.id}
+                      order={order}
+                      onAction={() => {
+                        const action = nextKitchenAction(order.status);
+                        if (!action) return;
+                        updateOrderStatus.mutate({ id: order.id, status: action.next });
+                      }}
+                    />
+                  ))
+                )}
+              </div>
+            </div>
 
-        {/* Hazirlaniyor */}
-        <div className="flex flex-col border-r overflow-hidden">
-          <div className="flex items-center justify-between bg-orange-50 dark:bg-orange-950/30 px-4 py-2 border-b">
-            <h2 className="font-bold text-orange-800 dark:text-orange-200">
-              Hazirlaniyor
-            </h2>
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-orange-200 dark:bg-orange-800 text-sm font-bold text-orange-800 dark:text-orange-200">
-              {preparing.length}
-            </span>
-          </div>
-          <div className="flex-1 overflow-y-auto p-3 bg-orange-50/30 dark:bg-orange-950/10">
-            {preparing.length === 0 ? (
-              <p className="text-center text-sm text-muted-foreground py-8">
-                Hazirlanan siparis yok
-              </p>
-            ) : (
-              preparing.map((order) => (
-                <OrderCard
-                  key={order.id}
-                  order={order}
-                  onAction={() => moveOrder(order.id)}
-                  actionLabel="Hazir"
-                />
-              ))
-            )}
-          </div>
-        </div>
+            <div className="flex flex-col overflow-hidden border-r">
+              <div className="flex items-center justify-between border-b bg-orange-50 px-4 py-2">
+                <h2 className="font-bold text-orange-800">Hazirlaniyor</h2>
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-orange-200 text-sm font-bold text-orange-800">
+                  {preparing.length}
+                </span>
+              </div>
+              <div className="flex-1 overflow-y-auto bg-orange-50/30 p-3">
+                {preparing.length === 0 ? (
+                  <p className="py-8 text-center text-sm text-muted-foreground">
+                    Hazirlanan siparis yok
+                  </p>
+                ) : (
+                  preparing.map((order) => (
+                    <OrderCard
+                      key={order.id}
+                      order={order}
+                      onAction={() => updateOrderStatus.mutate({ id: order.id, status: "READY" })}
+                    />
+                  ))
+                )}
+              </div>
+            </div>
 
-        {/* Hazir */}
-        <div className="flex flex-col overflow-hidden">
-          <div className="flex items-center justify-between bg-green-50 dark:bg-green-950/30 px-4 py-2 border-b">
-            <h2 className="font-bold text-green-800 dark:text-green-200">
-              Hazir
-            </h2>
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-green-200 dark:bg-green-800 text-sm font-bold text-green-800 dark:text-green-200">
-              {ready.length}
-            </span>
+            <div className="flex flex-col overflow-hidden">
+              <div className="flex items-center justify-between border-b bg-green-50 px-4 py-2">
+                <h2 className="font-bold text-green-800">Hazir</h2>
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-green-200 text-sm font-bold text-green-800">
+                  {ready.length}
+                </span>
+              </div>
+              <div className="flex-1 overflow-y-auto bg-green-50/30 p-3">
+                {ready.length === 0 ? (
+                  <p className="py-8 text-center text-sm text-muted-foreground">
+                    Servise hazir siparis yok
+                  </p>
+                ) : (
+                  ready.map((order) => (
+                    <OrderCard
+                      key={order.id}
+                      order={order}
+                      onAction={() => updateOrderStatus.mutate({ id: order.id, status: "SERVED" })}
+                    />
+                  ))
+                )}
+              </div>
+            </div>
           </div>
-          <div className="flex-1 overflow-y-auto p-3 bg-green-50/30 dark:bg-green-950/10">
-            {ready.length === 0 ? (
-              <p className="text-center text-sm text-muted-foreground py-8">
-                Servise hazir siparis yok
-              </p>
-            ) : (
-              ready.map((order) => (
-                <OrderCard
-                  key={order.id}
-                  order={order}
-                  onAction={() => deliverOrder(order.id)}
-                  actionLabel="Teslim Edildi"
-                />
-              ))
-            )}
-          </div>
-        </div>
-      </div>
 
-      {/* Bottom Stats Bar */}
-      <div className="flex items-center justify-between border-t bg-muted/50 px-4 py-2 text-sm">
-        <div className="flex gap-6">
-          <span>
-            <span className="font-medium text-yellow-600">{pending.length}</span> Bekleyen
-          </span>
-          <span>
-            <span className="font-medium text-orange-600">{preparing.length}</span> Hazirlaniyor
-          </span>
-          <span>
-            <span className="font-medium text-green-600">{ready.length}</span> Hazir
-          </span>
-        </div>
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <CheckCircle2 className="h-4 w-4" />
-          Toplam: {orders.length} aktif siparis
-        </div>
-      </div>
+          <div className="flex items-center justify-between border-t bg-muted/50 px-4 py-2 text-sm">
+            <div className="flex gap-6">
+              <span>
+                <span className="font-medium text-yellow-600">{pending.length}</span> Bekleyen
+              </span>
+              <span>
+                <span className="font-medium text-orange-600">{preparing.length}</span> Hazirlaniyor
+              </span>
+              <span>
+                <span className="font-medium text-green-600">{ready.length}</span> Hazir
+              </span>
+            </div>
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <CheckCircle2 className="h-4 w-4" />
+              Toplam: {total} aktif siparis
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

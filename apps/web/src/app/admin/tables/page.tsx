@@ -1,48 +1,44 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
-  Plus,
-  Users,
-  QrCode,
-  Pencil,
-  Trash2,
-  Clock,
   ChefHat,
+  Clock,
+  Loader2,
+  Pencil,
+  Plus,
+  QrCode,
+  Trash2,
+  Users,
   X,
 } from "lucide-react";
+import { MenuQrCard } from "@/components/admin/menu-qr-card";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { useMenus } from "@/hooks/use-menus";
+import {
+  type RestaurantTable,
+  type TableStatus,
+  useCloseTableSession,
+  useCreateTable,
+  useDeleteTable,
+  useOpenTableSession,
+  useTables,
+  useUpdateTable,
+} from "@/hooks/use-tables";
+import { useCurrentStore } from "@/hooks/use-current-store";
 
-type TableStatus = "AVAILABLE" | "OCCUPIED" | "RESERVED" | "OUT_OF_SERVICE";
-type Section = "IC_MEKAN" | "DIS_MEKAN" | "TERAS" | "VIP";
+type Section = "ALL" | "IC_MEKAN" | "DIS_MEKAN" | "TERAS" | "VIP";
 
-interface RestaurantTable {
-  id: string;
-  number: number;
-  name: string;
-  capacity: number;
-  section: Section;
-  status: TableStatus;
-  customerName?: string;
-  sessionMinutes?: number;
-  orderCount?: number;
-}
-
-const sectionLabels: Record<Section, string> = {
+const sectionLabels: Record<Exclude<Section, "ALL">, string> = {
   IC_MEKAN: "Ic Mekan",
   DIS_MEKAN: "Dis Mekan",
   TERAS: "Teras",
   VIP: "VIP",
 };
 
-const sectionColors: Record<Section, string> = {
+const sectionColors: Record<Exclude<Section, "ALL">, string> = {
   IC_MEKAN: "bg-blue-100 text-blue-700",
   DIS_MEKAN: "bg-emerald-100 text-emerald-700",
   TERAS: "bg-amber-100 text-amber-700",
@@ -79,26 +75,11 @@ const statusConfig: Record<
   },
 };
 
-const mockTables: RestaurantTable[] = [
-  { id: "1", number: 1, name: "Pencere Kenari 1", capacity: 4, section: "IC_MEKAN", status: "OCCUPIED", customerName: "Ahmet Yilmaz", sessionMinutes: 45, orderCount: 3 },
-  { id: "2", number: 2, name: "Pencere Kenari 2", capacity: 4, section: "IC_MEKAN", status: "AVAILABLE" },
-  { id: "3", number: 3, name: "Orta Masa 1", capacity: 6, section: "IC_MEKAN", status: "RESERVED" },
-  { id: "4", number: 4, name: "Orta Masa 2", capacity: 2, section: "IC_MEKAN", status: "AVAILABLE" },
-  { id: "5", number: 5, name: "Bahce 1", capacity: 4, section: "DIS_MEKAN", status: "OCCUPIED", customerName: "Elif Demir", sessionMinutes: 20, orderCount: 1 },
-  { id: "6", number: 6, name: "Bahce 2", capacity: 6, section: "DIS_MEKAN", status: "AVAILABLE" },
-  { id: "7", number: 7, name: "Bahce 3", capacity: 8, section: "DIS_MEKAN", status: "OUT_OF_SERVICE" },
-  { id: "8", number: 8, name: "Teras 1", capacity: 4, section: "TERAS", status: "OCCUPIED", customerName: "Mehmet Kara", sessionMinutes: 60, orderCount: 5 },
-  { id: "9", number: 9, name: "Teras 2", capacity: 2, section: "TERAS", status: "AVAILABLE" },
-  { id: "10", number: 10, name: "Teras 3", capacity: 4, section: "TERAS", status: "RESERVED" },
-  { id: "11", number: 11, name: "VIP Salon 1", capacity: 8, section: "VIP", status: "OCCUPIED", customerName: "Ayse Ozturk", sessionMinutes: 90, orderCount: 8 },
-  { id: "12", number: 12, name: "VIP Salon 2", capacity: 10, section: "VIP", status: "AVAILABLE" },
-];
-
 interface TableFormData {
   number: number;
   name: string;
   capacity: number;
-  section: Section;
+  section: Exclude<Section, "ALL">;
 }
 
 const emptyForm: TableFormData = {
@@ -108,21 +89,47 @@ const emptyForm: TableFormData = {
   section: "IC_MEKAN",
 };
 
-type FilterSection = "ALL" | Section;
+function getElapsedMinutes(openedAt: string) {
+  return Math.floor((Date.now() - new Date(openedAt).getTime()) / 60000);
+}
 
 export default function TablesPage() {
-  const [tables, setTables] = useState<RestaurantTable[]>(mockTables);
-  const [activeFilter, setActiveFilter] = useState<FilterSection>("ALL");
+  const { activeStoreId } = useCurrentStore();
+  const { data: tables = [], isLoading, isError, error } = useTables(activeStoreId ?? "");
+  const { data: menus = [] } = useMenus(activeStoreId ?? "");
+  const createTable = useCreateTable();
+  const updateTable = useUpdateTable();
+  const deleteTable = useDeleteTable();
+  const openTableSession = useOpenTableSession();
+  const closeTableSession = useCloseTableSession();
+
+  const [activeFilter, setActiveFilter] = useState<Section>("ALL");
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<TableFormData>(emptyForm);
+  const [qrTableId, setQrTableId] = useState<string | null>(null);
+  const [qrMenuId, setQrMenuId] = useState<string | null>(null);
 
-  const filteredTables =
-    activeFilter === "ALL"
+  const activeMenus = useMemo(
+    () => menus.filter((menu) => menu.isActive),
+    [menus]
+  );
+  const qrTable = useMemo(
+    () => tables.find((table) => table.id === qrTableId) ?? null,
+    [qrTableId, tables]
+  );
+  const selectedQrMenu = useMemo(
+    () => activeMenus.find((menu) => menu.id === qrMenuId) ?? activeMenus[0] ?? null,
+    [activeMenus, qrMenuId]
+  );
+
+  const filteredTables = useMemo(() => {
+    return activeFilter === "ALL"
       ? tables
-      : tables.filter((t) => t.section === activeFilter);
+      : tables.filter((table) => (table.section ?? "") === activeFilter);
+  }, [activeFilter, tables]);
 
-  const filterTabs: { key: FilterSection; label: string }[] = [
+  const filterTabs: { key: Section; label: string }[] = [
     { key: "ALL", label: "Tumu" },
     { key: "IC_MEKAN", label: "Ic Mekan" },
     { key: "DIS_MEKAN", label: "Dis Mekan" },
@@ -130,11 +137,17 @@ export default function TablesPage() {
     { key: "VIP", label: "VIP" },
   ];
 
+  const resetForm = () => {
+    setShowForm(false);
+    setEditingId(null);
+    setFormData(emptyForm);
+  };
+
   const handleAdd = () => {
     setEditingId(null);
     setFormData({
       ...emptyForm,
-      number: Math.max(0, ...tables.map((t) => t.number)) + 1,
+      number: Math.max(0, ...tables.map((table) => table.number)) + 1,
     });
     setShowForm(true);
   };
@@ -145,41 +158,55 @@ export default function TablesPage() {
       number: table.number,
       name: table.name,
       capacity: table.capacity,
-      section: table.section,
+      section:
+        (table.section as Exclude<Section, "ALL"> | null) ?? "IC_MEKAN",
     });
     setShowForm(true);
   };
 
-  const handleDelete = (id: string) => {
-    setTables(tables.filter((t) => t.id !== id));
-  };
-
   const handleSave = () => {
-    if (!formData.name.trim()) return;
-
-    if (editingId) {
-      setTables(
-        tables.map((t) =>
-          t.id === editingId
-            ? { ...t, number: formData.number, name: formData.name, capacity: formData.capacity, section: formData.section }
-            : t
-        )
-      );
-    } else {
-      const newTable: RestaurantTable = {
-        id: `new-${Date.now()}`,
-        number: formData.number,
-        name: formData.name,
-        capacity: formData.capacity,
-        section: formData.section,
-        status: "AVAILABLE",
-      };
-      setTables([...tables, newTable]);
+    if (!activeStoreId || !formData.name.trim() || formData.number <= 0) {
+      return;
     }
 
-    setShowForm(false);
-    setEditingId(null);
-    setFormData(emptyForm);
+    if (editingId) {
+      updateTable.mutate(
+        {
+          id: editingId,
+          name: formData.name.trim(),
+          capacity: formData.capacity,
+          section: formData.section,
+        },
+        {
+          onSuccess: resetForm,
+        }
+      );
+      return;
+    }
+
+    createTable.mutate(
+      {
+        storeId: activeStoreId,
+        number: formData.number,
+        name: formData.name.trim(),
+        capacity: formData.capacity,
+        section: formData.section,
+      },
+      {
+        onSuccess: resetForm,
+      }
+    );
+  };
+
+  const handleOpenQrPanel = (table: RestaurantTable) => {
+    setQrTableId(table.id);
+    setQrMenuId((current) => {
+      if (current && activeMenus.some((menu) => menu.id === current)) {
+        return current;
+      }
+
+      return activeMenus[0]?.id ?? null;
+    });
   };
 
   return (
@@ -188,16 +215,16 @@ export default function TablesPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Masalar</h1>
           <p className="text-muted-foreground">
-            Masalari yonetin, QR kodlari olusturun ve masa durumlarini takip edin.
+            Masalari yonetin, aktif oturumlari takip edin ve QR akisini menulerle eslestirin.
           </p>
         </div>
-        <Button onClick={handleAdd}>
+        <Button onClick={handleAdd} disabled={!activeStoreId}>
           <Plus className="mr-2 h-4 w-4" />
           Masa Ekle
         </Button>
       </div>
 
-      <div className="flex gap-2 flex-wrap">
+      <div className="flex flex-wrap gap-2">
         {filterTabs.map((tab) => (
           <Button
             key={tab.key}
@@ -210,6 +237,53 @@ export default function TablesPage() {
         ))}
       </div>
 
+      {qrTable && selectedQrMenu && (
+        <Card>
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <CardTitle>
+                  Masa {qrTable.number} icin QR
+                </CardTitle>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Bu QR okutuldugunda secili menu dogrudan {qrTable.name} baglamiyla acilir.
+                </p>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => setQrTableId(null)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="grid gap-6 lg:grid-cols-[280px_1fr]">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Menu secimi</label>
+              <select
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={selectedQrMenu.id}
+                onChange={(event) => setQrMenuId(event.target.value)}
+              >
+                {activeMenus.map((menu) => (
+                  <option key={menu.id} value={menu.id}>
+                    {menu.name}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground">
+                Masa bazli QR linki: `/m/{selectedQrMenu.qrToken}?table={qrTable.id}`
+              </p>
+            </div>
+            <MenuQrCard
+              qrToken={selectedQrMenu.qrToken}
+              menuName={`${selectedQrMenu.name}-masa-${qrTable.number}`}
+              size={208}
+              publicUrlOverride={`${typeof window !== "undefined" ? window.location.origin : "http://localhost:3000"}/m/${selectedQrMenu.qrToken}?table=${encodeURIComponent(qrTable.id)}`}
+              openHrefOverride={`/m/${selectedQrMenu.qrToken}?table=${encodeURIComponent(qrTable.id)}`}
+              downloadFileName={`masa-${qrTable.number}-${selectedQrMenu.name.toLowerCase().replace(/\s+/g, "-")}-qr.svg`}
+            />
+          </CardContent>
+        </Card>
+      )}
+
       {showForm && (
         <Card>
           <CardHeader className="pb-4">
@@ -217,15 +291,7 @@ export default function TablesPage() {
               <CardTitle className="text-lg">
                 {editingId ? "Masa Duzenle" : "Yeni Masa Ekle"}
               </CardTitle>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => {
-                  setShowForm(false);
-                  setEditingId(null);
-                }}
-              >
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={resetForm}>
                 <X className="h-4 w-4" />
               </Button>
             </div>
@@ -236,46 +302,49 @@ export default function TablesPage() {
                 <label className="text-sm font-medium">Masa Numarasi</label>
                 <Input
                   type="number"
-                  placeholder="1"
                   value={formData.number || ""}
-                  onChange={(e) =>
-                    setFormData({ ...formData, number: parseInt(e.target.value) || 0 })
+                  onChange={(event) =>
+                    setFormData((current) => ({
+                      ...current,
+                      number: parseInt(event.target.value, 10) || 0,
+                    }))
                   }
                 />
               </div>
-
               <div className="space-y-2">
                 <label className="text-sm font-medium">Masa Adi</label>
                 <Input
-                  placeholder="ornek: Pencere Kenari 1"
                   value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
+                  onChange={(event) =>
+                    setFormData((current) => ({ ...current, name: event.target.value }))
                   }
                 />
               </div>
-
               <div className="space-y-2">
-                <label className="text-sm font-medium">Kapasite (Kisi)</label>
+                <label className="text-sm font-medium">Kapasite</label>
                 <Input
                   type="number"
-                  placeholder="4"
                   min={1}
                   max={20}
                   value={formData.capacity || ""}
-                  onChange={(e) =>
-                    setFormData({ ...formData, capacity: parseInt(e.target.value) || 2 })
+                  onChange={(event) =>
+                    setFormData((current) => ({
+                      ...current,
+                      capacity: parseInt(event.target.value, 10) || 2,
+                    }))
                   }
                 />
               </div>
-
               <div className="space-y-2">
                 <label className="text-sm font-medium">Bolum</label>
                 <select
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   value={formData.section}
-                  onChange={(e) =>
-                    setFormData({ ...formData, section: e.target.value as Section })
+                  onChange={(event) =>
+                    setFormData((current) => ({
+                      ...current,
+                      section: event.target.value as Exclude<Section, "ALL">,
+                    }))
                   }
                 >
                   {Object.entries(sectionLabels).map(([key, label]) => (
@@ -287,17 +356,14 @@ export default function TablesPage() {
               </div>
             </div>
 
-            <div className="flex gap-2 mt-6">
-              <Button onClick={handleSave}>
+            <div className="mt-6 flex gap-2">
+              <Button
+                onClick={handleSave}
+                disabled={createTable.isPending || updateTable.isPending}
+              >
                 {editingId ? "Guncelle" : "Kaydet"}
               </Button>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowForm(false);
-                  setEditingId(null);
-                }}
-              >
+              <Button variant="outline" onClick={resetForm}>
                 Iptal
               </Button>
             </div>
@@ -305,89 +371,151 @@ export default function TablesPage() {
         </Card>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {filteredTables.map((table) => {
-          const status = statusConfig[table.status];
-          return (
-            <Card
-              key={table.id}
-              className={`relative overflow-hidden border-2 ${status.border}`}
-            >
-              <div className={`absolute top-0 left-0 right-0 h-1 ${status.bg}`} />
-              <CardContent className="p-4 space-y-3">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="text-lg font-bold">Masa {table.number}</div>
-                    <div className="text-sm text-muted-foreground">{table.name}</div>
+      {isLoading ? (
+        <Card>
+          <CardContent className="flex items-center gap-3 py-10 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Masalar yukleniyor...
+          </CardContent>
+        </Card>
+      ) : isError ? (
+        <Card>
+          <CardContent className="py-10 text-sm text-destructive">
+            {error instanceof Error
+              ? error.message
+              : "Masalar alinamadi. Backend baglantisini kontrol edin."}
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {filteredTables.map((table) => {
+            const status = statusConfig[table.status];
+            const sessionMinutes = table.currentSession
+              ? getElapsedMinutes(table.currentSession.openedAt)
+              : 0;
+            const sectionKey =
+              (table.section as Exclude<Section, "ALL"> | null) ?? "IC_MEKAN";
+
+            return (
+              <Card
+                key={table.id}
+                className={`relative overflow-hidden border-2 ${status.border}`}
+              >
+                <div className={`absolute left-0 right-0 top-0 h-1 ${status.bg}`} />
+                <CardContent className="space-y-3 p-4">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="text-lg font-bold">Masa {table.number}</div>
+                      <div className="text-sm text-muted-foreground">{table.name}</div>
+                    </div>
+                    <span
+                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${status.bg} ${status.color}`}
+                    >
+                      {status.label}
+                    </span>
                   </div>
-                  <span
-                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${status.bg} ${status.color}`}
-                  >
-                    {status.label}
-                  </span>
-                </div>
 
-                <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <Users className="h-3.5 w-3.5" />
-                    {table.capacity} Kisi
-                  </span>
-                  <span
-                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${sectionColors[table.section]}`}
-                  >
-                    {sectionLabels[table.section]}
-                  </span>
-                </div>
+                  <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Users className="h-3.5 w-3.5" />
+                      {table.capacity} Kisi
+                    </span>
+                    <span
+                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${sectionColors[sectionKey]}`}
+                    >
+                      {sectionLabels[sectionKey]}
+                    </span>
+                  </div>
 
-                {table.status === "OCCUPIED" && (
-                  <div className="rounded-md bg-muted/50 p-2 space-y-1">
-                    <div className="text-sm font-medium">{table.customerName}</div>
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {table.sessionMinutes} dk
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <ChefHat className="h-3 w-3" />
-                        {table.orderCount} siparis
-                      </span>
+                  {table.currentSession && (
+                    <div className="space-y-1 rounded-md bg-muted/50 p-2">
+                      <div className="text-sm font-medium">
+                        {table.currentSession.customerName || "Aktif masa oturumu"}
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {sessionMinutes} dk
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <ChefHat className="h-3 w-3" />
+                          {table.currentSession.orderCount} aktif siparis
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between pt-1">
+                    {table.currentSession ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={closeTableSession.isPending}
+                        onClick={() =>
+                          closeTableSession.mutate({
+                            sessionId: table.currentSession!.id,
+                          })
+                        }
+                      >
+                        Oturumu Kapat
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={
+                          openTableSession.isPending ||
+                          table.status === "OUT_OF_SERVICE"
+                        }
+                        onClick={() =>
+                          openTableSession.mutate({
+                            tableId: table.id,
+                          })
+                        }
+                      >
+                        Masa Ac
+                      </Button>
+                    )}
+
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        title={
+                          activeMenus.length > 0
+                            ? "Bu masa icin QR olustur"
+                            : "Once aktif bir menu olusturun"
+                        }
+                        disabled={activeMenus.length === 0}
+                        onClick={() => handleOpenQrPanel(table)}
+                      >
+                        <QrCode className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => handleEdit(table)}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        onClick={() => deleteTable.mutate(table.id)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
                   </div>
-                )}
-
-                <div className="flex items-center justify-between pt-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    title="QR Kod Indir"
-                  >
-                    <QrCode className="h-4 w-4" />
-                  </Button>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => handleEdit(table)}
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-destructive hover:text-destructive"
-                      onClick={() => handleDelete(table.id)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

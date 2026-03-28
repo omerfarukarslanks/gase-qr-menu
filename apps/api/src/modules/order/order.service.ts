@@ -1,8 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { OrderStatus, prisma } from '@gase/database';
-import { CreateOrderDto, UpdateOrderStatusDto } from './dto/order.dto';
+import { CreateOrderDto, OrderListQueryDto, UpdateOrderStatusDto } from './dto/order.dto';
 import { CreateOrderFromCartDto } from './dto/create-order-from-cart.dto';
-import { PaginationQueryDto } from '../../common/dto/pagination.dto';
 import { EventsGateway } from '../../gateway/events.gateway';
 import { CartService } from '../cart/cart.service';
 import { CampaignService } from '../campaign/campaign.service';
@@ -193,7 +192,7 @@ export class OrderService {
     return order;
   }
 
-  async findAll(storeId: string, query: PaginationQueryDto & { status?: string }) {
+  async findAll(storeId: string, query: OrderListQueryDto) {
     const where: any = { storeId };
 
     if (query.status) {

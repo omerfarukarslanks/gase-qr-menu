@@ -36,4 +36,9 @@ export class PublicMenuFiltersDto {
   @IsOptional()
   @IsString()
   excludeAllergens?: string;
+
+  @ApiPropertyOptional({ description: 'Table ID coming from scanned QR' })
+  @IsOptional()
+  @IsString()
+  table?: string;
 }

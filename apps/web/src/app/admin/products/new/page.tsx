@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, ImageIcon, Loader2, Trash2, Upload } from "lucide-react";
@@ -160,7 +160,7 @@ function getFileName(fileUrl: string) {
   }
 }
 
-export default function ProductFormPage() {
+function ProductFormPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get("edit");
@@ -914,5 +914,13 @@ export default function ProductFormPage() {
         </form>
       )}
     </div>
+  );
+}
+
+export default function ProductFormPage() {
+  return (
+    <Suspense fallback={null}>
+      <ProductFormPageContent />
+    </Suspense>
   );
 }

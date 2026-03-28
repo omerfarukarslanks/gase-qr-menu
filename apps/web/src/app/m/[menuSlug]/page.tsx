@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ShoppingCart, Store, Loader2 , AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -160,6 +160,7 @@ function ProductCardSkeleton() {
 }
 
 export default function MenuPage({ params }: MenuPageProps) {
+  const [tableFromQr, setTableFromQr] = useState<string>("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [advancedFilters, setAdvancedFilters] = useState<MenuFilterValues>({
@@ -167,8 +168,33 @@ export default function MenuPage({ params }: MenuPageProps) {
     excludeAllergens: [],
   });
   const totalItems = useCartStore((state) => state.totalItems);
+  const setTable = useCartStore((state) => state.setTable);
 
-  const { data: menuData, isLoading, isError } = usePublicMenu(params.menuSlug);
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const search = new URLSearchParams(window.location.search);
+    setTableFromQr(search.get("table") ?? "");
+  }, []);
+
+  const { data: menuData, isLoading, isError } = usePublicMenu(
+    params.menuSlug,
+    tableFromQr ? { table: tableFromQr } : undefined
+  );
+
+  useEffect(() => {
+    if (!menuData?.store.tableId) {
+      return;
+    }
+
+    setTable({
+      tableId: menuData.store.tableId,
+      tableName: menuData.store.tableName,
+      menuSlug: params.menuSlug,
+    });
+  }, [menuData?.store.tableId, menuData?.store.tableName, params.menuSlug, setTable]);
 
   const categories = menuData?.categories ?? [];
   const storeName = menuData?.store?.name ?? "Menü";

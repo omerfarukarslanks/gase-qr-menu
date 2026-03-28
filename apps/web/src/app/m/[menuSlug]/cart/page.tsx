@@ -28,6 +28,7 @@ import { useCartStore } from "@/lib/store";
 import { formatCurrency } from "@/lib/utils";
 import { useSocket } from "@/hooks/use-socket";
 import { usePublicMenu } from "@/hooks/use-public-menu";
+import { useEnsurePublicTableSession } from "@/hooks/use-tables";
 import api from "@/lib/api";
 
 interface CartPageProps {
@@ -42,7 +43,14 @@ export default function CartPage({ params }: CartPageProps) {
   const clearCart = useCartStore((state) => state.clearCart);
   const totalAmount = useCartStore((state) => state.totalAmount);
   const tableId = useCartStore((state) => state.tableId);
-  const { data: menuData } = usePublicMenu(params.menuSlug);
+  const storedTableName = useCartStore((state) => state.tableName);
+  const tableSessionId = useCartStore((state) => state.tableSessionId);
+  const setTableSessionId = useCartStore((state) => state.setTableSessionId);
+  const { data: menuData } = usePublicMenu(
+    params.menuSlug,
+    tableId ? { table: tableId } : undefined
+  );
+  const ensurePublicTableSession = useEnsurePublicTableSession();
 
   const { callWaiter } = useSocket();
   const [waiterCalled, setWaiterCalled] = useState(false);
@@ -60,7 +68,7 @@ export default function CartPage({ params }: CartPageProps) {
   const discount = couponApplied?.valid ? couponApplied.discount : 0;
   const grandTotal = Math.max(0, subtotal - discount);
   const storeId = menuData?.store.id ?? "";
-  const tableName = menuData?.store.tableName ?? "Masa";
+  const tableName = menuData?.store.tableName ?? storedTableName ?? "Masa";
 
   const handleCallWaiter = () => {
     if (!storeId) return;
@@ -135,9 +143,25 @@ export default function CartPage({ params }: CartPageProps) {
         return;
       }
 
+      const resolvedTableSessionId =
+        tableSessionId ||
+        (
+          await ensurePublicTableSession.mutateAsync({
+            tableId,
+          })
+        )?.id;
+
+      if (!resolvedTableSessionId) {
+        throw new Error("Masa oturumu olusturulamadi");
+      }
+
+      if (!tableSessionId) {
+        setTableSessionId(resolvedTableSessionId);
+      }
+
       const res = await api.post("/api/orders", {
         storeId,
-        tableSessionId: tableId,
+        tableSessionId: resolvedTableSessionId,
         couponCode: couponApplied?.valid ? couponCode : undefined,
         items: items.map((item) => ({
           productId: item.productId,
@@ -146,7 +170,7 @@ export default function CartPage({ params }: CartPageProps) {
         })),
       });
 
-      const order = res.data;
+      const order = res.data?.data ?? res.data;
       clearCart();
       router.push(
         `/m/${params.menuSlug}/payment?orderId=${order.id}&amount=${order.totalAmount}&discount=${order.discountAmount}`

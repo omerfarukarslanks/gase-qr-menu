@@ -10,6 +10,9 @@ interface MenuQrCardProps {
   qrToken: string;
   menuName: string;
   size?: number;
+  publicUrlOverride?: string;
+  openHrefOverride?: string;
+  downloadFileName?: string;
 }
 
 const FALLBACK_WEB_URL = "http://localhost:3000";
@@ -30,11 +33,18 @@ export function MenuQrCard({
   qrToken,
   menuName,
   size = 192,
+  publicUrlOverride,
+  openHrefOverride,
+  downloadFileName,
 }: MenuQrCardProps) {
   const [copied, setCopied] = useState(false);
   const qrWrapperRef = useRef<HTMLDivElement>(null);
 
-  const publicUrl = useMemo(() => `${getBaseUrl()}/m/${qrToken}`, [qrToken]);
+  const publicUrl = useMemo(
+    () => publicUrlOverride ?? `${getBaseUrl()}/m/${qrToken}`,
+    [publicUrlOverride, qrToken]
+  );
+  const openHref = openHrefOverride ?? publicUrl;
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(publicUrl);
@@ -56,7 +66,7 @@ export function MenuQrCard({
     const link = document.createElement("a");
 
     link.href = url;
-    link.download = `${menuName || "menu"}-qr.svg`;
+    link.download = downloadFileName ?? `${menuName || "menu"}-qr.svg`;
     link.click();
 
     URL.revokeObjectURL(url);
@@ -89,7 +99,7 @@ export function MenuQrCard({
           <Download className="mr-2 h-4 w-4" />
           QR indir
         </Button>
-        <Link href={`/m/${qrToken}`} target="_blank">
+        <Link href={openHref} target="_blank">
           <Button type="button" variant="outline">
             <ExternalLink className="mr-2 h-4 w-4" />
             Menuyu ac

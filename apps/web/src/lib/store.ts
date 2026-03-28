@@ -100,8 +100,16 @@ interface CartItem {
 interface CartState {
   items: CartItem[];
   tableId: string | null;
+  tableSessionId: string | null;
+  tableName: string | null;
   menuSlug: string | null;
-  setTable: (tableId: string, menuSlug: string) => void;
+  setTable: (payload: {
+    tableId: string;
+    menuSlug: string;
+    tableName?: string | null;
+    tableSessionId?: string | null;
+  }) => void;
+  setTableSessionId: (tableSessionId: string | null) => void;
   addItem: (item: Omit<CartItem, "quantity">) => void;
   removeItem: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
@@ -115,8 +123,12 @@ export const useCartStore = create<CartState>()(
     (set, get) => ({
       items: [],
       tableId: null,
+      tableSessionId: null,
+      tableName: null,
       menuSlug: null,
-      setTable: (tableId, menuSlug) => set({ tableId, menuSlug }),
+      setTable: ({ tableId, menuSlug, tableName, tableSessionId }) =>
+        set({ tableId, menuSlug, tableName: tableName ?? null, tableSessionId: tableSessionId ?? null }),
+      setTableSessionId: (tableSessionId) => set({ tableSessionId }),
       addItem: (item) => {
         const existing = get().items.find((i) => i.productId === item.productId);
         if (existing) {
