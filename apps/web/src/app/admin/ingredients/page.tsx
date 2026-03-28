@@ -22,6 +22,7 @@ import {
   useUpdateIngredient,
 } from "@/hooks/use-ingredients";
 import { useCurrentStore } from "@/hooks/use-current-store";
+import { useUnits } from "@/hooks/use-units";
 
 const INGREDIENT_TYPES = [
   { value: "", label: "Tumu" },
@@ -40,6 +41,7 @@ const INGREDIENT_TYPES = [
 interface IngredientForm {
   name: string;
   type: string;
+  unitId: string;
   stockQuantity: number;
   minStockLevel: number;
 }
@@ -47,6 +49,7 @@ interface IngredientForm {
 const emptyForm: IngredientForm = {
   name: "",
   type: "OTHER",
+  unitId: "",
   stockQuantity: 0,
   minStockLevel: 0,
 };
@@ -62,6 +65,7 @@ export default function IngredientsPage() {
     type: typeFilter || undefined,
     search: search || undefined,
   });
+  const { data: units = [] } = useUnits(activeStoreId ?? "");
   const createIngredient = useCreateIngredient();
   const updateIngredient = useUpdateIngredient();
 
@@ -82,6 +86,8 @@ export default function IngredientsPage() {
     id: string;
     name: string;
     type: string;
+    unitId?: string | null;
+    unit?: { abbreviation: string } | null;
     stockQuantity: number;
     minStockLevel: number;
   }) {
@@ -89,6 +95,7 @@ export default function IngredientsPage() {
     setForm({
       name: ingredient.name,
       type: ingredient.type,
+      unitId: ingredient.unitId ?? "",
       stockQuantity: ingredient.stockQuantity,
       minStockLevel: ingredient.minStockLevel,
     });
@@ -111,6 +118,7 @@ export default function IngredientsPage() {
           id: editingId,
           name: form.name,
           type: form.type,
+          unitId: form.unitId || undefined,
           stockQuantity: form.stockQuantity,
           minStockLevel: form.minStockLevel,
         },
@@ -122,6 +130,7 @@ export default function IngredientsPage() {
           storeId: activeStoreId,
           name: form.name,
           type: form.type,
+          unitId: form.unitId || undefined,
           stockQuantity: form.stockQuantity,
           minStockLevel: form.minStockLevel,
         },
@@ -198,6 +207,21 @@ export default function IngredientsPage() {
                 value={form.type}
                 onChange={(value) => setForm({ ...form, type: String(value) })}
                 searchPlaceholder="Tur ara..."
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Stok birimi</label>
+              <SearchableSelect
+                options={units.map((unit) => ({
+                  value: unit.id,
+                  label: `${unit.name} (${unit.abbreviation})`,
+                  keywords: [unit.abbreviation],
+                }))}
+                value={form.unitId}
+                onChange={(value) => setForm({ ...form, unitId: String(value) })}
+                placeholder="Birim secin"
+                searchPlaceholder="Birim ara..."
+                emptyMessage="Birim bulunamadi."
               />
             </div>
             <div className="space-y-2">
@@ -316,9 +340,12 @@ export default function IngredientsPage() {
                     cell: (ingredient) => {
                       const isLowStock =
                         ingredient.stockQuantity <= ingredient.minStockLevel;
+                      const quantityLabel = ingredient.unit?.abbreviation
+                        ? `${ingredient.stockQuantity} ${ingredient.unit.abbreviation}`
+                        : ingredient.stockQuantity;
                       return (
                         <span className={isLowStock ? "font-medium text-destructive" : ""}>
-                          {ingredient.stockQuantity}
+                          {quantityLabel}
                         </span>
                       );
                     },
@@ -326,7 +353,10 @@ export default function IngredientsPage() {
                   {
                     header: "Min. stok",
                     className: "text-right",
-                    cell: (ingredient) => ingredient.minStockLevel,
+                    cell: (ingredient) =>
+                      ingredient.unit?.abbreviation
+                        ? `${ingredient.minStockLevel} ${ingredient.unit.abbreviation}`
+                        : ingredient.minStockLevel,
                   },
                   {
                     header: "Islemler",
@@ -386,7 +416,9 @@ export default function IngredientsPage() {
                             Stok
                           </p>
                           <p className="mt-1 font-medium text-foreground">
-                            {ingredient.stockQuantity}
+                            {ingredient.unit?.abbreviation
+                              ? `${ingredient.stockQuantity} ${ingredient.unit.abbreviation}`
+                              : ingredient.stockQuantity}
                           </p>
                         </div>
                         <div>
@@ -394,7 +426,9 @@ export default function IngredientsPage() {
                             Min. stok
                           </p>
                           <p className="mt-1 font-medium text-foreground">
-                            {ingredient.minStockLevel}
+                            {ingredient.unit?.abbreviation
+                              ? `${ingredient.minStockLevel} ${ingredient.unit.abbreviation}`
+                              : ingredient.minStockLevel}
                           </p>
                         </div>
                       </div>
