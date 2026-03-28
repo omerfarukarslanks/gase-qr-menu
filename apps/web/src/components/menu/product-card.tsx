@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ImageIcon, Plus, Sparkles } from "lucide-react";
+import { Clock3, ImageIcon, Plus, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useCartStore } from "@/lib/store";
@@ -30,6 +30,7 @@ interface ProductCardProps {
   menuSlug: string;
   isAvailable?: boolean;
   categoryName?: string;
+  canQuickAdd?: boolean;
 }
 
 export function ProductCard({
@@ -43,6 +44,7 @@ export function ProductCard({
   menuSlug,
   isAvailable = true,
   categoryName,
+  canQuickAdd = true,
 }: ProductCardProps) {
   const addItem = useCartStore((state) => state.addItem);
 
@@ -59,7 +61,7 @@ export function ProductCard({
     event.preventDefault();
     event.stopPropagation();
 
-    if (!isAvailable) {
+    if (!isAvailable || !canQuickAdd) {
       return;
     }
 
@@ -158,10 +160,20 @@ export function ProductCard({
                   size="sm"
                   className="rounded-full px-4"
                   onClick={handleQuickAdd}
+                  disabled={!canQuickAdd}
                 >
-                  <Sparkles className="mr-1 h-4 w-4" />
-                  Ekle
-                  <Plus className="ml-1 h-4 w-4" />
+                  {canQuickAdd ? (
+                    <>
+                      <Sparkles className="mr-1 h-4 w-4" />
+                      Ekle
+                      <Plus className="ml-1 h-4 w-4" />
+                    </>
+                  ) : (
+                    <>
+                      <Clock3 className="mr-1 h-4 w-4" />
+                      Kapali
+                    </>
+                  )}
                 </Button>
               ) : (
                 <span className="rounded-full bg-muted px-3 py-1.5 text-xs font-semibold text-muted-foreground">

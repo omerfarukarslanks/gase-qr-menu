@@ -422,6 +422,7 @@ export default function MenuPage({ params }: MenuPageProps) {
               menuSlug={params.menuSlug}
               isAvailable={product.isAvailable}
               categoryName={product.categoryName}
+              canQuickAdd={isAcceptingOrders}
             />
           ))}
         </div>
@@ -459,6 +460,7 @@ export default function MenuPage({ params }: MenuPageProps) {
                     menuSlug={params.menuSlug}
                     isAvailable={product.isAvailable}
                     categoryName={product.categoryName}
+                    canQuickAdd={isAcceptingOrders}
                   />
                 ))}
               </div>

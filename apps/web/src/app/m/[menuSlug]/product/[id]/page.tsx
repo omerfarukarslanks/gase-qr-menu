@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import {
+  Clock3,
   ArrowLeft,
   Minus,
   Plus,
@@ -114,6 +115,9 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
   const addItem = useCartStore((state) => state.addItem);
 
   const { data: product, isLoading, isError, error } = usePublicProduct(params.id);
+  const operatingStatus = product?.operatingStatus;
+  const isAcceptingOrders = operatingStatus?.acceptingOrders ?? true;
+  const isOpenNow = operatingStatus?.isOpenNow ?? true;
 
   const toggleIngredient = (id: string) => {
     setRemovedIngredients((prev) =>
@@ -122,7 +126,7 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
   };
 
   const handleAddToCart = () => {
-    if (!product) return;
+    if (!product || !isAcceptingOrders) return;
 
     // Build notes with removed ingredients
     const removedNames = product.ingredients
@@ -235,11 +239,31 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
       {/* Product Info */}
       <div className="mx-auto w-full max-w-3xl space-y-4 px-4 py-4">
         <div>
+          <div
+            className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${
+              isOpenNow
+                ? "bg-emerald-100 text-emerald-700"
+                : "bg-amber-100 text-amber-700"
+            }`}
+          >
+            <Clock3 className="h-3.5 w-3.5" />
+            {isOpenNow ? "Su an acik" : "Su an kapali"}
+            {operatingStatus?.openTime && operatingStatus?.closeTime
+              ? ` · ${operatingStatus.openTime} - ${operatingStatus.closeTime}`
+              : ""}
+          </div>
           <h2 className="text-2xl font-bold">{product.name}</h2>
           <p className="mt-1 text-2xl font-semibold text-primary">
             {formatCurrency(product.price)}
           </p>
         </div>
+
+        {!isAcceptingOrders && (
+          <div className="rounded-[1rem] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            {operatingStatus?.message ??
+              "Restoran su anda siparis kabul etmiyor. Acilis saatlerinde tekrar deneyin."}
+          </div>
+        )}
 
         {product.description && (
           <p className="text-sm text-muted-foreground leading-relaxed">
@@ -357,6 +381,7 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
               size="icon"
               className="h-8 w-8"
               onClick={() => setQuantity(Math.max(1, quantity - 1))}
+              disabled={!isAcceptingOrders}
             >
               <Minus className="h-4 w-4" />
             </Button>
@@ -366,13 +391,20 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
               size="icon"
               className="h-8 w-8"
               onClick={() => setQuantity(quantity + 1)}
+              disabled={!isAcceptingOrders}
             >
               <Plus className="h-4 w-4" />
             </Button>
           </div>
-          <Button className="flex-1" onClick={handleAddToCart}>
-            <ShoppingCart className="mr-2 h-4 w-4" />
-            Sepete Ekle - {formatCurrency(product.price * quantity)}
+          <Button className="flex-1" onClick={handleAddToCart} disabled={!isAcceptingOrders}>
+            {isAcceptingOrders ? (
+              <ShoppingCart className="mr-2 h-4 w-4" />
+            ) : (
+              <Clock3 className="mr-2 h-4 w-4" />
+            )}
+            {isAcceptingOrders
+              ? `Sepete Ekle - ${formatCurrency(product.price * quantity)}`
+              : "Siparis su an kapali"}
           </Button>
         </div>
       </div>

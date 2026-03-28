@@ -23,6 +23,14 @@ export class MenuService {
 
   private formatProduct(product: any, lang?: string, fallbackLanguage = 'tr') {
     const translation = this.pickTranslation(product.translations, lang, fallbackLanguage);
+    const operatingStatus =
+      product.store?.isActive !== undefined
+        ? getStoreOperatingStatus({
+            isActive: product.store.isActive,
+            settings: product.store.settings,
+            timezone: product.store.timezone,
+          })
+        : undefined;
 
     return {
       id: product.id,
@@ -56,6 +64,7 @@ export class MenuService {
       })),
       categoryId: product.categoryId,
       isAvailable: product.isActive,
+      operatingStatus,
     };
   }
 

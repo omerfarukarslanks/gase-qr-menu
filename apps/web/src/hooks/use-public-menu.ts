@@ -39,6 +39,19 @@ export interface PublicProduct {
     carbs?: number;
     fat?: number;
   };
+  operatingStatus?: {
+    isStoreActive: boolean;
+    isPubliclyVisible: boolean;
+    hasSchedule: boolean;
+    isOpenNow: boolean;
+    acceptingOrders: boolean;
+    currentDay: string;
+    currentDayLabel: string;
+    openTime?: string | null;
+    closeTime?: string | null;
+    timezone: string;
+    message: string;
+  };
 }
 
 export interface PublicCategory {
