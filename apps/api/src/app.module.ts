@@ -24,6 +24,7 @@ import { KitchenModule } from './modules/kitchen/kitchen.module';
 import { ReportModule } from './modules/report/report.module';
 import { UploadModule } from './modules/upload/upload.module';
 import { I18nModule } from './modules/i18n/i18n.module';
+import { StaffModule } from './modules/staff/staff.module';
 import { EventsGateway } from './gateway/events.gateway';
 
 const envFilePath = [
@@ -61,6 +62,7 @@ const envFilePath = [
     ReportModule,
     UploadModule,
     I18nModule,
+    StaffModule,
   ],
   providers: [EventsGateway],
 })

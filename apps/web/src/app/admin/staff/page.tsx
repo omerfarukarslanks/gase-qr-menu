@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Pencil, Plus, UserCog } from "lucide-react";
+import { useMemo, useState } from "react";
+import { AlertCircle, Loader2, Pencil, Plus, UserCog } from "lucide-react";
 import { AdminDrawer } from "@/components/admin/admin-drawer";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { ResponsiveDataTable } from "@/components/admin/responsive-data-table";
@@ -16,28 +16,28 @@ import {
 import { Input } from "@/components/ui/input";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Switch } from "@/components/ui/switch";
+import { useCurrentStore } from "@/hooks/use-current-store";
+import {
+  type StaffMember,
+  type StaffRole,
+  useCreateStaff,
+  useStaff,
+  useToggleStaffStatus,
+  useUpdateStaff,
+} from "@/hooks/use-staff";
 
-const ROLES = [
+const ROLES: { value: StaffRole; label: string }[] = [
   { value: "MANAGER", label: "Mudur" },
   { value: "STAFF", label: "Personel" },
   { value: "WAITER", label: "Garson" },
   { value: "KITCHEN", label: "Mutfak" },
 ];
 
-interface StaffMember {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-  storeName: string;
-  isActive: boolean;
-}
-
 interface StaffForm {
   name: string;
   email: string;
   password: string;
-  role: string;
+  role: StaffRole;
 }
 
 const emptyForm: StaffForm = {
@@ -47,17 +47,54 @@ const emptyForm: StaffForm = {
   role: "STAFF",
 };
 
-const demoStaff: StaffMember[] = [];
+function getErrorMessage(error: unknown) {
+  if (!error) {
+    return "Islem tamamlanamadi.";
+  }
+
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "response" in error &&
+    typeof (error as { response?: { data?: { message?: string | string[] } } }).response?.data
+      ?.message !== "undefined"
+  ) {
+    const message = (error as { response?: { data?: { message?: string | string[] } } })
+      .response?.data?.message;
+    return Array.isArray(message) ? message.join(", ") : message || "Islem tamamlanamadi.";
+  }
+
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return "Islem tamamlanamadi.";
+}
 
 export default function StaffPage() {
-  const [staff, setStaff] = useState<StaffMember[]>(demoStaff);
+  const { activeStoreId, activeStore } = useCurrentStore();
+  const { data: staff = [], isLoading, isError, error } = useStaff(activeStoreId ?? "");
+  const createStaff = useCreateStaff();
+  const updateStaff = useUpdateStaff();
+  const toggleStaffStatus = useToggleStaffStatus();
+
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<StaffForm>(emptyForm);
+  const [successMessage, setSuccessMessage] = useState("");
+  const [formError, setFormError] = useState("");
+
+  const editingMember = useMemo(
+    () => staff.find((member) => member.id === editingId) ?? null,
+    [editingId, staff]
+  );
+  const busy =
+    createStaff.isPending || updateStaff.isPending || toggleStaffStatus.isPending;
 
   function handleOpenCreate() {
     setEditingId(null);
     setForm(emptyForm);
+    setFormError("");
     setShowForm(true);
   }
 
@@ -69,6 +106,7 @@ export default function StaffPage() {
       password: "",
       role: member.role,
     });
+    setFormError("");
     setShowForm(true);
   }
 
@@ -76,23 +114,79 @@ export default function StaffPage() {
     setShowForm(false);
     setEditingId(null);
     setForm(emptyForm);
+    setFormError("");
   }
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    if (editingId) {
-      alert("Personel bilgileri guncellendi.");
-    } else {
-      alert("Yeni personel eklendi.");
+
+    if (!activeStoreId) {
+      setFormError("Devam etmek icin aktif magaza secin.");
+      return;
     }
-    handleCancel();
+
+    setFormError("");
+    setSuccessMessage("");
+
+    if (editingId) {
+      updateStaff.mutate(
+        {
+          id: editingId,
+          name: form.name,
+          email: form.email,
+          password: form.password || undefined,
+          role: form.role,
+        },
+        {
+          onSuccess: () => {
+            setSuccessMessage("Personel bilgileri guncellendi.");
+            handleCancel();
+          },
+          onError: (mutationError) => {
+            setFormError(getErrorMessage(mutationError));
+          },
+        }
+      );
+      return;
+    }
+
+    createStaff.mutate(
+      {
+        storeId: activeStoreId,
+        name: form.name,
+        email: form.email,
+        password: form.password,
+        role: form.role,
+      },
+      {
+        onSuccess: () => {
+          setSuccessMessage("Yeni personel eklendi.");
+          handleCancel();
+        },
+        onError: (mutationError) => {
+          setFormError(getErrorMessage(mutationError));
+        },
+      }
+    );
   }
 
-  function handleToggleActive(id: string) {
-    setStaff((current) =>
-      current.map((member) =>
-        member.id === id ? { ...member, isActive: !member.isActive } : member
-      )
+  function handleToggleActive(member: StaffMember) {
+    setSuccessMessage("");
+
+    toggleStaffStatus.mutate(
+      {
+        id: member.id,
+        isActive: !member.isActive,
+      },
+      {
+        onSuccess: () => {
+          setSuccessMessage(
+            member.isActive
+              ? `${member.name} pasif yapildi.`
+              : `${member.name} tekrar aktif edildi.`
+          );
+        },
+      }
     );
   }
 
@@ -119,9 +213,13 @@ export default function StaffPage() {
     <div className="space-y-6">
       <AdminPageHeader
         title="Personel yonetimi"
-        description="Personel ekleyin, rollerini ve sube atamalarini yonetin."
+        description={
+          activeStore
+            ? `${activeStore.name} icin personel rollerini ve erisimlerini yonetin.`
+            : "Personel yonetimi icin aktif magaza secin."
+        }
         action={
-          <Button onClick={handleOpenCreate}>
+          <Button onClick={handleOpenCreate} disabled={!activeStoreId}>
             <Plus className="mr-2 h-4 w-4" />
             Yeni personel
           </Button>
@@ -136,7 +234,11 @@ export default function StaffPage() {
           }
         }}
         title={editingId ? "Personeli duzenle" : "Yeni personel ekle"}
-        description="Personel, rol ve giris bilgilerini drawer uzerinden yonetin."
+        description={
+          editingMember
+            ? `${editingMember.storeName} personel kaydini guncelleyin.`
+            : "Personel, rol ve giris bilgilerini drawer uzerinden yonetin."
+        }
       >
         <form
           onSubmit={handleSubmit}
@@ -145,6 +247,12 @@ export default function StaffPage() {
             event.currentTarget.classList.add("form-validation-submitted")
           }
         >
+          {formError && (
+            <p className="rounded-[1.1rem] border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+              {formError}
+            </p>
+          )}
+
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <label className="text-sm font-medium">Ad soyad</label>
@@ -182,7 +290,9 @@ export default function StaffPage() {
               <SearchableSelect
                 options={ROLES}
                 value={form.role}
-                onChange={(value) => setForm({ ...form, role: String(value) })}
+                onChange={(value) =>
+                  setForm({ ...form, role: String(value) as StaffRole })
+                }
                 searchPlaceholder="Rol ara..."
               />
             </div>
@@ -190,7 +300,10 @@ export default function StaffPage() {
 
           <div className="sticky bottom-0 z-10 -mx-2 rounded-[1.4rem] border border-border/80 bg-background/92 p-3 shadow-[var(--card-shadow-hover)] backdrop-blur lg:mx-0">
             <div className="flex flex-col gap-2 sm:flex-row">
-              <Button type="submit">{editingId ? "Guncelle" : "Ekle"}</Button>
+              <Button type="submit" disabled={busy}>
+                {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {editingId ? "Guncelle" : "Ekle"}
+              </Button>
               <Button type="button" variant="outline" onClick={handleCancel}>
                 Iptal
               </Button>
@@ -198,6 +311,12 @@ export default function StaffPage() {
           </div>
         </form>
       </AdminDrawer>
+
+      {successMessage && (
+        <div className="rounded-[1.4rem] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+          {successMessage}
+        </div>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {ROLES.map((role) => {
@@ -224,7 +343,21 @@ export default function StaffPage() {
           <CardDescription>Tum kayitli personel ve rol atamalari.</CardDescription>
         </CardHeader>
         <CardContent>
-          {staff.length === 0 ? (
+          {!activeStoreId ? (
+            <p className="text-sm text-muted-foreground">
+              Devam etmek icin bir magaza secin.
+            </p>
+          ) : isLoading ? (
+            <div className="flex items-center gap-3 py-8 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Personel listesi yukleniyor...
+            </div>
+          ) : isError ? (
+            <div className="flex items-start gap-3 rounded-[1.25rem] border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <p>{getErrorMessage(error)}</p>
+            </div>
+          ) : staff.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               Henuz personel eklenmemis. "Yeni Personel" butonuna tiklayarak baslayabilirsiniz.
             </p>
@@ -267,11 +400,17 @@ export default function StaffPage() {
                       <div className="flex items-center gap-2">
                         <Switch
                           checked={member.isActive}
-                          onCheckedChange={() => handleToggleActive(member.id)}
+                          disabled={busy}
+                          onCheckedChange={() => handleToggleActive(member)}
                           aria-label={`${member.name} durumunu degistir`}
                         />
                       </div>
-                      <Button variant="ghost" size="icon" onClick={() => handleEdit(member)}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        disabled={busy}
+                        onClick={() => handleEdit(member)}
+                      >
                         <Pencil className="h-4 w-4" />
                       </Button>
                     </div>
@@ -304,17 +443,26 @@ export default function StaffPage() {
                       <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
                         Durum
                       </p>
+                      <p className="mt-1 text-foreground">
+                        {member.isActive ? "Aktif" : "Pasif"}
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
                       <Switch
                         checked={member.isActive}
-                        onCheckedChange={() => handleToggleActive(member.id)}
+                        disabled={busy}
+                        onCheckedChange={() => handleToggleActive(member)}
                         aria-label={`${member.name} durumunu degistir`}
                       />
                     </div>
-                    <Button variant="ghost" size="icon" onClick={() => handleEdit(member)}>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      disabled={busy}
+                      onClick={() => handleEdit(member)}
+                    >
                       <Pencil className="h-4 w-4" />
                     </Button>
                   </div>

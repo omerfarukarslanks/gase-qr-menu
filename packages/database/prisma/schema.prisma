@@ -211,6 +211,7 @@ model UserStore {
   userId  String    @map("user_id")
   storeId String    @map("store_id")
   role    StoreRole
+  isActive Boolean  @default(true) @map("is_active")
 
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
   store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)

@@ -4,7 +4,11 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { AdminTopbar } from "@/components/admin/admin-topbar";
-import { getAdminPageTitle } from "@/components/admin/admin-nav";
+import {
+  canAccessAdminPath,
+  getAccessibleAdminNavItems,
+  getAdminPageTitle,
+} from "@/components/admin/admin-nav";
 import { Sidebar } from "@/components/admin/sidebar";
 import { StoreOnboardingCard } from "@/components/admin/store-onboarding-card";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -29,6 +33,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const setStores = useAuthStore((state) => state.setStores);
   const setActiveStoreId = useAuthStore((state) => state.setActiveStoreId);
   const logout = useAuthStore((state) => state.logout);
+  const user = useAuthStore((state) => state.user);
 
   const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(false);
   const [hasLoadedSidebarState, setHasLoadedSidebarState] = useState(false);
@@ -77,6 +82,34 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       setStores(storesResponse.data);
     }
   }, [setStores, storesResponse]);
+
+  const activeStore = stores.find((store) => store.id === activeStoreId) ?? null;
+  const accessibleNavItems = getAccessibleAdminNavItems(user?.role, activeStore?.role);
+
+  useEffect(() => {
+    if (!hasHydrated || !isAuthenticated || stores.length === 0) {
+      return;
+    }
+
+    if (canAccessAdminPath(pathname, user?.role, activeStore?.role)) {
+      return;
+    }
+
+    const fallbackPath = accessibleNavItems[0]?.href ?? "/admin";
+
+    if (pathname !== fallbackPath) {
+      router.replace(fallbackPath);
+    }
+  }, [
+    accessibleNavItems,
+    activeStore?.role,
+    hasHydrated,
+    isAuthenticated,
+    pathname,
+    router,
+    stores.length,
+    user?.role,
+  ]);
 
   if (!hasHydrated) {
     return (
@@ -134,6 +167,31 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   }
 
   if (stores.length === 0) {
+    if (user?.role !== "OWNER" && user?.role !== "SUPER_ADMIN") {
+      return (
+        <div className="theme-app-gradient flex min-h-screen items-center justify-center px-6">
+          <div className="w-full max-w-md rounded-[2rem] border border-border bg-card p-7 text-center shadow-[var(--card-shadow)]">
+            <h1 className="text-xl font-semibold">Aktif magaza erisimi yok</h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Hesabiniz icin aktif bir magaza atamasi bulunmuyor. Owner veya manager
+              kullanicisindan erisim talep edebilirsiniz.
+            </p>
+            <div className="mt-4 flex justify-center gap-2">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  logout();
+                  router.replace("/login");
+                }}
+              >
+                Cikis yap
+              </Button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <StoreOnboardingCard
         onReady={() => refetch()}

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { LogOut, Store } from "lucide-react";
-import { adminNavItems } from "@/components/admin/admin-nav";
+import { getAccessibleAdminNavItems } from "@/components/admin/admin-nav";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
 
@@ -22,7 +22,11 @@ export function Sidebar({
   const router = useRouter();
   const logout = useAuthStore((state) => state.logout);
   const user = useAuthStore((state) => state.user);
+  const stores = useAuthStore((state) => state.stores);
+  const activeStoreId = useAuthStore((state) => state.activeStoreId);
   const isRail = collapsed && !mobile;
+  const activeStore = stores.find((store) => store.id === activeStoreId) ?? null;
+  const visibleNavItems = getAccessibleAdminNavItems(user?.role, activeStore?.role);
 
   return (
     <aside
@@ -73,7 +77,7 @@ export function Sidebar({
       </div>
 
       <nav className={cn("flex-1 space-y-1.5 overflow-y-auto px-3 py-4", isRail && "px-2")}>
-        {adminNavItems.map((item) => {
+        {visibleNavItems.map((item) => {
           const isActive =
             pathname === item.href ||
             (item.href !== "/admin" && pathname.startsWith(item.href));

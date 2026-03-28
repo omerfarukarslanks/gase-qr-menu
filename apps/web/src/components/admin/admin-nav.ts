@@ -22,25 +22,106 @@ export interface AdminNavItem {
   href: string;
   label: string;
   icon: LucideIcon;
+  roles?: string[];
 }
 
 export const adminNavItems: AdminNavItem[] = [
-  { href: "/admin", label: "Pano", icon: LayoutDashboard },
-  { href: "/admin/categories", label: "Kategoriler", icon: FolderTree },
-  { href: "/admin/units", label: "Birimler", icon: Ruler },
-  { href: "/admin/ingredients", label: "Malzemeler", icon: Warehouse },
-  { href: "/admin/products", label: "Urunler", icon: ShoppingBag },
-  { href: "/admin/menus", label: "Menuler", icon: BookOpen },
-  { href: "/admin/tables", label: "Masalar", icon: QrCode },
-  { href: "/admin/orders", label: "Siparisler", icon: ClipboardList },
-  { href: "/admin/kitchen", label: "Mutfak", icon: ChefHat },
-  { href: "/admin/payments", label: "Odemeler", icon: CreditCard },
-  { href: "/admin/campaigns", label: "Kampanyalar", icon: Megaphone },
-  { href: "/admin/customers", label: "Musteriler", icon: Users },
-  { href: "/admin/reports", label: "Raporlar", icon: BarChart3 },
-  { href: "/admin/stock", label: "Stok", icon: Package },
-  { href: "/admin/staff", label: "Personel", icon: UserCog },
-  { href: "/admin/settings", label: "Ayarlar", icon: Settings },
+  {
+    href: "/admin",
+    label: "Pano",
+    icon: LayoutDashboard,
+    roles: ["SUPER_ADMIN", "OWNER", "MANAGER", "STAFF", "WAITER", "KITCHEN"],
+  },
+  {
+    href: "/admin/categories",
+    label: "Kategoriler",
+    icon: FolderTree,
+    roles: ["SUPER_ADMIN", "OWNER", "MANAGER", "STAFF"],
+  },
+  {
+    href: "/admin/units",
+    label: "Birimler",
+    icon: Ruler,
+    roles: ["SUPER_ADMIN", "OWNER", "MANAGER", "STAFF"],
+  },
+  {
+    href: "/admin/ingredients",
+    label: "Malzemeler",
+    icon: Warehouse,
+    roles: ["SUPER_ADMIN", "OWNER", "MANAGER", "STAFF"],
+  },
+  {
+    href: "/admin/products",
+    label: "Urunler",
+    icon: ShoppingBag,
+    roles: ["SUPER_ADMIN", "OWNER", "MANAGER", "STAFF"],
+  },
+  {
+    href: "/admin/menus",
+    label: "Menuler",
+    icon: BookOpen,
+    roles: ["SUPER_ADMIN", "OWNER", "MANAGER", "STAFF"],
+  },
+  {
+    href: "/admin/tables",
+    label: "Masalar",
+    icon: QrCode,
+    roles: ["SUPER_ADMIN", "OWNER", "MANAGER", "STAFF", "WAITER"],
+  },
+  {
+    href: "/admin/orders",
+    label: "Siparisler",
+    icon: ClipboardList,
+    roles: ["SUPER_ADMIN", "OWNER", "MANAGER", "STAFF", "WAITER", "KITCHEN"],
+  },
+  {
+    href: "/admin/kitchen",
+    label: "Mutfak",
+    icon: ChefHat,
+    roles: ["SUPER_ADMIN", "OWNER", "MANAGER", "STAFF", "KITCHEN"],
+  },
+  {
+    href: "/admin/payments",
+    label: "Odemeler",
+    icon: CreditCard,
+    roles: ["SUPER_ADMIN", "OWNER", "MANAGER"],
+  },
+  {
+    href: "/admin/campaigns",
+    label: "Kampanyalar",
+    icon: Megaphone,
+    roles: ["SUPER_ADMIN", "OWNER", "MANAGER"],
+  },
+  {
+    href: "/admin/customers",
+    label: "Musteriler",
+    icon: Users,
+    roles: ["SUPER_ADMIN", "OWNER", "MANAGER"],
+  },
+  {
+    href: "/admin/reports",
+    label: "Raporlar",
+    icon: BarChart3,
+    roles: ["SUPER_ADMIN", "OWNER", "MANAGER"],
+  },
+  {
+    href: "/admin/stock",
+    label: "Stok",
+    icon: Package,
+    roles: ["SUPER_ADMIN", "OWNER", "MANAGER", "STAFF"],
+  },
+  {
+    href: "/admin/staff",
+    label: "Personel",
+    icon: UserCog,
+    roles: ["SUPER_ADMIN", "OWNER", "MANAGER"],
+  },
+  {
+    href: "/admin/settings",
+    label: "Ayarlar",
+    icon: Settings,
+    roles: ["SUPER_ADMIN", "OWNER", "MANAGER"],
+  },
 ];
 
 const titleByPrefix: Array<{ prefix: string; title: string }> = [
@@ -68,4 +149,42 @@ export function getAdminPageTitle(pathname: string) {
   }
 
   return titleByPrefix[titleByPrefix.length - 1]?.title ?? "Admin";
+}
+
+export function getEffectiveAdminRole(
+  userRole?: string | null,
+  storeRole?: string | null
+) {
+  if (userRole === "SUPER_ADMIN" || userRole === "OWNER") {
+    return userRole;
+  }
+
+  return storeRole ?? userRole ?? null;
+}
+
+export function getAccessibleAdminNavItems(
+  userRole?: string | null,
+  storeRole?: string | null
+) {
+  const effectiveRole = getEffectiveAdminRole(userRole, storeRole);
+
+  if (!effectiveRole) {
+    return [];
+  }
+
+  return adminNavItems.filter(
+    (item) => !item.roles || item.roles.includes(effectiveRole)
+  );
+}
+
+export function canAccessAdminPath(
+  pathname: string,
+  userRole?: string | null,
+  storeRole?: string | null
+) {
+  return getAccessibleAdminNavItems(userRole, storeRole).some(
+    (item) =>
+      pathname === item.href ||
+      (item.href !== "/admin" && pathname.startsWith(item.href))
+  );
 }

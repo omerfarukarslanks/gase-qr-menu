@@ -35,10 +35,14 @@ export class StoreController {
   @Get()
   @ApiOperation({ summary: 'List stores for organization' })
   findAll(
-    @CurrentUser('organizationId') organizationId: string,
+    @CurrentUser() currentUser: {
+      id: string;
+      role: string;
+      organizationId?: string | null;
+    },
     @Query() query: PaginationQueryDto,
   ) {
-    return this.storeService.findAll(organizationId, query);
+    return this.storeService.findAll(currentUser, query);
   }
 
   @Get(':id')

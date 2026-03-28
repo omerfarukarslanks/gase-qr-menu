@@ -17,6 +17,7 @@ export interface StoreSummary {
   isActive: boolean;
   currency?: string;
   timezone?: string;
+  role?: string | null;
 }
 
 export interface AuthSessionPayload {

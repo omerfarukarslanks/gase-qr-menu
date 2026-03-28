@@ -27,7 +27,10 @@ export class RolesGuard implements CanActivate {
       throw new ForbiddenException('No user found in request');
     }
 
-    const hasRole = requiredRoles.some((role) => user.role === role);
+    const storeRoles = Array.isArray(user.storeRoles) ? user.storeRoles : [];
+    const hasRole = requiredRoles.some(
+      (role) => user.role === role || storeRoles.includes(role),
+    );
 
     if (!hasRole) {
       throw new ForbiddenException(

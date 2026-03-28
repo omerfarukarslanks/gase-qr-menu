@@ -12,6 +12,12 @@ export interface JwtPayload {
   organizationId?: string;
 }
 
+interface UserStoreMembership {
+  storeId: string;
+  role: string;
+  isActive: boolean;
+}
+
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(private configService: ConfigService) {
@@ -25,6 +31,15 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   async validate(payload: JwtPayload) {
     const user = await prisma.user.findUnique({
       where: { id: payload.sub },
+      include: {
+        userStores: {
+          select: {
+            storeId: true,
+            role: true,
+            isActive: true,
+          },
+        },
+      },
     });
 
     if (!user) {
@@ -33,11 +48,20 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
     const userName = splitDisplayName(user.name);
 
+    const activeStoreMemberships = user.userStores.filter((membership) => membership.isActive);
+    const userStores: UserStoreMembership[] = activeStoreMemberships.map((membership) => ({
+      storeId: membership.storeId,
+      role: membership.role,
+      isActive: membership.isActive,
+    }));
+
     return {
       id: user.id,
       email: user.email,
       role: user.role,
       organizationId: user.organizationId,
+      storeRoles: userStores.map((membership) => membership.role),
+      userStores,
       firstName: userName.firstName,
       lastName: userName.lastName,
       name: user.name,

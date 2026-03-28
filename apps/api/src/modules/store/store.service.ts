@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { prisma } from '@gase/database';
+import { Prisma, prisma } from '@gase/database';
 import { CreateStoreDto, UpdateStoreDto } from './dto/store.dto';
 import { PaginationQueryDto } from '../../common/dto/pagination.dto';
 
@@ -23,8 +23,18 @@ export class StoreService {
     });
   }
 
-  async findAll(organizationId: string | null | undefined, query: PaginationQueryDto) {
-    if (!organizationId) {
+  async findAll(
+    currentUser:
+      | {
+          id: string;
+          role: string;
+          organizationId?: string | null;
+        }
+      | null
+      | undefined,
+    query: PaginationQueryDto,
+  ) {
+    if (!currentUser?.id) {
       return {
         items: [],
         meta: {
@@ -36,7 +46,55 @@ export class StoreService {
       };
     }
 
-    const where: any = { organizationId };
+    const where: Prisma.StoreWhereInput = {};
+    const membershipByStoreId = new Map<string, string>();
+
+    if (currentUser.role === 'SUPER_ADMIN') {
+      // Super admins can browse every store.
+    } else if (currentUser.role === 'OWNER') {
+      if (!currentUser.organizationId) {
+        return {
+          items: [],
+          meta: {
+            total: 0,
+            page: query.page,
+            limit: query.limit,
+            totalPages: 0,
+          },
+        };
+      }
+
+      where.organizationId = currentUser.organizationId;
+    } else {
+      const memberships = await prisma.userStore.findMany({
+        where: {
+          userId: currentUser.id,
+          isActive: true,
+        },
+        select: {
+          storeId: true,
+          role: true,
+        },
+      });
+
+      if (memberships.length === 0) {
+        return {
+          items: [],
+          meta: {
+            total: 0,
+            page: query.page,
+            limit: query.limit,
+            totalPages: 0,
+          },
+        };
+      }
+
+      for (const membership of memberships) {
+        membershipByStoreId.set(membership.storeId, membership.role);
+      }
+
+      where.id = { in: memberships.map((membership) => membership.storeId) };
+    }
 
     if (query.search) {
       where.name = { contains: query.search, mode: 'insensitive' };
@@ -53,7 +111,13 @@ export class StoreService {
     ]);
 
     return {
-      items,
+      items: items.map((item) => ({
+        ...item,
+        role:
+          currentUser.role === 'SUPER_ADMIN' || currentUser.role === 'OWNER'
+            ? currentUser.role
+            : membershipByStoreId.get(item.id) || null,
+      })),
       meta: {
         total,
         page: query.page,
