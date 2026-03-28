@@ -12,8 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useUnits, useCreateUnit, useUpdateUnit, useDeleteUnit } from "@/hooks/use-units";
-
-const STORE_ID = "demo-store";
+import { useCurrentStore } from "@/hooks/use-current-store";
 
 interface UnitForm {
   name: string;
@@ -23,7 +22,8 @@ interface UnitForm {
 const emptyForm: UnitForm = { name: "", abbreviation: "" };
 
 export default function UnitsPage() {
-  const { data: units, isLoading } = useUnits(STORE_ID);
+  const { activeStoreId, activeStore } = useCurrentStore();
+  const { data: units, isLoading } = useUnits(activeStoreId ?? "");
   const createUnit = useCreateUnit();
   const updateUnit = useUpdateUnit();
   const deleteUnit = useDeleteUnit();
@@ -52,6 +52,7 @@ export default function UnitsPage() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!activeStoreId) return;
     if (editingId) {
       updateUnit.mutate(
         { id: editingId, name: form.name, abbreviation: form.abbreviation },
@@ -59,7 +60,7 @@ export default function UnitsPage() {
       );
     } else {
       createUnit.mutate(
-        { storeId: STORE_ID, name: form.name, abbreviation: form.abbreviation },
+        { storeId: activeStoreId, name: form.name, abbreviation: form.abbreviation },
         { onSuccess: () => handleCancel() }
       );
     }
@@ -77,7 +78,9 @@ export default function UnitsPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Birimler</h1>
           <p className="text-muted-foreground">
-            Malzemeler icin olcu birimlerini yonetin.
+            {activeStore
+              ? `${activeStore.name} icin olcu birimlerini yonetin.`
+              : "Aktif magaza secimi bekleniyor."}
           </p>
         </div>
         <Button onClick={handleOpenCreate}>
@@ -134,6 +137,10 @@ export default function UnitsPage() {
         <CardContent>
           {isLoading ? (
             <p className="text-sm text-muted-foreground">Yukleniyor...</p>
+          ) : !activeStoreId ? (
+            <p className="text-sm text-muted-foreground">
+              Devam etmek icin bir magaza secin.
+            </p>
           ) : !units || units.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               Henuz birim eklenmemis. &quot;Yeni Birim&quot; butonuna tiklayarak baslayabilirsiniz.

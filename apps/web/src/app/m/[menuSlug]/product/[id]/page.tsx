@@ -139,10 +139,7 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
   const [removedIngredients, setRemovedIngredients] = useState<string[]>([]);
   const addItem = useCartStore((state) => state.addItem);
 
-  const { data: apiProduct, isLoading, isError } = usePublicProduct(params.id);
-
-  // Fallback to mock
-  const product = apiProduct ?? (isError ? mockProduct : null);
+  const { data: product, isLoading, isError } = usePublicProduct(params.id);
 
   const toggleIngredient = (id: string) => {
     setRemovedIngredients((prev) =>
@@ -198,7 +195,7 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
   }
 
   // Error state - no product
-  if (!product) {
+  if (isError || !product) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] px-4 text-center">
         <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />

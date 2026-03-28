@@ -1,22 +1,16 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { prisma } from '@gase/database';
+import { IngredientTypeName, prisma } from '@gase/database';
 import { PaginationQueryDto } from '../../common/dto/pagination.dto';
+import { CreateIngredientDto, UpdateIngredientDto } from './dto/ingredient.dto';
 
 @Injectable()
 export class IngredientService {
-  async create(data: {
-    name: string;
-    storeId: string;
-    unitId?: string;
-    currentStock?: number;
-    lowStockThreshold?: number;
-    cost?: number;
-  }) {
+  async create(data: CreateIngredientDto) {
     return prisma.ingredient.create({
       data: {
         name: data.name,
         storeId: data.storeId,
-        type: 'OTHER',
+        type: data.type ?? IngredientTypeName.OTHER,
         stockUnitId: data.unitId,
         currentStock: data.currentStock || 0,
         lowStockThreshold: data.lowStockThreshold || 0,
@@ -64,11 +58,18 @@ export class IngredientService {
     return ingredient;
   }
 
-  async update(id: string, data: any) {
+  async update(id: string, data: UpdateIngredientDto) {
     await this.findOne(id);
     return prisma.ingredient.update({
       where: { id },
-      data,
+      data: {
+        name: data.name,
+        type: data.type,
+        stockUnitId: data.unitId,
+        currentStock: data.currentStock,
+        lowStockThreshold: data.lowStockThreshold,
+        cost: data.cost,
+      },
       include: { unit: true },
     });
   }

@@ -17,8 +17,7 @@ import {
   useUpdateIngredient,
   useDeleteIngredient,
 } from "@/hooks/use-ingredients";
-
-const STORE_ID = "demo-store";
+import { useCurrentStore } from "@/hooks/use-current-store";
 
 const INGREDIENT_TYPES = [
   { value: "", label: "Tumu" },
@@ -49,11 +48,12 @@ const emptyForm: IngredientForm = {
 };
 
 export default function IngredientsPage() {
+  const { activeStoreId, activeStore } = useCurrentStore();
   const [typeFilter, setTypeFilter] = useState("");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
 
-  const { data, isLoading } = useIngredients(STORE_ID, {
+  const { data, isLoading } = useIngredients(activeStoreId ?? "", {
     page,
     type: typeFilter || undefined,
     search: search || undefined,
@@ -100,6 +100,7 @@ export default function IngredientsPage() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!activeStoreId) return;
     if (editingId) {
       updateIngredient.mutate(
         {
@@ -114,7 +115,7 @@ export default function IngredientsPage() {
     } else {
       createIngredient.mutate(
         {
-          storeId: STORE_ID,
+          storeId: activeStoreId,
           name: form.name,
           type: form.type,
           stockQuantity: form.stockQuantity,
@@ -141,7 +142,9 @@ export default function IngredientsPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Malzemeler</h1>
           <p className="text-muted-foreground">
-            Urun malzemelerini ve stok bilgilerini yonetin.
+            {activeStore
+              ? `${activeStore.name} icin malzeme ve stok bilgilerini yonetin.`
+              : "Aktif magaza secimi bekleniyor."}
           </p>
         </div>
         <Button onClick={handleOpenCreate}>
@@ -262,6 +265,10 @@ export default function IngredientsPage() {
         <CardContent>
           {isLoading ? (
             <p className="text-sm text-muted-foreground">Yukleniyor...</p>
+          ) : !activeStoreId ? (
+            <p className="text-sm text-muted-foreground">
+              Devam etmek icin bir magaza secin.
+            </p>
           ) : ingredients.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               Henuz malzeme eklenmemis. &quot;Yeni Malzeme&quot; butonuna

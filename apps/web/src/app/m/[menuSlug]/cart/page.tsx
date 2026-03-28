@@ -27,6 +27,7 @@ import { Input } from "@/components/ui/input";
 import { useCartStore } from "@/lib/store";
 import { formatCurrency } from "@/lib/utils";
 import { useSocket } from "@/hooks/use-socket";
+import { usePublicMenu } from "@/hooks/use-public-menu";
 import api from "@/lib/api";
 
 interface CartPageProps {
@@ -40,6 +41,8 @@ export default function CartPage({ params }: CartPageProps) {
   const removeItem = useCartStore((state) => state.removeItem);
   const clearCart = useCartStore((state) => state.clearCart);
   const totalAmount = useCartStore((state) => state.totalAmount);
+  const tableId = useCartStore((state) => state.tableId);
+  const { data: menuData } = usePublicMenu(params.menuSlug);
 
   const { callWaiter } = useSocket();
   const [waiterCalled, setWaiterCalled] = useState(false);
@@ -56,9 +59,12 @@ export default function CartPage({ params }: CartPageProps) {
   const subtotal = totalAmount();
   const discount = couponApplied?.valid ? couponApplied.discount : 0;
   const grandTotal = Math.max(0, subtotal - discount);
+  const storeId = menuData?.store.id ?? "";
+  const tableName = menuData?.store.tableName ?? "Masa";
 
   const handleCallWaiter = () => {
-    callWaiter("store-1", "table-1", "Masa 1");
+    if (!storeId) return;
+    callWaiter(storeId, tableId || "unknown-table", tableName);
     setWaiterCalled(true);
     setTimeout(() => setWaiterCalled(false), 5000);
   };
@@ -70,9 +76,11 @@ export default function CartPage({ params }: CartPageProps) {
     setCouponApplied(null);
 
     try {
-      // In real app, storeId comes from context
+      if (!storeId) {
+        throw new Error("Store baglami bulunamadi");
+      }
       const res = await api.get(
-        `/api/campaigns/store/demo-store/validate/${couponCode}`
+        `/api/campaigns/store/${storeId}/validate/${couponCode}`
       );
       if (res.data?.valid && res.data?.campaign) {
         const campaign = res.data.campaign;
@@ -122,9 +130,14 @@ export default function CartPage({ params }: CartPageProps) {
     setOrderLoading(true);
 
     try {
+      if (!storeId || !tableId) {
+        handlePayment();
+        return;
+      }
+
       const res = await api.post("/api/orders", {
-        storeId: "demo-store",
-        tableSessionId: "demo-session",
+        storeId,
+        tableSessionId: tableId,
         couponCode: couponApplied?.valid ? couponCode : undefined,
         items: items.map((item) => ({
           productId: item.productId,

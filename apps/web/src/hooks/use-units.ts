@@ -1,7 +1,8 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import api from '@/lib/api';
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import api from "@/lib/api";
+import type { ApiResponse } from "@/lib/api-response";
 
-interface Unit {
+export interface Unit {
   id: string;
   name: string;
   abbreviation: string;
@@ -22,46 +23,47 @@ interface UpdateUnitPayload {
 
 export function useUnits(storeId: string) {
   return useQuery({
-    queryKey: ['units', storeId],
+    queryKey: ["units", storeId],
     queryFn: () =>
       api
-        .get<{ success: boolean; data: Unit[] }>(
-          `/api/units?storeId=${storeId}`
-        )
-        .then((r) => r.data.data),
+        .get<ApiResponse<Unit[]>>(`/api/units/store/${storeId}`)
+        .then((response) => response.data.data ?? []),
     enabled: !!storeId,
   });
 }
 
 export function useCreateUnit() {
   const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: (payload: CreateUnitPayload) =>
-      api.post('/api/units', payload).then((r) => r.data),
+      api.post("/api/units", payload).then((response) => response.data),
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['units', variables.storeId] });
+      queryClient.invalidateQueries({ queryKey: ["units", variables.storeId] });
     },
   });
 }
 
 export function useUpdateUnit() {
   const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: ({ id, ...payload }: UpdateUnitPayload) =>
-      api.patch(`/api/units/${id}`, payload).then((r) => r.data),
+      api.put(`/api/units/${id}`, payload).then((response) => response.data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['units'] });
+      queryClient.invalidateQueries({ queryKey: ["units"] });
     },
   });
 }
 
 export function useDeleteUnit() {
   const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: (id: string) =>
-      api.delete(`/api/units/${id}`).then((r) => r.data),
+      api.delete(`/api/units/${id}`).then((response) => response.data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['units'] });
+      queryClient.invalidateQueries({ queryKey: ["units"] });
     },
   });
 }

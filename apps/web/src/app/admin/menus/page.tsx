@@ -2,135 +2,67 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import {
-  Plus,
-  QrCode,
-  ExternalLink,
-  Pencil,
-  Trash2,
-  Eye,
-  Copy,
-  X,
-} from "lucide-react";
+import { Copy, ExternalLink, Pencil, Plus, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { useCategories } from "@/hooks/use-categories";
+import { useCurrentStore } from "@/hooks/use-current-store";
+import { useCreateMenu, useDeleteMenu, useMenus } from "@/hooks/use-menus";
 
-interface Menu {
-  id: string;
+interface MenuFormState {
   name: string;
   description: string;
-  slug: string;
-  isActive: boolean;
-  categoryCount: number;
-  productCount: number;
-  qrScans: number;
-  createdAt: string;
+  categoryIds: string[];
 }
 
-const mockMenus: Menu[] = [
-  {
-    id: "1",
-    name: "Ana Menu",
-    description: "Restoranin ana menusudur. Tum kategorileri icerir.",
-    slug: "ana-menu",
-    isActive: true,
-    categoryCount: 5,
-    productCount: 32,
-    qrScans: 1245,
-    createdAt: "2025-01-15",
-  },
-  {
-    id: "2",
-    name: "Ogle Menusu",
-    description: "Hafta ici ogle saatlerine ozel indirimli menu.",
-    slug: "ogle-menusu",
-    isActive: true,
-    categoryCount: 3,
-    productCount: 18,
-    qrScans: 567,
-    createdAt: "2025-02-20",
-  },
-  {
-    id: "3",
-    name: "Aksam Menusu",
-    description: "Aksam yemegi icin ozel hazirlanmis menu.",
-    slug: "aksam-menusu",
-    isActive: false,
-    categoryCount: 4,
-    productCount: 25,
-    qrScans: 0,
-    createdAt: "2025-03-01",
-  },
-  {
-    id: "4",
-    name: "Barda Menu",
-    description: "Bar bolumu icin icecek ve atistirmalik menusu.",
-    slug: "bar-menu",
-    isActive: true,
-    categoryCount: 2,
-    productCount: 15,
-    qrScans: 340,
-    createdAt: "2025-03-10",
-  },
-];
-
-interface MenuFormData {
-  name: string;
-  description: string;
-  slug: string;
-}
-
-const emptyForm: MenuFormData = {
+const emptyForm: MenuFormState = {
   name: "",
   description: "",
-  slug: "",
+  categoryIds: [],
 };
 
 export default function MenusPage() {
-  const [menus, setMenus] = useState<Menu[]>(mockMenus);
+  const { activeStoreId, activeStore } = useCurrentStore();
+  const { data: menus = [], isLoading, isError } = useMenus(activeStoreId ?? "");
+  const { data: categories = [] } = useCategories(activeStoreId ?? "");
+  const createMenu = useCreateMenu();
+  const deleteMenu = useDeleteMenu();
+
   const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState<MenuFormData>(emptyForm);
-  const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
+  const [form, setForm] = useState<MenuFormState>(emptyForm);
+  const [copiedToken, setCopiedToken] = useState<string | null>(null);
 
-  const handleCreate = () => {
-    if (!formData.name.trim()) return;
-    const slug =
-      formData.slug ||
-      formData.name
-        .toLowerCase()
-        .replace(/[^a-z0-9\s-]/g, "")
-        .replace(/\s+/g, "-");
-    const newMenu: Menu = {
-      id: `new-${Date.now()}`,
-      name: formData.name,
-      description: formData.description,
-      slug,
-      isActive: true,
-      categoryCount: 0,
-      productCount: 0,
-      qrScans: 0,
-      createdAt: new Date().toISOString().split("T")[0],
-    };
-    setMenus([...menus, newMenu]);
+  const resetForm = () => {
+    setForm(emptyForm);
     setShowForm(false);
-    setFormData(emptyForm);
   };
 
-  const handleDelete = (id: string) => {
-    setMenus(menus.filter((m) => m.id !== id));
+  const handleCreate = (event: React.FormEvent) => {
+    event.preventDefault();
+
+    if (!activeStoreId) {
+      return;
+    }
+
+    createMenu.mutate(
+      {
+        storeId: activeStoreId,
+        name: form.name.trim(),
+        description: form.description.trim() || undefined,
+        categoryIds: form.categoryIds,
+      },
+      {
+        onSuccess: resetForm,
+      }
+    );
   };
 
-  const copyUrl = (slug: string) => {
-    navigator.clipboard.writeText(`${window.location.origin}/m/${slug}`);
-    setCopiedSlug(slug);
-    setTimeout(() => setCopiedSlug(null), 2000);
+  const copyUrl = async (token: string) => {
+    const url = `${window.location.origin}/m/${token}`;
+    await navigator.clipboard.writeText(url);
+    setCopiedToken(token);
+    window.setTimeout(() => setCopiedToken(null), 1500);
   };
 
   return (
@@ -139,184 +71,199 @@ export default function MenusPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Menuler</h1>
           <p className="text-muted-foreground">
-            Farkli menuler olusturun, urun ve kategorileri atayin, QR kodlari yonetin.
+            {activeStore
+              ? `${activeStore.name} icin QR menu akisini yonetin.`
+              : "Aktif magaza secimi bekleniyor."}
           </p>
         </div>
-        <Button onClick={() => setShowForm(true)}>
+        <Button onClick={() => setShowForm(true)} disabled={!activeStoreId}>
           <Plus className="mr-2 h-4 w-4" />
-          Yeni Menu Olustur
+          Yeni menu
         </Button>
       </div>
 
       {showForm && (
         <Card>
-          <CardHeader className="pb-4">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">Yeni Menu Olustur</CardTitle>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => {
-                  setShowForm(false);
-                  setFormData(emptyForm);
-                }}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <CardTitle>Yeni menu</CardTitle>
+            <Button variant="ghost" size="icon" onClick={resetForm}>
+              <X className="h-4 w-4" />
+            </Button>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Menu Adi *</label>
-                <Input
-                  placeholder="ornek: Ana Menu"
-                  value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
-                />
+            <form className="space-y-4" onSubmit={handleCreate}>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Menu adi</label>
+                  <Input
+                    value={form.name}
+                    onChange={(event) =>
+                      setForm((current) => ({ ...current, name: event.target.value }))
+                    }
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Aciklama</label>
+                  <Input
+                    value={form.description}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        description: event.target.value,
+                      }))
+                    }
+                    placeholder="Opsiyonel aciklama"
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Slug</label>
-                <Input
-                  placeholder="otomatik-olusturulur"
-                  value={formData.slug}
-                  onChange={(e) =>
-                    setFormData({ ...formData, slug: e.target.value })
-                  }
-                />
-              </div>
-              <div className="space-y-2 sm:col-span-2">
-                <label className="text-sm font-medium">Aciklama</label>
-                <Input
-                  placeholder="Menu aciklamasi"
-                  value={formData.description}
-                  onChange={(e) =>
-                    setFormData({ ...formData, description: e.target.value })
-                  }
-                />
-              </div>
-            </div>
-            <div className="flex gap-2 mt-4">
-              <Button onClick={handleCreate}>Olustur</Button>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowForm(false);
-                  setFormData(emptyForm);
-                }}
-              >
-                Iptal
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
-      <div className="grid gap-4 md:grid-cols-2">
-        {menus.map((menu) => (
-          <Card key={menu.id} className="overflow-hidden">
-            <CardHeader className="pb-3">
-              <div className="flex items-start justify-between">
-                <div>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    {menu.name}
-                    <span
-                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                        menu.isActive
-                          ? "bg-green-100 text-green-700"
-                          : "bg-gray-100 text-gray-600"
-                      }`}
+              <div className="space-y-3">
+                <label className="text-sm font-medium">Kategori secimi</label>
+                <div className="grid gap-2 md:grid-cols-2">
+                  {categories.map((category) => (
+                    <label
+                      key={category.id}
+                      className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
                     >
-                      {menu.isActive ? "Aktif" : "Pasif"}
-                    </span>
-                  </CardTitle>
-                  <CardDescription className="mt-1">
-                    {menu.description}
-                  </CardDescription>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Link href={`/admin/menus/${menu.id}`}>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                  </Link>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-destructive hover:text-destructive"
-                    onClick={() => handleDelete(menu.id)}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-3 gap-4 text-center mb-4">
-                <div className="space-y-1">
-                  <p className="text-2xl font-bold">{menu.categoryCount}</p>
-                  <p className="text-xs text-muted-foreground">Kategori</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-2xl font-bold">{menu.productCount}</p>
-                  <p className="text-xs text-muted-foreground">Urun</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-2xl font-bold">{menu.qrScans}</p>
-                  <p className="text-xs text-muted-foreground">QR Tarama</p>
+                      <input
+                        type="checkbox"
+                        checked={form.categoryIds.includes(category.id)}
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            categoryIds: event.target.checked
+                              ? [...current.categoryIds, category.id]
+                              : current.categoryIds.filter((id) => id !== category.id),
+                          }))
+                        }
+                      />
+                      <span>{category.name}</span>
+                    </label>
+                  ))}
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 p-2 bg-muted rounded-md text-sm">
-                <QrCode className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                <span className="flex-1 truncate text-muted-foreground">
-                  /m/{menu.slug}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 flex-shrink-0"
-                  onClick={() => copyUrl(menu.slug)}
-                >
-                  <Copy className="h-3.5 w-3.5" />
+              <div className="flex gap-2">
+                <Button type="submit" disabled={createMenu.isPending}>
+                  Olustur
                 </Button>
-                {copiedSlug === menu.slug && (
-                  <span className="text-xs text-green-600">Kopyalandi!</span>
-                )}
+                <Button type="button" variant="outline" onClick={resetForm}>
+                  Iptal
+                </Button>
               </div>
-
-              <div className="flex items-center gap-2 mt-3">
-                <Link href={`/admin/menus/${menu.id}`} className="flex-1">
-                  <Button variant="outline" className="w-full" size="sm">
-                    <Eye className="mr-2 h-3.5 w-3.5" />
-                    Duzenle
-                  </Button>
-                </Link>
-                <Link href={`/m/${menu.slug}`} target="_blank" className="flex-1">
-                  <Button variant="outline" className="w-full" size="sm">
-                    <ExternalLink className="mr-2 h-3.5 w-3.5" />
-                    Onizle
-                  </Button>
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {menus.length === 0 && (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <QrCode className="h-12 w-12 text-muted-foreground/40 mx-auto mb-4" />
-            <p className="text-sm text-muted-foreground">
-              Henuz menu eklenmemis. &quot;Yeni Menu Olustur&quot; butonuna tiklayarak baslayabilirsiniz.
-            </p>
+            </form>
           </CardContent>
         </Card>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Menu listesi</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {!activeStoreId ? (
+            <p className="text-sm text-muted-foreground">
+              Devam etmek icin bir magaza secin.
+            </p>
+          ) : isLoading ? (
+            <p className="text-sm text-muted-foreground">Menuler yukleniyor...</p>
+          ) : isError ? (
+            <p className="text-sm text-destructive">
+              Menuler alinamadi. Backend baglantisini kontrol edin.
+            </p>
+          ) : menus.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Henuz menu bulunmuyor. Ilk menuyu olusturarak baslayabilirsiniz.
+            </p>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2">
+              {menus.map((menu) => (
+                <div key={menu.id} className="rounded-xl border p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-lg font-semibold">{menu.name}</h2>
+                        <span
+                          className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
+                            menu.isActive
+                              ? "bg-green-100 text-green-700"
+                              : "bg-gray-100 text-gray-700"
+                          }`}
+                        >
+                          {menu.isActive ? "Aktif" : "Pasif"}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {menu.description || "Aciklama yok"}
+                      </p>
+                    </div>
+                    <div className="flex gap-1">
+                      <Link href={`/admin/menus/${menu.id}`}>
+                        <Button variant="ghost" size="icon">
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </Link>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          if (window.confirm("Bu menu pasife cekilsin mi?")) {
+                            deleteMenu.mutate(menu.id);
+                          }
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-3 gap-3 text-center">
+                    <div className="rounded-lg bg-muted/50 p-3">
+                      <div className="text-xl font-semibold">{menu.categoryCount}</div>
+                      <div className="text-xs text-muted-foreground">Kategori</div>
+                    </div>
+                    <div className="rounded-lg bg-muted/50 p-3">
+                      <div className="text-xl font-semibold">{menu.productCount}</div>
+                      <div className="text-xs text-muted-foreground">Urun</div>
+                    </div>
+                    <div className="rounded-lg bg-muted/50 p-3">
+                      <div className="truncate text-xs font-medium">{menu.qrToken}</div>
+                      <div className="text-xs text-muted-foreground">QR token</div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 rounded-md bg-muted/50 p-3 text-sm">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="truncate text-muted-foreground">
+                        /m/{menu.qrToken}
+                      </span>
+                      <div className="flex gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => copyUrl(menu.qrToken)}
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                        <Link href={`/m/${menu.qrToken}`} target="_blank">
+                          <Button variant="ghost" size="icon">
+                            <ExternalLink className="h-4 w-4" />
+                          </Button>
+                        </Link>
+                      </div>
+                    </div>
+                    {copiedToken === menu.qrToken && (
+                      <p className="mt-2 text-xs text-green-600">URL kopyalandi.</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

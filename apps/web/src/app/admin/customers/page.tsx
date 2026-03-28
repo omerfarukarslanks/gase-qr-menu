@@ -13,15 +13,15 @@ import {
 import { Input } from "@/components/ui/input";
 import { useCustomers, useCustomerDetails } from "@/hooks/use-customers";
 import { formatCurrency, formatDate } from "@/lib/utils";
-
-const STORE_ID = "demo-store";
+import { useCurrentStore } from "@/hooks/use-current-store";
 
 export default function CustomersPage() {
+  const { activeStoreId, activeStore } = useCurrentStore();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
 
-  const { data, isLoading } = useCustomers(STORE_ID, {
+  const { data, isLoading } = useCustomers(activeStoreId ?? "", {
     page,
     search: search || undefined,
   });
@@ -38,7 +38,9 @@ export default function CustomersPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Musteriler</h1>
           <p className="text-muted-foreground">
-            Musteri bilgilerini ve ziyaret gecmisini inceleyin.
+            {activeStore
+              ? `${activeStore.name} icin musteri verilerini inceleyin.`
+              : "Aktif magaza secimi bekleniyor."}
           </p>
         </div>
       </div>
@@ -69,6 +71,10 @@ export default function CustomersPage() {
             <CardContent>
               {isLoading ? (
                 <p className="text-sm text-muted-foreground">Yukleniyor...</p>
+              ) : !activeStoreId ? (
+                <p className="text-sm text-muted-foreground">
+                  Devam etmek icin bir magaza secin.
+                </p>
               ) : customers.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   Henuz musteri kaydi bulunmuyor.

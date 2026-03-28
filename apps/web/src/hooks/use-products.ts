@@ -1,20 +1,41 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import api from '@/lib/api';
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import api from "@/lib/api";
+import type { ApiResponse, PaginatedResult } from "@/lib/api-response";
 
-interface Product {
+export interface ProductTranslation {
+  languageCode?: string;
+  name: string;
+  description?: string | null;
+}
+
+export interface ProductIngredient {
+  id?: string;
+  ingredientId?: string;
+  name?: string;
+  quantity: number;
+  isRemovable?: boolean;
+}
+
+export interface Product {
   id: string;
   name: string;
-  description: string;
+  description?: string | null;
   price: number;
+  costPrice?: number;
   categoryId: string;
-  category?: { id: string; name: string };
+  unitId?: string;
+  category?: { id: string; name: string } | null;
   images: string[];
-  model3dUrl?: string;
+  coverImage?: string | null;
+  model3dUrl?: string | null;
   isActive: boolean;
   storeId: string;
-  allergens?: { id: string; name: string }[];
-  ingredients?: { id: string; name: string; quantity: number }[];
-  translations?: { languageCode: string; name: string; description: string }[];
+  slug: string;
+  currency?: string;
+  preparationTime?: number | null;
+  allergens?: { id: string; code?: string; name: string }[];
+  ingredients?: ProductIngredient[];
+  translations?: ProductTranslation[];
 }
 
 interface ProductFilters {
@@ -23,18 +44,7 @@ interface ProductFilters {
   categoryId?: string;
   search?: string;
   sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
-}
-
-interface PaginatedResponse<T> {
-  success: boolean;
-  data: T[];
-  meta: {
-    total: number;
-    page: number;
-    pageSize: number;
-    totalPages: number;
-  };
+  sortOrder?: "asc" | "desc";
 }
 
 interface CreateProductPayload {
@@ -42,10 +52,19 @@ interface CreateProductPayload {
   name: string;
   description?: string;
   price: number;
+  costPrice?: number;
   categoryId: string;
+  unitId?: string;
+  slug?: string;
+  images?: string[];
+  coverImage?: string;
+  model3dUrl?: string;
+  currency?: string;
+  preparationTime?: number;
+  isActive?: boolean;
   allergenIds?: string[];
   ingredients?: { ingredientId: string; quantity: number }[];
-  translations?: { languageCode: string; name: string; description: string }[];
+  translations?: ProductTranslation[];
 }
 
 interface UpdateProductPayload {
@@ -53,75 +72,103 @@ interface UpdateProductPayload {
   name?: string;
   description?: string;
   price?: number;
+  costPrice?: number;
   categoryId?: string;
+  unitId?: string;
+  slug?: string;
+  images?: string[];
+  coverImage?: string;
+  model3dUrl?: string;
+  currency?: string;
+  preparationTime?: number;
   isActive?: boolean;
   allergenIds?: string[];
   ingredients?: { ingredientId: string; quantity: number }[];
-  translations?: { languageCode: string; name: string; description: string }[];
+  translations?: ProductTranslation[];
 }
 
 export function useProducts(storeId: string, filters: ProductFilters = {}) {
-  const { page = 1, pageSize = 20, categoryId, search, sortBy, sortOrder } = filters;
+  const {
+    page = 1,
+    pageSize = 20,
+    categoryId,
+    search,
+    sortBy,
+    sortOrder,
+  } = filters;
   const params = new URLSearchParams({
-    storeId,
     page: String(page),
-    pageSize: String(pageSize),
+    limit: String(pageSize),
   });
-  if (categoryId) params.set('categoryId', categoryId);
-  if (search) params.set('search', search);
-  if (sortBy) params.set('sortBy', sortBy);
-  if (sortOrder) params.set('sortOrder', sortOrder);
+
+  if (categoryId) params.set("categoryId", categoryId);
+  if (search) params.set("search", search);
+  if (sortBy) params.set("sortBy", sortBy);
+  if (sortOrder) params.set("sortOrder", sortOrder);
 
   return useQuery({
-    queryKey: ['products', storeId, filters],
+    queryKey: ["products", storeId, filters],
     queryFn: () =>
       api
-        .get<PaginatedResponse<Product>>(`/api/products?${params}`)
-        .then((r) => r.data),
+        .get<ApiResponse<Product[]>>(
+          `/api/products/store/${storeId}?${params.toString()}`
+        )
+        .then((response) => ({
+          data: response.data.data ?? [],
+          meta: response.data.meta ?? {
+            total: response.data.data?.length ?? 0,
+            page,
+            limit: pageSize,
+            totalPages: 1,
+          },
+        }) satisfies PaginatedResult<Product>),
     enabled: !!storeId,
   });
 }
 
 export function useProduct(id: string) {
   return useQuery({
-    queryKey: ['products', 'detail', id],
+    queryKey: ["products", "detail", id],
     queryFn: () =>
       api
-        .get<{ success: boolean; data: Product }>(`/api/products/${id}`)
-        .then((r) => r.data.data),
+        .get<ApiResponse<Product>>(`/api/products/${id}`)
+        .then((response) => response.data.data),
     enabled: !!id,
   });
 }
 
 export function useCreateProduct() {
   const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: (payload: CreateProductPayload) =>
-      api.post('/api/products', payload).then((r) => r.data),
+      api.post("/api/products", payload).then((response) => response.data),
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['products', variables.storeId] });
+      queryClient.invalidateQueries({ queryKey: ["products", variables.storeId] });
     },
   });
 }
 
 export function useUpdateProduct() {
   const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: ({ id, ...payload }: UpdateProductPayload) =>
-      api.patch(`/api/products/${id}`, payload).then((r) => r.data),
+      api.put(`/api/products/${id}`, payload).then((response) => response.data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
     },
   });
 }
 
 export function useDeleteProduct() {
   const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: (id: string) =>
-      api.delete(`/api/products/${id}`).then((r) => r.data),
+      api.delete(`/api/products/${id}`).then((response) => response.data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
     },
   });
 }

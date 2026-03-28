@@ -168,10 +168,7 @@ export default function MenuPage({ params }: MenuPageProps) {
   });
   const totalItems = useCartStore((state) => state.totalItems);
 
-  const { data: apiMenu, isLoading, isError } = usePublicMenu(params.menuSlug);
-
-  // Fallback to mock data if API fails or is unavailable
-  const menuData = apiMenu ?? (isError ? mockMenuData : null);
+  const { data: menuData, isLoading, isError } = usePublicMenu(params.menuSlug);
 
   const categories = menuData?.categories ?? [];
   const storeName = menuData?.store?.name ?? "Menü";
@@ -268,7 +265,7 @@ export default function MenuPage({ params }: MenuPageProps) {
   }
 
   // Error state with no fallback
-  if (!menuData) {
+  if (isError || !menuData) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] px-4 text-center">
         <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />

@@ -23,7 +23,19 @@ export class StoreService {
     });
   }
 
-  async findAll(organizationId: string, query: PaginationQueryDto) {
+  async findAll(organizationId: string | null | undefined, query: PaginationQueryDto) {
+    if (!organizationId) {
+      return {
+        items: [],
+        meta: {
+          total: 0,
+          page: query.page,
+          limit: query.limit,
+          totalPages: 0,
+        },
+      };
+    }
+
     const where: any = { organizationId };
 
     if (query.search) {

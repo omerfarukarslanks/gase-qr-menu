@@ -19,6 +19,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { useSocket } from "@/hooks/use-socket";
+import { useCurrentStore } from "@/hooks/use-current-store";
 
 interface OrderItem {
   name: string;
@@ -168,17 +169,17 @@ function OrderCard({
 }
 
 export default function KitchenDisplayPage() {
+  const { activeStoreId } = useCurrentStore();
   const [orders, setOrders] = useState<KitchenOrder[]>(mockOrders);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
   const { joinStore, joinKitchen, onEvent } = useSocket();
 
-  // Join kitchen room for real-time updates
-  // TODO: Replace with actual storeId from auth context
-  const storeId = "demo-store";
+  const storeId = activeStoreId ?? "";
 
   useEffect(() => {
+    if (!storeId) return;
     joinStore(storeId);
     joinKitchen(storeId);
   }, [joinStore, joinKitchen, storeId]);

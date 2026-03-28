@@ -14,6 +14,7 @@ import {
   CardContent,
 } from "@/components/ui/card";
 import { useSocket } from "@/hooks/use-socket";
+import { useCurrentStore } from "@/hooks/use-current-store";
 
 type OrderStatus = "PENDING" | "CONFIRMED" | "PREPARING" | "READY" | "SERVED";
 
@@ -180,17 +181,18 @@ const mockOrders: Order[] = [
 type FilterStatus = "ALL" | OrderStatus;
 
 export default function OrdersPage() {
+  const { activeStoreId } = useCurrentStore();
   const [orders, setOrders] = useState<Order[]>(mockOrders);
   const [activeFilter, setActiveFilter] = useState<FilterStatus>("ALL");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const { joinStore, onEvent } = useSocket();
 
-  // Join store room for real-time updates
-  // TODO: Replace with actual storeId from auth context
-  const storeId = "demo-store";
+  const storeId = activeStoreId ?? "";
 
   useEffect(() => {
-    joinStore(storeId);
+    if (storeId) {
+      joinStore(storeId);
+    }
   }, [joinStore, storeId]);
 
   // Listen for new orders via WebSocket

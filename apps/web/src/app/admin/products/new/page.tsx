@@ -1,191 +1,240 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import {
-  ArrowLeft,
-  ImageIcon,
-  Plus,
-  X,
-  Box,
-  Clock,
-  Save,
-} from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ArrowLeft, Loader2, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { useAllergens } from "@/hooks/use-allergens";
+import { useCategories } from "@/hooks/use-categories";
+import { useCurrentStore } from "@/hooks/use-current-store";
+import { useIngredients } from "@/hooks/use-ingredients";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+  useCreateProduct,
+  useProduct,
+  useUpdateProduct,
+} from "@/hooks/use-products";
+import { useUnits } from "@/hooks/use-units";
 
-const mockCategories = [
-  { id: "1", name: "Ana Yemekler" },
-  { id: "1-1", name: "Ana Yemekler > Izgara" },
-  { id: "1-2", name: "Ana Yemekler > Kebaplar" },
-  { id: "1-3", name: "Ana Yemekler > Tavuk" },
-  { id: "2", name: "Baslangiclar" },
-  { id: "2-1", name: "Baslangiclar > Soguk Mezeler" },
-  { id: "2-2", name: "Baslangiclar > Sicak Mezeler" },
-  { id: "3", name: "Salatalar" },
-  { id: "4", name: "Icecekler" },
-  { id: "4-1", name: "Icecekler > Soguk Icecekler" },
-  { id: "4-2", name: "Icecekler > Sicak Icecekler" },
-  { id: "5", name: "Tatlilar" },
-];
-
-const mockUnits = [
-  { id: "1", name: "Porsiyon" },
-  { id: "2", name: "Adet" },
-  { id: "3", name: "Bardak" },
-  { id: "4", name: "Tabak" },
-  { id: "5", name: "Sise" },
-];
-
-const mockIngredients = [
-  { id: "1", name: "Kiyma" },
-  { id: "2", name: "Sogan" },
-  { id: "3", name: "Domates" },
-  { id: "4", name: "Biber" },
-  { id: "5", name: "Maydanoz" },
-  { id: "6", name: "Sarimsak" },
-  { id: "7", name: "Zeytinyagi" },
-  { id: "8", name: "Tereyagi" },
-  { id: "9", name: "Tuz" },
-  { id: "10", name: "Karabiber" },
-  { id: "11", name: "Pul Biber" },
-  { id: "12", name: "Yogurt" },
-  { id: "13", name: "Peynir" },
-  { id: "14", name: "Un" },
-  { id: "15", name: "Pirinc" },
-];
-
-const eu14Allergens = [
-  { id: "1", name: "Gluten", icon: "🌾" },
-  { id: "2", name: "Kabuklu Deniz Urunleri", icon: "🦐" },
-  { id: "3", name: "Yumurta", icon: "🥚" },
-  { id: "4", name: "Balik", icon: "🐟" },
-  { id: "5", name: "Yer Fistigi", icon: "🥜" },
-  { id: "6", name: "Soya", icon: "🫘" },
-  { id: "7", name: "Sut", icon: "🥛" },
-  { id: "8", name: "Kabuklu Meyveler", icon: "🌰" },
-  { id: "9", name: "Kereviz", icon: "🥬" },
-  { id: "10", name: "Hardal", icon: "🟡" },
-  { id: "11", name: "Susam", icon: "🟤" },
-  { id: "12", name: "Kукурт Dioksit", icon: "🧪" },
-  { id: "13", name: "Lupine", icon: "🌿" },
-  { id: "14", name: "Yumusakcalar", icon: "🐙" },
-];
-
-interface SelectedIngredient {
+interface IngredientRow {
   ingredientId: string;
-  name: string;
   quantity: string;
-  isRemovable: boolean;
 }
 
-interface ImageSlot {
-  url: string;
-  isCover: boolean;
+interface ProductFormState {
+  nameTr: string;
+  nameEn: string;
+  descriptionTr: string;
+  descriptionEn: string;
+  slug: string;
+  categoryId: string;
+  unitId: string;
+  price: string;
+  costPrice: string;
+  currency: string;
+  preparationTime: string;
+  model3dUrl: string;
+  coverImage: string;
+  images: string[];
+  allergenIds: string[];
+  ingredients: IngredientRow[];
+  isActive: boolean;
+}
+
+const emptyForm: ProductFormState = {
+  nameTr: "",
+  nameEn: "",
+  descriptionTr: "",
+  descriptionEn: "",
+  slug: "",
+  categoryId: "",
+  unitId: "",
+  price: "",
+  costPrice: "",
+  currency: "TRY",
+  preparationTime: "",
+  model3dUrl: "",
+  coverImage: "",
+  images: [""],
+  allergenIds: [],
+  ingredients: [],
+  isActive: true,
+};
+
+function slugify(value: string) {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
 }
 
 export default function ProductFormPage() {
-  const [nameTr, setNameTr] = useState("");
-  const [nameEn, setNameEn] = useState("");
-  const [slug, setSlug] = useState("");
-  const [descriptionTr, setDescriptionTr] = useState("");
-  const [descriptionEn, setDescriptionEn] = useState("");
-  const [categoryId, setCategoryId] = useState("");
-  const [unitId, setUnitId] = useState("");
-  const [costPrice, setCostPrice] = useState("");
-  const [taxRate, setTaxRate] = useState("10");
-  const [salePrice, setSalePrice] = useState("");
-  const [currency, setCurrency] = useState("TRY");
-  const [images, setImages] = useState<ImageSlot[]>([
-    { url: "", isCover: true },
-  ]);
-  const [modelUrl, setModelUrl] = useState("");
-  const [modelThumbnail, setModelThumbnail] = useState("");
-  const [selectedIngredients, setSelectedIngredients] = useState<SelectedIngredient[]>([]);
-  const [ingredientSearch, setIngredientSearch] = useState("");
-  const [selectedAllergens, setSelectedAllergens] = useState<Set<string>>(new Set());
-  const [preparationTime, setPrepTime] = useState("");
-  const [isActive, setIsActive] = useState(true);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const editId = searchParams.get("edit");
+  const isEditMode = Boolean(editId);
+
+  const { activeStoreId, activeStore } = useCurrentStore();
+  const { data: categories = [] } = useCategories(activeStoreId ?? "");
+  const { data: units = [] } = useUnits(activeStoreId ?? "");
+  const { data: ingredientsData } = useIngredients(activeStoreId ?? "", {
+    pageSize: 100,
+  });
+  const { data: allergens = [] } = useAllergens();
+  const { data: product, isLoading: productLoading } = useProduct(editId ?? "");
+  const createProduct = useCreateProduct();
+  const updateProduct = useUpdateProduct();
+
+  const [form, setForm] = useState<ProductFormState>(emptyForm);
+  const [slugTouched, setSlugTouched] = useState(false);
+
+  const ingredients = ingredientsData?.data ?? [];
 
   useEffect(() => {
-    if (nameTr) {
-      const generated = nameTr
-        .toLowerCase()
-        .replace(/[^a-z0-9\s-]/g, "")
-        .replace(/\s+/g, "-")
-        .replace(/-+/g, "-")
-        .trim();
-      setSlug(generated);
+    if (!slugTouched && form.nameTr) {
+      setForm((current) => ({
+        ...current,
+        slug: slugify(current.nameTr),
+      }));
     }
-  }, [nameTr]);
+  }, [form.nameTr, slugTouched]);
 
-  const addImageSlot = () => {
-    if (images.length < 5) {
-      setImages([...images, { url: "", isCover: false }]);
+  useEffect(() => {
+    if (!product) {
+      return;
     }
-  };
 
-  const removeImageSlot = (index: number) => {
-    const updated = images.filter((_, i) => i !== index);
-    if (updated.length > 0 && !updated.some((img) => img.isCover)) {
-      updated[0].isCover = true;
-    }
-    setImages(updated);
-  };
-
-  const setCoverImage = (index: number) => {
-    setImages(
-      images.map((img, i) => ({ ...img, isCover: i === index }))
+    const trTranslation =
+      product.translations?.find((translation) => translation.languageCode === "tr") ??
+      product.translations?.[0];
+    const enTranslation = product.translations?.find(
+      (translation) => translation.languageCode === "en"
     );
-  };
 
-  const updateImageUrl = (index: number, url: string) => {
-    setImages(images.map((img, i) => (i === index ? { ...img, url } : img)));
-  };
+    setSlugTouched(true);
+    setForm({
+      nameTr: trTranslation?.name ?? product.name,
+      nameEn: enTranslation?.name ?? "",
+      descriptionTr: trTranslation?.description ?? product.description ?? "",
+      descriptionEn: enTranslation?.description ?? "",
+      slug: product.slug ?? "",
+      categoryId: product.categoryId ?? "",
+      unitId: product.unitId ?? "",
+      price: product.price ? String(product.price) : "",
+      costPrice: product.costPrice ? String(product.costPrice) : "",
+      currency: product.currency ?? "TRY",
+      preparationTime: product.preparationTime ? String(product.preparationTime) : "",
+      model3dUrl: product.model3dUrl ?? "",
+      coverImage: product.coverImage ?? "",
+      images:
+        product.images && product.images.length > 0 ? product.images : [product.coverImage ?? ""],
+      allergenIds: product.allergens?.map((allergen) => allergen.id) ?? [],
+      ingredients:
+        product.ingredients?.map((ingredient) => ({
+          ingredientId: ingredient.id ?? ingredient.ingredientId ?? "",
+          quantity: ingredient.quantity ? String(ingredient.quantity) : "1",
+        })) ?? [],
+      isActive: product.isActive,
+    });
+  }, [product]);
 
-  const filteredIngredients = mockIngredients.filter(
-    (ing) =>
-      ing.name.toLowerCase().includes(ingredientSearch.toLowerCase()) &&
-      !selectedIngredients.some((si) => si.ingredientId === ing.id)
+  const availableIngredients = useMemo(
+    () =>
+      ingredients.filter(
+        (ingredient) =>
+          !form.ingredients.some((row) => row.ingredientId === ingredient.id)
+      ),
+    [form.ingredients, ingredients]
   );
 
-  const addIngredient = (ing: { id: string; name: string }) => {
-    setSelectedIngredients([
-      ...selectedIngredients,
-      { ingredientId: ing.id, name: ing.name, quantity: "", isRemovable: true },
-    ]);
-    setIngredientSearch("");
-  };
+  const isSubmitting = createProduct.isPending || updateProduct.isPending;
 
-  const removeIngredient = (ingredientId: string) => {
-    setSelectedIngredients(
-      selectedIngredients.filter((si) => si.ingredientId !== ingredientId)
-    );
-  };
+  const normalizedImages = form.images.map((value) => value.trim()).filter(Boolean);
+  const canSubmit =
+    Boolean(activeStoreId) &&
+    Boolean(form.nameTr.trim()) &&
+    Boolean(form.categoryId) &&
+    Boolean(form.price);
 
-  const toggleAllergen = (id: string) => {
-    setSelectedAllergens((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+
+    if (!activeStoreId) {
+      return;
+    }
+
+    const translations = [
+      {
+        languageCode: "tr",
+        name: form.nameTr.trim(),
+        description: form.descriptionTr.trim() || undefined,
+      },
+      ...(form.nameEn.trim() || form.descriptionEn.trim()
+        ? [
+            {
+              languageCode: "en",
+              name: form.nameEn.trim() || form.nameTr.trim(),
+              description: form.descriptionEn.trim() || undefined,
+            },
+          ]
+        : []),
+    ];
+
+    const payload = {
+      storeId: activeStoreId,
+      name: form.nameTr.trim(),
+      description: form.descriptionTr.trim() || undefined,
+      slug: form.slug.trim() || undefined,
+      categoryId: form.categoryId,
+      unitId: form.unitId || undefined,
+      price: Number(form.price),
+      costPrice: form.costPrice ? Number(form.costPrice) : undefined,
+      currency: form.currency,
+      preparationTime: form.preparationTime
+        ? Number(form.preparationTime)
+        : undefined,
+      images: normalizedImages,
+      coverImage: form.coverImage.trim() || normalizedImages[0] || undefined,
+      model3dUrl: form.model3dUrl.trim() || undefined,
+      allergenIds: form.allergenIds,
+      ingredients: form.ingredients
+        .filter((ingredient) => ingredient.ingredientId)
+        .map((ingredient) => ({
+          ingredientId: ingredient.ingredientId,
+          quantity: Number(ingredient.quantity) || 1,
+        })),
+      translations,
+    };
+
+    if (isEditMode && editId) {
+      updateProduct.mutate(
+        {
+          id: editId,
+          ...payload,
+          isActive: form.isActive,
+        },
+        {
+          onSuccess: () => {
+            router.push("/admin/products");
+          },
+        }
+      );
+      return;
+    }
+
+    createProduct.mutate(payload, {
+      onSuccess: () => {
+        router.push("/admin/products");
+      },
     });
   };
 
-  const handleSave = () => {
-    // TODO: API call
-    alert("Urun kaydedildi (mock)");
-  };
-
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6">
       <div className="flex items-center gap-4">
         <Link href="/admin/products">
           <Button variant="ghost" size="icon">
@@ -193,440 +242,424 @@ export default function ProductFormPage() {
           </Button>
         </Link>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Yeni Urun Ekle</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            {isEditMode ? "Urun duzenle" : "Yeni urun"}
+          </h1>
           <p className="text-muted-foreground">
-            Urun bilgilerini doldurun ve kaydedin.
+            {activeStore
+              ? `${activeStore.name} icin urun bilgilerini kaydedin.`
+              : "Aktif magaza secimi bekleniyor."}
           </p>
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Genel Bilgiler */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-lg">Genel Bilgiler</CardTitle>
-            <CardDescription>Urun adi ve aciklama bilgileri</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 sm:grid-cols-2">
+      {isEditMode && productLoading ? (
+        <Card>
+          <CardContent className="flex items-center gap-3 py-6 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Urun bilgileri yukleniyor...
+          </CardContent>
+        </Card>
+      ) : (
+        <form className="space-y-6" onSubmit={handleSubmit}>
+          <Card>
+            <CardHeader>
+              <CardTitle>Genel bilgiler</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Urun Adi (TR) *</label>
+                <label className="text-sm font-medium">Urun adi (TR)</label>
                 <Input
-                  placeholder="ornek: Adana Kebap"
-                  value={nameTr}
-                  onChange={(e) => setNameTr(e.target.value)}
+                  value={form.nameTr}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, nameTr: event.target.value }))
+                  }
+                  required
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Urun Adi (EN)</label>
+                <label className="text-sm font-medium">Urun adi (EN)</label>
                 <Input
-                  placeholder="e.g.: Adana Kebab"
-                  value={nameEn}
-                  onChange={(e) => setNameEn(e.target.value)}
+                  value={form.nameEn}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, nameEn: event.target.value }))
+                  }
+                />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <label className="text-sm font-medium">Aciklama (TR)</label>
+                <textarea
+                  className="flex min-h-[96px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={form.descriptionTr}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      descriptionTr: event.target.value,
+                    }))
+                  }
+                />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <label className="text-sm font-medium">Aciklama (EN)</label>
+                <textarea
+                  className="flex min-h-[96px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={form.descriptionEn}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      descriptionEn: event.target.value,
+                    }))
+                  }
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Slug</label>
                 <Input
-                  placeholder="otomatik-olusturulur"
-                  value={slug}
-                  onChange={(e) => setSlug(e.target.value)}
+                  value={form.slug}
+                  onChange={(event) => {
+                    setSlugTouched(true);
+                    setForm((current) => ({ ...current, slug: event.target.value }));
+                  }}
                 />
-                <p className="text-xs text-muted-foreground">
-                  URL dostu isim. Otomatik olusturulur.
-                </p>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Kategori *</label>
+                <label className="text-sm font-medium">Kategori</label>
                 <select
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  value={categoryId}
-                  onChange={(e) => setCategoryId(e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={form.categoryId}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      categoryId: event.target.value,
+                    }))
+                  }
+                  required
                 >
                   <option value="">Kategori secin</option>
-                  {mockCategories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name}
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
                     </option>
                   ))}
                 </select>
-              </div>
-              <div className="space-y-2 sm:col-span-2">
-                <label className="text-sm font-medium">Aciklama (TR)</label>
-                <textarea
-                  className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  placeholder="Urun aciklamasi (Turkce)"
-                  value={descriptionTr}
-                  onChange={(e) => setDescriptionTr(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2 sm:col-span-2">
-                <label className="text-sm font-medium">Aciklama (EN)</label>
-                <textarea
-                  className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  placeholder="Product description (English)"
-                  value={descriptionEn}
-                  onChange={(e) => setDescriptionEn(e.target.value)}
-                />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Birim</label>
                 <select
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  value={unitId}
-                  onChange={(e) => setUnitId(e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={form.unitId}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, unitId: event.target.value }))
+                  }
                 >
-                  <option value="">Birim secin</option>
-                  {mockUnits.map((unit) => (
+                  <option value="">Ilk mevcut birimi kullan</option>
+                  {units.map((unit) => (
                     <option key={unit.id} value={unit.id}>
-                      {unit.name}
+                      {unit.name} ({unit.abbreviation})
                     </option>
                   ))}
                 </select>
               </div>
-              <div className="flex items-center gap-3 pt-6">
-                <Clock className="h-4 w-4 text-muted-foreground" />
-                <label className="text-sm font-medium">Hazirlama Suresi (dk)</label>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Hazirlama suresi (dk)</label>
                 <Input
                   type="number"
-                  className="w-24"
-                  placeholder="25"
-                  value={preparationTime}
-                  onChange={(e) => setPrepTime(e.target.value)}
+                  value={form.preparationTime}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      preparationTime: event.target.value,
+                    }))
+                  }
                 />
               </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Fiyatlandirma */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Fiyatlandirma</CardTitle>
-            <CardDescription>Maliyet, vergi ve satis fiyati</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Maliyet Fiyati</label>
-                <Input
-                  type="number"
-                  placeholder="0.00"
-                  value={costPrice}
-                  onChange={(e) => setCostPrice(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">KDV Orani (%)</label>
-                <select
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  value={taxRate}
-                  onChange={(e) => setTaxRate(e.target.value)}
-                >
-                  <option value="1">%1</option>
-                  <option value="10">%10</option>
-                  <option value="20">%20</option>
-                </select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Satis Fiyati *</label>
-                <Input
-                  type="number"
-                  placeholder="0.00"
-                  value={salePrice}
-                  onChange={(e) => setSalePrice(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Para Birimi</label>
-                <select
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  value={currency}
-                  onChange={(e) => setCurrency(e.target.value)}
-                >
-                  <option value="TRY">TRY (Turk Lirasi)</option>
-                  <option value="USD">USD (Amerikan Dolari)</option>
-                  <option value="EUR">EUR (Euro)</option>
-                </select>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Aktiflik */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Durum</CardTitle>
-            <CardDescription>Urun aktiflik ve gorunurluk</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between p-4 rounded-lg border">
-              <div>
-                <p className="font-medium text-sm">Urun Aktif</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Pasif urunler menude gorunmez
-                </p>
-              </div>
-              <button
-                type="button"
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  isActive ? "bg-primary" : "bg-gray-300"
-                }`}
-                onClick={() => setIsActive(!isActive)}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    isActive ? "translate-x-6" : "translate-x-1"
-                  }`}
-                />
-              </button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Gorseller */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-lg">Gorseller</CardTitle>
-            <CardDescription>
-              En fazla 5 gorsel ekleyebilirsiniz. Bir tanesini kapak gorseli olarak secin.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {images.map((img, index) => (
-                <div key={index} className="space-y-2">
-                  <div className="aspect-video bg-muted rounded-lg border-2 border-dashed flex items-center justify-center relative">
-                    {img.url ? (
-                      <img
-                        src={img.url}
-                        alt={`Gorsel ${index + 1}`}
-                        className="object-cover w-full h-full rounded-lg"
-                      />
-                    ) : (
-                      <div className="text-center">
-                        <ImageIcon className="h-8 w-8 text-muted-foreground/40 mx-auto" />
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Gorsel {index + 1}
-                        </p>
-                      </div>
-                    )}
-                    {images.length > 1 && (
-                      <button
-                        className="absolute top-1 right-1 bg-white/80 rounded-full p-1 hover:bg-white"
-                        onClick={() => removeImageSlot(index)}
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    )}
-                    {img.isCover && (
-                      <span className="absolute top-1 left-1 bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded">
-                        Kapak
-                      </span>
-                    )}
-                  </div>
-                  <Input
-                    placeholder="Gorsel URL"
-                    value={img.url}
-                    onChange={(e) => updateImageUrl(index, e.target.value)}
+              {isEditMode && (
+                <div className="flex items-center gap-3 pt-6">
+                  <label className="text-sm font-medium">Aktif</label>
+                  <input
+                    type="checkbox"
+                    checked={form.isActive}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        isActive: event.target.checked,
+                      }))
+                    }
                   />
-                  <label className="flex items-center gap-2 text-xs">
-                    <input
-                      type="radio"
-                      name="coverImage"
-                      checked={img.isCover}
-                      onChange={() => setCoverImage(index)}
-                    />
-                    Kapak gorseli olarak sec
-                  </label>
                 </div>
-              ))}
-
-              {images.length < 5 && (
-                <button
-                  className="aspect-video bg-muted/50 rounded-lg border-2 border-dashed flex flex-col items-center justify-center hover:bg-muted transition-colors"
-                  onClick={addImageSlot}
-                >
-                  <Plus className="h-6 w-6 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground mt-1">
-                    Gorsel Ekle
-                  </span>
-                </button>
               )}
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        {/* 3D Model */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Box className="h-5 w-5" />
-              3D Model
-            </CardTitle>
-            <CardDescription>
-              GLB formatinda 3D model yukleyin. AR goruntulemede kullanilir.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 sm:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Fiyat ve medya</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Model URL (.glb)</label>
+                <label className="text-sm font-medium">Satis fiyati</label>
                 <Input
-                  placeholder="https://ornek.com/model.glb"
-                  value={modelUrl}
-                  onChange={(e) => setModelUrl(e.target.value)}
+                  type="number"
+                  step="0.01"
+                  value={form.price}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, price: event.target.value }))
+                  }
+                  required
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Model Thumbnail URL</label>
+                <label className="text-sm font-medium">Maliyet fiyati</label>
                 <Input
-                  placeholder="https://ornek.com/thumbnail.jpg"
-                  value={modelThumbnail}
-                  onChange={(e) => setModelThumbnail(e.target.value)}
+                  type="number"
+                  step="0.01"
+                  value={form.costPrice}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      costPrice: event.target.value,
+                    }))
+                  }
                 />
               </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Malzemeler */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-lg">Malzemeler</CardTitle>
-            <CardDescription>
-              Urun icin gerekli malzemeleri secin ve miktar belirleyin.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="relative">
-                <Input
-                  placeholder="Malzeme ara..."
-                  value={ingredientSearch}
-                  onChange={(e) => setIngredientSearch(e.target.value)}
-                />
-                {ingredientSearch && filteredIngredients.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 z-10 mt-1 bg-background border rounded-md shadow-lg max-h-48 overflow-y-auto">
-                    {filteredIngredients.map((ing) => (
-                      <button
-                        key={ing.id}
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors"
-                        onClick={() => addIngredient(ing)}
-                      >
-                        {ing.name}
-                      </button>
-                    ))}
-                  </div>
-                )}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Para birimi</label>
+                <select
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={form.currency}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      currency: event.target.value,
+                    }))
+                  }
+                >
+                  <option value="TRY">TRY</option>
+                  <option value="USD">USD</option>
+                  <option value="EUR">EUR</option>
+                </select>
               </div>
-
-              {selectedIngredients.length > 0 && (
-                <div className="border rounded-lg divide-y">
-                  {selectedIngredients.map((si) => (
-                    <div
-                      key={si.ingredientId}
-                      className="flex items-center gap-3 px-3 py-2"
-                    >
-                      <span className="text-sm font-medium flex-1">
-                        {si.name}
-                      </span>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">3D model URL</label>
+                <Input
+                  value={form.model3dUrl}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      model3dUrl: event.target.value,
+                    }))
+                  }
+                  placeholder="https://.../model.glb"
+                />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <label className="text-sm font-medium">Kapak gorseli</label>
+                <Input
+                  value={form.coverImage}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      coverImage: event.target.value,
+                    }))
+                  }
+                  placeholder="https://.../cover.jpg"
+                />
+              </div>
+              <div className="space-y-3 md:col-span-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium">Ek gorseller</label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      setForm((current) => ({
+                        ...current,
+                        images: [...current.images, ""],
+                      }))
+                    }
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Gorsel ekle
+                  </Button>
+                </div>
+                <div className="space-y-2">
+                  {form.images.map((image, index) => (
+                    <div key={`${index}-${image}`} className="flex gap-2">
                       <Input
-                        className="w-24 h-8 text-xs"
-                        placeholder="Miktar"
-                        value={si.quantity}
-                        onChange={(e) =>
-                          setSelectedIngredients(
-                            selectedIngredients.map((s) =>
-                              s.ingredientId === si.ingredientId
-                                ? { ...s, quantity: e.target.value }
-                                : s
-                            )
-                          )
+                        value={image}
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            images: current.images.map((currentImage, currentIndex) =>
+                              currentIndex === index ? event.target.value : currentImage
+                            ),
+                          }))
                         }
+                        placeholder="https://.../image.jpg"
                       />
-                      <label className="flex items-center gap-1.5 text-xs whitespace-nowrap">
-                        <input
-                          type="checkbox"
-                          checked={si.isRemovable}
-                          onChange={() =>
-                            setSelectedIngredients(
-                              selectedIngredients.map((s) =>
-                                s.ingredientId === si.ingredientId
-                                  ? { ...s, isRemovable: !s.isRemovable }
-                                  : s
-                              )
-                            )
-                          }
-                        />
-                        Cikarilabilir
-                      </label>
                       <Button
+                        type="button"
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7 text-destructive hover:text-destructive"
-                        onClick={() => removeIngredient(si.ingredientId)}
+                        onClick={() =>
+                          setForm((current) => ({
+                            ...current,
+                            images:
+                              current.images.length === 1
+                                ? [""]
+                                : current.images.filter((_, currentIndex) => currentIndex !== index),
+                          }))
+                        }
                       >
-                        <X className="h-3.5 w-3.5" />
+                        <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     </div>
                   ))}
                 </div>
-              )}
+              </div>
+            </CardContent>
+          </Card>
 
-              {selectedIngredients.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  Henuz malzeme eklenmedi. Yukaridaki alandan arayarak ekleyebilirsiniz.
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Malzemeler ve alerjenler</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium">Malzemeler</label>
+                  <select
+                    className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value=""
+                    onChange={(event) => {
+                      if (!event.target.value) {
+                        return;
+                      }
 
-        {/* Alerjenler */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-lg">Alerjenler (EU 14)</CardTitle>
-            <CardDescription>
-              Urunde bulunan alerjenleri isaretleyin.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-              {eu14Allergens.map((allergen) => (
-                <label
-                  key={allergen.id}
-                  className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-colors ${
-                    selectedAllergens.has(allergen.id)
-                      ? "border-primary bg-primary/5"
-                      : "hover:bg-muted"
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedAllergens.has(allergen.id)}
-                    onChange={() => toggleAllergen(allergen.id)}
-                    className="rounded"
-                  />
-                  <span className="text-lg">{allergen.icon}</span>
-                  <span className="text-xs font-medium">{allergen.name}</span>
-                </label>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+                      setForm((current) => ({
+                        ...current,
+                        ingredients: [
+                          ...current.ingredients,
+                          { ingredientId: event.target.value, quantity: "1" },
+                        ],
+                      }));
+                    }}
+                  >
+                    <option value="">Malzeme ekle</option>
+                    {availableIngredients.map((ingredient) => (
+                      <option key={ingredient.id} value={ingredient.id}>
+                        {ingredient.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {form.ingredients.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Henuz malzeme secilmedi.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {form.ingredients.map((ingredientRow, index) => {
+                      const ingredient = ingredients.find(
+                        (item) => item.id === ingredientRow.ingredientId
+                      );
 
-      {/* Kaydet / Iptal */}
-      <div className="flex items-center gap-3 sticky bottom-0 bg-background py-4 border-t -mx-6 px-6 lg:-mx-8 lg:px-8">
-        <Button onClick={handleSave}>
-          <Save className="mr-2 h-4 w-4" />
-          Kaydet
-        </Button>
-        <Link href="/admin/products">
-          <Button variant="outline">Iptal</Button>
-        </Link>
-      </div>
+                      return (
+                        <div
+                          key={`${ingredientRow.ingredientId}-${index}`}
+                          className="grid gap-2 rounded-md border p-3 md:grid-cols-[1fr_120px_auto]"
+                        >
+                          <div className="text-sm font-medium">
+                            {ingredient?.name || ingredientRow.ingredientId}
+                          </div>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={ingredientRow.quantity}
+                            onChange={(event) =>
+                              setForm((current) => ({
+                                ...current,
+                                ingredients: current.ingredients.map((currentRow, currentIndex) =>
+                                  currentIndex === index
+                                    ? { ...currentRow, quantity: event.target.value }
+                                    : currentRow
+                                ),
+                              }))
+                            }
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() =>
+                              setForm((current) => ({
+                                ...current,
+                                ingredients: current.ingredients.filter(
+                                  (_, currentIndex) => currentIndex !== index
+                                ),
+                              }))
+                            }
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-3">
+                <label className="text-sm font-medium">Alerjenler</label>
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {allergens.map((allergen) => (
+                    <label
+                      key={allergen.id}
+                      className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={form.allergenIds.includes(allergen.id)}
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            allergenIds: event.target.checked
+                              ? [...current.allergenIds, allergen.id]
+                              : current.allergenIds.filter((id) => id !== allergen.id),
+                          }))
+                        }
+                      />
+                      <span>{allergen.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {units.length === 0 && (
+            <Card>
+              <CardContent className="pt-6 text-sm text-muted-foreground">
+                Bu store icin birim bulunmuyor. Backend ilk mevcut birimi fallback
+                olarak kullanir; hic birim yoksa urun kaydi basarisiz olur.
+              </CardContent>
+            </Card>
+          )}
+
+          <div className="flex gap-2">
+            <Button type="submit" disabled={!canSubmit || isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isEditMode ? "Degisiklikleri kaydet" : "Urunu kaydet"}
+            </Button>
+            <Link href="/admin/products">
+              <Button type="button" variant="outline">
+                Iptal
+              </Button>
+            </Link>
+          </div>
+        </form>
+      )}
     </div>
   );
 }

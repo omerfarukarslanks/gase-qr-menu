@@ -1,9 +1,10 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import api from '@/lib/api';
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import api from "@/lib/api";
+import type { ApiResponse, PaginatedResult } from "@/lib/api-response";
 
-type MovementType = 'IN' | 'OUT' | 'ADJUSTMENT';
+type MovementType = "IN" | "OUT" | "ADJUSTMENT";
 
-interface StockMovement {
+export interface StockMovement {
   id: string;
   ingredientId: string;
   ingredientName: string;
@@ -14,7 +15,7 @@ interface StockMovement {
   createdBy?: string;
 }
 
-interface LowStockAlert {
+export interface LowStockAlert {
   ingredientId: string;
   ingredientName: string;
   currentStock: number;
@@ -29,15 +30,26 @@ interface StockMovementFilters {
   type?: MovementType;
 }
 
-interface PaginatedResponse<T> {
-  success: boolean;
-  data: T[];
-  meta: {
-    total: number;
-    page: number;
-    pageSize: number;
-    totalPages: number;
+interface StockMovementApiRecord {
+  id: string;
+  ingredientId: string;
+  type: MovementType;
+  quantity: number;
+  notes?: string;
+  createdAt: string;
+  ingredient?: {
+    name: string;
   };
+}
+
+interface LowStockAlertApiRecord {
+  id: string;
+  name: string;
+  currentStock: number;
+  lowStockThreshold: number;
+  unit?: {
+    abbreviation: string;
+  } | null;
 }
 
 interface CreateStockMovementPayload {
@@ -48,48 +60,88 @@ interface CreateStockMovementPayload {
   reason?: string;
 }
 
-export function useStockMovements(storeId: string, filters: StockMovementFilters = {}) {
+export function useStockMovements(
+  storeId: string,
+  filters: StockMovementFilters = {}
+) {
   const { page = 1, pageSize = 20, ingredientId, type } = filters;
   const params = new URLSearchParams({
-    storeId,
     page: String(page),
-    pageSize: String(pageSize),
+    limit: String(pageSize),
   });
-  if (ingredientId) params.set('ingredientId', ingredientId);
-  if (type) params.set('type', type);
+  if (ingredientId) params.set("ingredientId", ingredientId);
+  if (type) params.set("type", type);
 
   return useQuery({
-    queryKey: ['stock-movements', storeId, filters],
+    queryKey: ["stock-movements", storeId, filters],
     queryFn: () =>
       api
-        .get<PaginatedResponse<StockMovement>>(`/api/stock/movements?${params}`)
-        .then((r) => r.data),
+        .get<ApiResponse<StockMovementApiRecord[]>>(
+          `/api/stock/movements/store/${storeId}?${params.toString()}`
+        )
+        .then((response) => ({
+          data: (response.data.data ?? []).map((item) => ({
+            id: item.id,
+            ingredientId: item.ingredientId,
+            ingredientName: item.ingredient?.name ?? item.ingredientId,
+            type: item.type,
+            quantity: item.quantity,
+            reason: item.notes,
+            createdAt: item.createdAt,
+          })),
+          meta: response.data.meta ?? {
+            total: response.data.data?.length ?? 0,
+            page,
+            limit: pageSize,
+            totalPages: 1,
+          },
+        }) satisfies PaginatedResult<StockMovement>),
     enabled: !!storeId,
   });
 }
 
 export function useLowStockAlerts(storeId: string) {
   return useQuery({
-    queryKey: ['stock', 'low-alerts', storeId],
+    queryKey: ["stock", "low-alerts", storeId],
     queryFn: () =>
       api
-        .get<{ success: boolean; data: LowStockAlert[] }>(
-          `/api/stock/low-alerts?storeId=${storeId}`
+        .get<ApiResponse<LowStockAlertApiRecord[]>>(
+          `/api/stock/alerts/store/${storeId}`
         )
-        .then((r) => r.data.data),
+        .then((response) =>
+          (response.data.data ?? []).map((item) => ({
+            ingredientId: item.id,
+            ingredientName: item.name,
+            currentStock: item.currentStock,
+            minStockLevel: item.lowStockThreshold,
+            unitAbbreviation: item.unit?.abbreviation ?? "",
+          }))
+        ),
     enabled: !!storeId,
   });
 }
 
 export function useCreateStockMovement() {
   const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: (payload: CreateStockMovementPayload) =>
-      api.post('/api/stock/movements', payload).then((r) => r.data),
+      api
+        .post("/api/stock/movements", {
+          ...payload,
+          notes: payload.reason,
+        })
+        .then((response) => response.data),
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['stock-movements', variables.storeId] });
-      queryClient.invalidateQueries({ queryKey: ['stock', 'low-alerts', variables.storeId] });
-      queryClient.invalidateQueries({ queryKey: ['ingredients', variables.storeId] });
+      queryClient.invalidateQueries({
+        queryKey: ["stock-movements", variables.storeId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["stock", "low-alerts", variables.storeId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["ingredients", variables.storeId],
+      });
     },
   });
 }

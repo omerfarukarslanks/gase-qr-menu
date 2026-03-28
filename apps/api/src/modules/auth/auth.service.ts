@@ -51,6 +51,7 @@ export class AuthService {
         lastName: userName.lastName,
         name: user.name,
         role: user.role,
+        organizationId: user.organizationId,
       },
       ...tokens,
     };

@@ -13,6 +13,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { IngredientService } from './ingredient.service';
 import { PaginationQueryDto } from '../../common/dto/pagination.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { CreateIngredientDto, UpdateIngredientDto } from './dto/ingredient.dto';
 
 @ApiTags('ingredients')
 @ApiBearerAuth()
@@ -23,14 +24,7 @@ export class IngredientController {
 
   @Post()
   @ApiOperation({ summary: 'Create an ingredient' })
-  create(@Body() dto: {
-    name: string;
-    storeId: string;
-    unitId?: string;
-    currentStock?: number;
-    lowStockThreshold?: number;
-    cost?: number;
-  }) {
+  create(@Body() dto: CreateIngredientDto) {
     return this.ingredientService.create(dto);
   }
 
@@ -54,7 +48,7 @@ export class IngredientController {
 
   @Put(':id')
   @ApiOperation({ summary: 'Update ingredient' })
-  update(@Param('id') id: string, @Body() dto: any) {
+  update(@Param('id') id: string, @Body() dto: UpdateIngredientDto) {
     return this.ingredientService.update(id, dto);
   }
 

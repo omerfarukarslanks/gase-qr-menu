@@ -17,8 +17,7 @@ import {
   useCreateStockMovement,
 } from "@/hooks/use-stock";
 import { formatDate } from "@/lib/utils";
-
-const STORE_ID = "demo-store";
+import { useCurrentStore } from "@/hooks/use-current-store";
 
 type MovementType = "IN" | "OUT" | "ADJUSTMENT";
 
@@ -43,9 +42,10 @@ const emptyForm: MovementForm = {
 };
 
 export default function StockPage() {
+  const { activeStoreId, activeStore } = useCurrentStore();
   const [page, setPage] = useState(1);
-  const { data: movementsData, isLoading: movementsLoading } = useStockMovements(STORE_ID, { page });
-  const { data: alerts, isLoading: alertsLoading } = useLowStockAlerts(STORE_ID);
+  const { data: movementsData, isLoading: movementsLoading } = useStockMovements(activeStoreId ?? "", { page });
+  const { data: alerts, isLoading: alertsLoading } = useLowStockAlerts(activeStoreId ?? "");
   const createMovement = useCreateStockMovement();
 
   const [showForm, setShowForm] = useState(false);
@@ -56,9 +56,10 @@ export default function StockPage() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!activeStoreId) return;
     createMovement.mutate(
       {
-        storeId: STORE_ID,
+        storeId: activeStoreId,
         ingredientId: form.ingredientId,
         type: form.type,
         quantity: form.quantity,
@@ -94,7 +95,9 @@ export default function StockPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Stok Yonetimi</h1>
           <p className="text-muted-foreground">
-            Stok hareketlerini takip edin ve malzeme girisi yapin.
+            {activeStore
+              ? `${activeStore.name} icin stok hareketlerini izleyin.`
+              : "Aktif magaza secimi bekleniyor."}
           </p>
         </div>
         <Button onClick={() => setShowForm(true)}>
@@ -230,6 +233,10 @@ export default function StockPage() {
         <CardContent>
           {movementsLoading ? (
             <p className="text-sm text-muted-foreground">Yukleniyor...</p>
+          ) : !activeStoreId ? (
+            <p className="text-sm text-muted-foreground">
+              Devam etmek icin bir magaza secin.
+            </p>
           ) : movements.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               Henuz stok hareketi bulunmuyor.

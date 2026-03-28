@@ -35,6 +35,8 @@ enum IngredientTypeName {
   DAIRY
   GRAIN
   SPICE
+  OIL
+  SAUCE
   SEAFOOD
   BEVERAGE
   OTHER

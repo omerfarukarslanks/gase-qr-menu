@@ -6,14 +6,23 @@ import { PaginationQueryDto } from '../../common/dto/pagination.dto';
 @Injectable()
 export class OrganizationService {
   async create(dto: CreateOrganizationDto, ownerId: string) {
-    return prisma.organization.create({
-      data: {
-        name: dto.name,
-        slug: dto.slug || dto.name.toLowerCase().replace(/\s+/g, '-'),
-        logo: dto.logo,
-        defaultCurrency: dto.defaultCurrency || 'TRY',
-        ownerId,
-      },
+    return prisma.$transaction(async (tx) => {
+      const organization = await tx.organization.create({
+        data: {
+          name: dto.name,
+          slug: dto.slug || dto.name.toLowerCase().replace(/\s+/g, '-'),
+          logo: dto.logo,
+          defaultCurrency: dto.defaultCurrency || 'TRY',
+          ownerId,
+        },
+      });
+
+      await tx.user.update({
+        where: { id: ownerId },
+        data: { organizationId: organization.id },
+      });
+
+      return organization;
     });
   }
 

@@ -1,86 +1,106 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import api from '@/lib/api';
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import api from "@/lib/api";
+import type { ApiResponse } from "@/lib/api-response";
 
-interface Category {
+export interface CategoryTranslation {
+  languageCode?: string;
+  name: string;
+  description?: string | null;
+}
+
+export interface Category {
   id: string;
   name: string;
+  description?: string | null;
+  storeId: string;
   parentId: string | null;
+  slug: string;
+  image?: string | null;
   sortOrder: number;
   isActive: boolean;
   children?: Category[];
-  translations?: { languageCode: string; name: string }[];
+  translations?: CategoryTranslation[];
 }
 
 interface CreateCategoryPayload {
   storeId: string;
   name: string;
+  description?: string;
   parentId?: string;
+  image?: string;
+  slug?: string;
   sortOrder?: number;
-  translations?: { languageCode: string; name: string }[];
+  translations?: CategoryTranslation[];
 }
 
 interface UpdateCategoryPayload {
   id: string;
   name?: string;
+  description?: string;
   parentId?: string | null;
+  image?: string;
+  slug?: string;
   sortOrder?: number;
   isActive?: boolean;
-  translations?: { languageCode: string; name: string }[];
+  translations?: CategoryTranslation[];
 }
 
 export function useCategories(storeId: string) {
   return useQuery({
-    queryKey: ['categories', storeId],
+    queryKey: ["categories", storeId],
     queryFn: () =>
       api
-        .get<{ success: boolean; data: Category[] }>(
-          `/api/categories?storeId=${storeId}`
-        )
-        .then((r) => r.data.data),
+        .get<ApiResponse<Category[]>>(`/api/categories/store/${storeId}`)
+        .then((response) => response.data.data ?? []),
     enabled: !!storeId,
   });
 }
 
 export function useCategory(id: string) {
   return useQuery({
-    queryKey: ['categories', 'detail', id],
+    queryKey: ["categories", "detail", id],
     queryFn: () =>
       api
-        .get<{ success: boolean; data: Category }>(`/api/categories/${id}`)
-        .then((r) => r.data.data),
+        .get<ApiResponse<Category>>(`/api/categories/${id}`)
+        .then((response) => response.data.data),
     enabled: !!id,
   });
 }
 
 export function useCreateCategory() {
   const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: (payload: CreateCategoryPayload) =>
-      api.post('/api/categories', payload).then((r) => r.data),
+      api.post("/api/categories", payload).then((response) => response.data),
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['categories', variables.storeId] });
+      queryClient.invalidateQueries({
+        queryKey: ["categories", variables.storeId],
+      });
     },
   });
 }
 
 export function useUpdateCategory() {
   const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: ({ id, ...payload }: UpdateCategoryPayload) =>
-      api.patch(`/api/categories/${id}`, payload).then((r) => r.data),
+      api.put(`/api/categories/${id}`, payload).then((response) => response.data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['categories'] });
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
     },
   });
 }
 
 export function useDeleteCategory() {
   const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: (id: string) =>
-      api.delete(`/api/categories/${id}`).then((r) => r.data),
+      api.delete(`/api/categories/${id}`).then((response) => response.data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['categories'] });
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
     },
   });
 }

@@ -1,48 +1,92 @@
 "use client";
 
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
-
-// ---- Auth Store ----
-
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: string;
-  tenantId: string;
-}
+import { createJSONStorage, persist } from "zustand/middleware";
+import type {
+  AuthSessionPayload,
+  AuthUser,
+  StoreSummary,
+} from "@/lib/auth-session";
 
 interface AuthState {
-  user: User | null;
-  token: string | null;
+  user: AuthUser | null;
+  accessToken: string | null;
+  refreshToken: string | null;
+  stores: StoreSummary[];
+  activeStoreId: string | null;
   isAuthenticated: boolean;
-  setAuth: (user: User, token: string) => void;
+  hasHydrated: boolean;
+  setSession: (payload: AuthSessionPayload) => void;
+  updateUser: (payload: Partial<AuthUser>) => void;
+  setStores: (stores: StoreSummary[]) => void;
+  setActiveStoreId: (storeId: string | null) => void;
   logout: () => void;
+  markHydrated: () => void;
 }
 
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
       user: null,
-      token: null,
+      accessToken: null,
+      refreshToken: null,
+      stores: [],
+      activeStoreId: null,
       isAuthenticated: false,
-      setAuth: (user, token) => {
-        localStorage.setItem("auth-token", token);
-        set({ user, token, isAuthenticated: true });
+      hasHydrated: false,
+      setSession: ({ user, accessToken, refreshToken }) => {
+        set((state) => ({
+          user,
+          accessToken,
+          refreshToken,
+          isAuthenticated: true,
+          hasHydrated: true,
+          activeStoreId: state.activeStoreId,
+        }));
       },
-      logout: () => {
-        localStorage.removeItem("auth-token");
-        set({ user: null, token: null, isAuthenticated: false });
-      },
+      updateUser: (payload) =>
+        set((state) => ({
+          user: state.user ? { ...state.user, ...payload } : state.user,
+        })),
+      setStores: (stores) =>
+        set((state) => ({
+          stores,
+          activeStoreId:
+            stores.find((store) => store.id === state.activeStoreId)?.id ??
+            stores[0]?.id ??
+            null,
+        })),
+      setActiveStoreId: (activeStoreId) => set({ activeStoreId }),
+      logout: () =>
+        set({
+          user: null,
+          accessToken: null,
+          refreshToken: null,
+          stores: [],
+          activeStoreId: null,
+          isAuthenticated: false,
+          hasHydrated: true,
+        }),
+      markHydrated: () => set({ hasHydrated: true }),
     }),
     {
       name: "auth-storage",
+      skipHydration: true,
+      storage: createJSONStorage(() => localStorage),
+      partialize: (state) => ({
+        user: state.user,
+        accessToken: state.accessToken,
+        refreshToken: state.refreshToken,
+        stores: state.stores,
+        activeStoreId: state.activeStoreId,
+        isAuthenticated: state.isAuthenticated,
+      }),
+      onRehydrateStorage: () => (state) => {
+        state?.markHydrated();
+      },
     }
   )
 );
-
-// ---- Cart Store ----
 
 interface CartItem {
   productId: string;
@@ -108,6 +152,7 @@ export const useCartStore = create<CartState>()(
     }),
     {
       name: "cart-storage",
+      storage: createJSONStorage(() => localStorage),
     }
   )
 );
