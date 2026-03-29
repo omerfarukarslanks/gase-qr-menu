@@ -288,8 +288,7 @@ export class StockService {
     const [items, total] = await Promise.all([
       prisma.stockMovement.findMany({
         where,
-        skip: query.skip,
-        take: query.limit,
+        ...query.prismaPagination,
         orderBy: { createdAt: 'desc' },
         include: {
           ingredient: {
@@ -310,12 +309,7 @@ export class StockService {
 
     return {
       items,
-      meta: {
-        total,
-        page: query.page,
-        limit: query.limit,
-        totalPages: Math.ceil(total / (query.limit || 20)),
-      },
+      meta: query.buildMeta(total),
     };
   }
 
@@ -434,8 +428,7 @@ export class StockService {
         where,
         include: { unit: true },
         orderBy: { name: 'asc' },
-        skip: query.skip,
-        take: query.limit,
+        ...query.prismaPagination,
       }),
       prisma.ingredient.count({ where }),
     ]);
@@ -502,12 +495,7 @@ export class StockService {
           wasteLast30Days: summary.waste,
         };
       }),
-      meta: {
-        total,
-        page: query.page,
-        limit: query.limit,
-        totalPages: Math.ceil(total / (query.limit || 20)),
-      },
+      meta: query.buildMeta(total),
     };
   }
 
@@ -606,20 +594,14 @@ export class StockService {
       prisma.supplier.findMany({
         where,
         orderBy: [{ isActive: 'desc' }, { name: 'asc' }],
-        skip: query.skip,
-        take: query.limit,
+        ...query.prismaPagination,
       }),
       prisma.supplier.count({ where }),
     ]);
 
     return {
       items,
-      meta: {
-        total,
-        page: query.page,
-        limit: query.limit,
-        totalPages: Math.ceil(total / (query.limit || 20)),
-      },
+      meta: query.buildMeta(total),
     };
   }
 
@@ -707,20 +689,14 @@ export class StockService {
           },
         },
         orderBy: { createdAt: 'desc' },
-        skip: query.skip,
-        take: query.limit,
+        ...query.prismaPagination,
       }),
       prisma.purchaseReceipt.count({ where }),
     ]);
 
     return {
       items,
-      meta: {
-        total,
-        page: query.page,
-        limit: query.limit,
-        totalPages: Math.ceil(total / (query.limit || 20)),
-      },
+      meta: query.buildMeta(total),
     };
   }
 

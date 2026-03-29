@@ -16,6 +16,7 @@ import { CreateMenuDto, UpdateMenuDto, ToggleMenuCategoryDto, ToggleMenuProductD
 import { PublicMenuFiltersDto } from './dto/public-menu-filters.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { Public } from '../../common/decorators/public.decorator';
+import { PaginationQueryDto } from '../../common/dto/pagination.dto';
 
 @ApiTags('menus')
 @Controller('api/menus')
@@ -34,8 +35,8 @@ export class MenuController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'List menus for a store' })
-  findAll(@Param('storeId') storeId: string) {
-    return this.menuService.findAll(storeId);
+  findAll(@Param('storeId') storeId: string, @Query() query: PaginationQueryDto) {
+    return this.menuService.findAll(storeId, query);
   }
 
   @Public()

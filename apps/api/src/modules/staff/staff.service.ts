@@ -8,6 +8,7 @@ import {
 import { Prisma, StoreRole, UserRole, prisma } from '@gase/database';
 import * as bcrypt from 'bcryptjs';
 import { CreateStaffDto, UpdateStaffDto } from './dto/staff.dto';
+import { PaginationQueryDto } from '../../common/dto/pagination.dto';
 
 type CurrentUser = {
   id: string;
@@ -38,11 +39,31 @@ const ACTIVE_ROLE_PRIORITY: Array<StoreRole> = [
 
 @Injectable()
 export class StaffService {
-  async findAll(storeId: string, currentUser: CurrentUser) {
+  async findAll(storeId: string, currentUser: CurrentUser, query: PaginationQueryDto) {
     await this.ensureStoreManagementAccess(currentUser, storeId);
 
+    const where: Prisma.UserStoreWhereInput = {
+      storeId,
+      ...(query.search
+        ? {
+            OR: [
+              {
+                user: {
+                  name: { contains: query.search, mode: 'insensitive' },
+                },
+              },
+              {
+                user: {
+                  email: { contains: query.search, mode: 'insensitive' },
+                },
+              },
+            ],
+          }
+        : {}),
+    };
+
     const memberships = await prisma.userStore.findMany({
-      where: { storeId },
+      where,
       include: {
         user: true,
         store: {
@@ -57,9 +78,15 @@ export class StaffService {
         { role: 'asc' },
         { user: { name: 'asc' } },
       ],
+      ...query.prismaPagination,
     });
 
-    return memberships.map((membership) => this.mapMembership(membership));
+    const total = await prisma.userStore.count({ where });
+
+    return {
+      items: memberships.map((membership) => this.mapMembership(membership)),
+      meta: query.buildMeta(total),
+    };
   }
 
   async create(dto: CreateStaffDto, currentUser: CurrentUser) {

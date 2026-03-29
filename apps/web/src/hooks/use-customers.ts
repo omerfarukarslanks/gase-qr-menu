@@ -1,6 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
 import type { ApiResponse, PaginatedResult } from "@/lib/api-response";
+import {
+  appendPaginationParams,
+  buildPaginationMeta,
+  type AdminPageSize,
+} from "@/lib/pagination";
 
 export interface Customer {
   id: string;
@@ -32,7 +37,7 @@ export interface CustomerDetails extends Customer {
 
 interface CustomerFilters {
   page?: number;
-  pageSize?: number;
+  pageSize?: AdminPageSize;
   search?: string;
 }
 
@@ -68,11 +73,8 @@ interface CustomerHistoryResponse {
 }
 
 export function useCustomers(storeId: string, filters: CustomerFilters = {}) {
-  const { page = 1, pageSize = 20, search } = filters;
-  const params = new URLSearchParams({
-    page: String(page),
-    limit: String(pageSize),
-  });
+  const { page = 1, pageSize = 10, search } = filters;
+  const params = appendPaginationParams(new URLSearchParams(), page, pageSize);
 
   if (search) {
     params.set("search", search);
@@ -118,12 +120,12 @@ export function useCustomers(storeId: string, filters: CustomerFilters = {}) {
 
           return {
             data,
-            meta: response.data.meta ?? {
-              total: data.length,
+            meta: buildPaginationMeta(
+              response.data.meta,
+              data.length,
               page,
-              limit: pageSize,
-              totalPages: 1,
-            },
+              pageSize
+            ),
           } satisfies PaginatedResult<Customer>;
         }),
     enabled: !!storeId,

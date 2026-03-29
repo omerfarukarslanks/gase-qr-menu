@@ -70,8 +70,7 @@ export class CampaignService {
     const [items, total] = await Promise.all([
       prisma.campaign.findMany({
         where,
-        skip: query.skip,
-        take: query.limit,
+        ...query.prismaPagination,
         orderBy: { createdAt: 'desc' },
         include: {
           campaignProducts: { include: { product: { select: { id: true, slug: true } } } },
@@ -83,12 +82,7 @@ export class CampaignService {
 
     return {
       items,
-      meta: {
-        total,
-        page: query.page,
-        limit: query.limit,
-        totalPages: Math.ceil(total / (query.limit || 20)),
-      },
+      meta: query.buildMeta(total),
     };
   }
 

@@ -3,6 +3,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import type { ApiResponse, PaginatedResult } from "@/lib/api-response";
+import {
+  appendPaginationParams,
+  buildPaginationMeta,
+  type AdminPageSize,
+} from "@/lib/pagination";
 
 export type PaymentStatus = "COMPLETED" | "PENDING" | "FAILED" | "REFUNDED";
 export type PaymentMethod = "CREDIT_CARD" | "CASH" | "ONLINE";
@@ -44,7 +49,7 @@ interface PaymentApiRecord {
 
 interface PaymentFilters {
   page?: number;
-  pageSize?: number;
+  pageSize?: AdminPageSize;
   status?: PaymentStatus;
   method?: PaymentMethod;
   search?: string;
@@ -67,11 +72,8 @@ function mapPayment(record: PaymentApiRecord): Payment {
 }
 
 export function usePayments(storeId: string, filters: PaymentFilters = {}) {
-  const { page = 1, pageSize = 50, status, method, search } = filters;
-  const params = new URLSearchParams({
-    page: String(page),
-    limit: String(pageSize),
-  });
+  const { page = 1, pageSize = 10, status, method, search } = filters;
+  const params = appendPaginationParams(new URLSearchParams(), page, pageSize);
 
   if (status) {
     params.set("status", status);
@@ -94,12 +96,12 @@ export function usePayments(storeId: string, filters: PaymentFilters = {}) {
         )
         .then((response) => ({
           data: (response.data.data ?? []).map(mapPayment),
-          meta: response.data.meta ?? {
-            total: response.data.data?.length ?? 0,
+          meta: buildPaginationMeta(
+            response.data.meta,
+            response.data.data?.length ?? 0,
             page,
-            limit: pageSize,
-            totalPages: 1,
-          },
+            pageSize
+          ),
         }) satisfies PaginatedResult<Payment>),
     enabled: !!storeId,
   });

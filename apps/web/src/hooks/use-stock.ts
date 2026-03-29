@@ -1,6 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import type { ApiResponse, PaginatedResult } from "@/lib/api-response";
+import {
+  appendPaginationParams,
+  buildPaginationMeta,
+  type AdminPageSize,
+} from "@/lib/pagination";
 
 type MovementType = "IN" | "OUT" | "ADJUSTMENT" | "WASTE";
 
@@ -121,7 +126,7 @@ export interface PurchaseReceipt {
 
 interface StockMovementFilters {
   page?: number;
-  pageSize?: number;
+  pageSize?: AdminPageSize;
   ingredientId?: string;
   type?: MovementType | "";
   search?: string;
@@ -131,19 +136,19 @@ interface StockMovementFilters {
 
 interface StockInventoryFilters {
   page?: number;
-  pageSize?: number;
+  pageSize?: AdminPageSize;
   search?: string;
 }
 
 interface SupplierFilters {
   page?: number;
-  pageSize?: number;
+  pageSize?: AdminPageSize;
   search?: string;
 }
 
 interface PurchaseFilters {
   page?: number;
-  pageSize?: number;
+  pageSize?: AdminPageSize;
   search?: string;
 }
 
@@ -249,16 +254,16 @@ function mapStockMovement(item: StockMovementApiRecord): StockMovement {
 function withPagination<T>(
   response: { data?: T[]; meta?: PaginatedResult<T>["meta"] },
   fallbackPage: number,
-  fallbackLimit: number
+  fallbackLimit: AdminPageSize
 ) {
   return {
     data: response.data ?? [],
-    meta: response.meta ?? {
-      total: response.data?.length ?? 0,
-      page: fallbackPage,
-      limit: fallbackLimit,
-      totalPages: 1,
-    },
+    meta: buildPaginationMeta(
+      response.meta,
+      response.data?.length ?? 0,
+      fallbackPage,
+      fallbackLimit
+    ),
   } satisfies PaginatedResult<T>;
 }
 
@@ -279,17 +284,14 @@ export function useStockMovements(
 ) {
   const {
     page = 1,
-    pageSize = 20,
+    pageSize = 10,
     ingredientId,
     type,
     search,
     dateFrom,
     dateTo,
   } = filters;
-  const params = new URLSearchParams({
-    page: String(page),
-    limit: String(pageSize),
-  });
+  const params = appendPaginationParams(new URLSearchParams(), page, pageSize);
 
   if (ingredientId) params.set("ingredientId", ingredientId);
   if (type) params.set("type", type);
@@ -344,11 +346,8 @@ export function useStockIngredients(
   storeId: string,
   filters: StockInventoryFilters = {}
 ) {
-  const { page = 1, pageSize = 20, search } = filters;
-  const params = new URLSearchParams({
-    page: String(page),
-    limit: String(pageSize),
-  });
+  const { page = 1, pageSize = 10, search } = filters;
+  const params = appendPaginationParams(new URLSearchParams(), page, pageSize);
   if (search) params.set("search", search);
 
   return useQuery({
@@ -384,11 +383,8 @@ export function useStockIngredientDetail(ingredientId: string) {
 }
 
 export function useSuppliers(storeId: string, filters: SupplierFilters = {}) {
-  const { page = 1, pageSize = 20, search } = filters;
-  const params = new URLSearchParams({
-    page: String(page),
-    limit: String(pageSize),
-  });
+  const { page = 1, pageSize = 10, search } = filters;
+  const params = appendPaginationParams(new URLSearchParams(), page, pageSize);
   if (search) params.set("search", search);
 
   return useQuery({
@@ -404,11 +400,8 @@ export function useSuppliers(storeId: string, filters: SupplierFilters = {}) {
 }
 
 export function usePurchaseReceipts(storeId: string, filters: PurchaseFilters = {}) {
-  const { page = 1, pageSize = 20, search } = filters;
-  const params = new URLSearchParams({
-    page: String(page),
-    limit: String(pageSize),
-  });
+  const { page = 1, pageSize = 10, search } = filters;
+  const params = appendPaginationParams(new URLSearchParams(), page, pageSize);
   if (search) params.set("search", search);
 
   return useQuery({

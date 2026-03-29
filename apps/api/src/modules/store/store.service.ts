@@ -37,12 +37,7 @@ export class StoreService {
     if (!currentUser?.id) {
       return {
         items: [],
-        meta: {
-          total: 0,
-          page: query.page,
-          limit: query.limit,
-          totalPages: 0,
-        },
+        meta: query.buildMeta(0),
       };
     }
 
@@ -55,12 +50,7 @@ export class StoreService {
       if (!currentUser.organizationId) {
         return {
           items: [],
-          meta: {
-            total: 0,
-            page: query.page,
-            limit: query.limit,
-            totalPages: 0,
-          },
+          meta: query.buildMeta(0),
         };
       }
 
@@ -80,12 +70,7 @@ export class StoreService {
       if (memberships.length === 0) {
         return {
           items: [],
-          meta: {
-            total: 0,
-            page: query.page,
-            limit: query.limit,
-            totalPages: 0,
-          },
+          meta: query.buildMeta(0),
         };
       }
 
@@ -103,8 +88,7 @@ export class StoreService {
     const [items, total] = await Promise.all([
       prisma.store.findMany({
         where,
-        skip: query.skip,
-        take: query.limit,
+        ...query.prismaPagination,
         orderBy: { [query.sortBy || 'createdAt']: query.sortOrder || 'desc' },
       }),
       prisma.store.count({ where }),
@@ -118,12 +102,7 @@ export class StoreService {
             ? currentUser.role
             : membershipByStoreId.get(item.id) || null,
       })),
-      meta: {
-        total,
-        page: query.page,
-        limit: query.limit,
-        totalPages: Math.ceil(total / (query.limit || 20)),
-      },
+      meta: query.buildMeta(total),
     };
   }
 

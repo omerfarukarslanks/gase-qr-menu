@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Pencil, Plus } from "lucide-react";
 import { AdminDrawer } from "@/components/admin/admin-drawer";
+import { AdminPagination } from "@/components/admin/admin-pagination";
 import { MenuEditor } from "@/components/admin/menu-editor";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { MenuQrCard } from "@/components/admin/menu-qr-card";
@@ -13,6 +14,10 @@ import { Switch } from "@/components/ui/switch";
 import { useCategories } from "@/hooks/use-categories";
 import { useCurrentStore } from "@/hooks/use-current-store";
 import { type MenuSummary, useCreateMenu, useMenus, useUpdateMenu } from "@/hooks/use-menus";
+import {
+  buildClientPaginationMeta,
+  type AdminPageSize,
+} from "@/lib/pagination";
 
 interface MenuFormState {
   name: string;
@@ -33,9 +38,30 @@ export default function MenusPage() {
   const createMenu = useCreateMenu();
   const updateMenu = useUpdateMenu();
 
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<AdminPageSize>(10);
   const [showForm, setShowForm] = useState(false);
   const [editingMenuId, setEditingMenuId] = useState<string | null>(null);
   const [form, setForm] = useState<MenuFormState>(emptyForm);
+  const totalPages =
+    pageSize === "all" ? (menus.length > 0 ? 1 : 0) : Math.ceil(menus.length / pageSize);
+  const paginatedMenus = useMemo(() => {
+    if (pageSize === "all") {
+      return menus;
+    }
+    const start = (page - 1) * pageSize;
+    return menus.slice(start, start + pageSize);
+  }, [menus, page, pageSize]);
+
+  useEffect(() => {
+    if (page > 1 && totalPages > 0 && page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [activeStoreId, pageSize]);
 
   const resetForm = () => {
     setForm(emptyForm);
@@ -208,8 +234,9 @@ export default function MenusPage() {
               Henuz menu bulunmuyor. Ilk menuyu olusturarak baslayabilirsiniz.
             </p>
           ) : (
-            <div className="grid gap-4 xl:grid-cols-2">
-              {menus.map((menu) => (
+            <>
+              <div className="grid gap-4 xl:grid-cols-2">
+                {paginatedMenus.map((menu) => (
                 <div key={menu.id} className="rounded-xl border p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -260,8 +287,19 @@ export default function MenusPage() {
                     />
                   </div>
                 </div>
-              ))}
-            </div>
+                ))}
+              </div>
+              <AdminPagination
+                meta={buildClientPaginationMeta(menus.length, page, pageSize)}
+                itemLabel="menu"
+                pageSize={pageSize}
+                onPageChange={setPage}
+                onPageSizeChange={(nextPageSize) => {
+                  setPageSize(nextPageSize);
+                  setPage(1);
+                }}
+              />
+            </>
           )}
         </CardContent>
       </Card>

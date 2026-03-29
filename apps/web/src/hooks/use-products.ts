@@ -1,6 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import type { ApiResponse, PaginatedResult } from "@/lib/api-response";
+import {
+  appendPaginationParams,
+  buildPaginationMeta,
+  type AdminPageSize,
+} from "@/lib/pagination";
 
 export interface ProductTranslation {
   languageCode?: string;
@@ -40,7 +45,7 @@ export interface Product {
 
 interface ProductFilters {
   page?: number;
-  pageSize?: number;
+  pageSize?: AdminPageSize;
   categoryId?: string;
   search?: string;
   sortBy?: string;
@@ -90,16 +95,13 @@ interface UpdateProductPayload {
 export function useProducts(storeId: string, filters: ProductFilters = {}) {
   const {
     page = 1,
-    pageSize = 20,
+    pageSize = 10,
     categoryId,
     search,
     sortBy,
     sortOrder,
   } = filters;
-  const params = new URLSearchParams({
-    page: String(page),
-    limit: String(pageSize),
-  });
+  const params = appendPaginationParams(new URLSearchParams(), page, pageSize);
 
   if (categoryId) params.set("categoryId", categoryId);
   if (search) params.set("search", search);
@@ -115,12 +117,12 @@ export function useProducts(storeId: string, filters: ProductFilters = {}) {
         )
         .then((response) => ({
           data: response.data.data ?? [],
-          meta: response.data.meta ?? {
-            total: response.data.data?.length ?? 0,
+          meta: buildPaginationMeta(
+            response.data.meta,
+            response.data.data?.length ?? 0,
             page,
-            limit: pageSize,
-            totalPages: 1,
-          },
+            pageSize
+          ),
         }) satisfies PaginatedResult<Product>),
     enabled: !!storeId,
   });

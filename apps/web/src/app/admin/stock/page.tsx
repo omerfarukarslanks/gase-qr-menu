@@ -14,6 +14,7 @@ import {
   Warehouse,
 } from "lucide-react";
 import { AdminDrawer } from "@/components/admin/admin-drawer";
+import { AdminPagination } from "@/components/admin/admin-pagination";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { ResponsiveDataTable } from "@/components/admin/responsive-data-table";
 import { getEffectiveAdminRole } from "@/components/admin/admin-nav";
@@ -41,6 +42,7 @@ import {
   type Supplier,
 } from "@/hooks/use-stock";
 import { useSocket } from "@/hooks/use-socket";
+import type { AdminPageSize } from "@/lib/pagination";
 import { useAuthStore } from "@/lib/store";
 import { formatDate } from "@/lib/utils";
 
@@ -205,6 +207,10 @@ export default function StockPage() {
   const [inventoryPage, setInventoryPage] = useState(1);
   const [purchasePage, setPurchasePage] = useState(1);
   const [supplierPage, setSupplierPage] = useState(1);
+  const [movementPageSize, setMovementPageSize] = useState<AdminPageSize>(10);
+  const [inventoryPageSize, setInventoryPageSize] = useState<AdminPageSize>(10);
+  const [purchasePageSize, setPurchasePageSize] = useState<AdminPageSize>(10);
+  const [supplierPageSize, setSupplierPageSize] = useState<AdminPageSize>(10);
 
   const [movementSearch, setMovementSearch] = useState("");
   const [movementIngredientFilter, setMovementIngredientFilter] = useState("");
@@ -236,7 +242,7 @@ export default function StockPage() {
 
   const { data: allIngredientsQuery } = useIngredients(activeStoreId ?? "", {
     page: 1,
-    pageSize: 300,
+    pageSize: "all",
   });
   const allIngredients = allIngredientsQuery?.data ?? [];
 
@@ -244,7 +250,7 @@ export default function StockPage() {
   const alertsQuery = useLowStockAlerts(activeStoreId ?? "");
   const movementsQuery = useStockMovements(activeStoreId ?? "", {
     page: movementPage,
-    pageSize: 12,
+    pageSize: movementPageSize,
     search: movementSearch,
     ingredientId: movementIngredientFilter,
     type: movementTypeFilter,
@@ -253,18 +259,18 @@ export default function StockPage() {
   });
   const inventoryQuery = useStockIngredients(activeStoreId ?? "", {
     page: inventoryPage,
-    pageSize: 12,
+    pageSize: inventoryPageSize,
     search: inventorySearch,
   });
   const ingredientDetailQuery = useStockIngredientDetail(detailIngredientId);
   const suppliersQuery = useSuppliers(activeStoreId ?? "", {
     page: supplierPage,
-    pageSize: 8,
+    pageSize: supplierPageSize,
     search: procurementSearch,
   });
   const purchasesQuery = usePurchaseReceipts(activeStoreId ?? "", {
     page: purchasePage,
-    pageSize: 8,
+    pageSize: purchasePageSize,
     search: procurementSearch,
   });
 
@@ -281,6 +287,19 @@ export default function StockPage() {
 
     joinStore(activeStoreId);
   }, [activeStoreId, joinStore]);
+
+  useEffect(() => {
+    setMovementPage(1);
+  }, [movementSearch, movementIngredientFilter, movementTypeFilter, movementDateFrom, movementDateTo, movementPageSize]);
+
+  useEffect(() => {
+    setInventoryPage(1);
+  }, [inventorySearch, countFilter, inventoryPageSize]);
+
+  useEffect(() => {
+    setSupplierPage(1);
+    setPurchasePage(1);
+  }, [procurementSearch, supplierPageSize, purchasePageSize]);
 
   useEffect(() => {
     if (!activeStoreId) {
@@ -932,32 +951,16 @@ export default function StockPage() {
                     )}
                   />
 
-                  {movementMeta && movementMeta.totalPages > 1 ? (
-                    <div className="flex items-center justify-between gap-3 pt-2">
-                      <p className="text-sm text-muted-foreground">
-                        Toplam {movementMeta.total} hareket, Sayfa {movementMeta.page} /{" "}
-                        {movementMeta.totalPages}
-                      </p>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={movementPage <= 1}
-                          onClick={() => setMovementPage((current) => current - 1)}
-                        >
-                          Onceki
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={movementPage >= movementMeta.totalPages}
-                          onClick={() => setMovementPage((current) => current + 1)}
-                        >
-                          Sonraki
-                        </Button>
-                      </div>
-                    </div>
-                  ) : null}
+                  <AdminPagination
+                    meta={movementMeta}
+                    itemLabel="hareket"
+                    pageSize={movementPageSize}
+                    onPageChange={setMovementPage}
+                    onPageSizeChange={(nextPageSize) => {
+                      setMovementPageSize(nextPageSize);
+                      setMovementPage(1);
+                    }}
+                  />
                 </>
               )}
             </CardContent>
@@ -1119,32 +1122,16 @@ export default function StockPage() {
                     )}
                   />
 
-                  {inventoryQuery.data?.meta && inventoryQuery.data.meta.totalPages > 1 ? (
-                    <div className="flex items-center justify-between gap-3 pt-2">
-                      <p className="text-sm text-muted-foreground">
-                        Toplam {inventoryQuery.data.meta.total} malzeme, Sayfa{" "}
-                        {inventoryQuery.data.meta.page} / {inventoryQuery.data.meta.totalPages}
-                      </p>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={inventoryPage <= 1}
-                          onClick={() => setInventoryPage((current) => current - 1)}
-                        >
-                          Onceki
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={inventoryPage >= inventoryQuery.data.meta.totalPages}
-                          onClick={() => setInventoryPage((current) => current + 1)}
-                        >
-                          Sonraki
-                        </Button>
-                      </div>
-                    </div>
-                  ) : null}
+                  <AdminPagination
+                    meta={inventoryQuery.data?.meta}
+                    itemLabel="malzeme"
+                    pageSize={inventoryPageSize}
+                    onPageChange={setInventoryPage}
+                    onPageSizeChange={(nextPageSize) => {
+                      setInventoryPageSize(nextPageSize);
+                      setInventoryPage(1);
+                    }}
+                  />
                 </>
               )}
             </CardContent>
@@ -1216,26 +1203,16 @@ export default function StockPage() {
                     </div>
                   ))
                 )}
-                {supplierMeta && supplierMeta.totalPages > 1 ? (
-                  <div className="flex justify-end gap-2 pt-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={supplierPage <= 1}
-                      onClick={() => setSupplierPage((current) => current - 1)}
-                    >
-                      Onceki
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={supplierPage >= supplierMeta.totalPages}
-                      onClick={() => setSupplierPage((current) => current + 1)}
-                    >
-                      Sonraki
-                    </Button>
-                  </div>
-                ) : null}
+                <AdminPagination
+                  meta={supplierMeta}
+                  itemLabel="tedarikci"
+                  pageSize={supplierPageSize}
+                  onPageChange={setSupplierPage}
+                  onPageSizeChange={(nextPageSize) => {
+                    setSupplierPageSize(nextPageSize);
+                    setSupplierPage(1);
+                  }}
+                />
               </CardContent>
             </Card>
 
@@ -1316,26 +1293,16 @@ export default function StockPage() {
                   ))
                 )}
 
-                {purchaseMeta && purchaseMeta.totalPages > 1 ? (
-                  <div className="flex justify-end gap-2 pt-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={purchasePage <= 1}
-                      onClick={() => setPurchasePage((current) => current - 1)}
-                    >
-                      Onceki
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={purchasePage >= purchaseMeta.totalPages}
-                      onClick={() => setPurchasePage((current) => current + 1)}
-                    >
-                      Sonraki
-                    </Button>
-                  </div>
-                ) : null}
+                <AdminPagination
+                  meta={purchaseMeta}
+                  itemLabel="satin alma kaydi"
+                  pageSize={purchasePageSize}
+                  onPageChange={setPurchasePage}
+                  onPageSizeChange={(nextPageSize) => {
+                    setPurchasePageSize(nextPageSize);
+                    setPurchasePage(1);
+                  }}
+                />
               </CardContent>
             </Card>
           </div>

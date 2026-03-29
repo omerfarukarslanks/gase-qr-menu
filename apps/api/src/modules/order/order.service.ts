@@ -173,7 +173,16 @@ export class OrderService {
     );
 
     // Calculate tax from product taxRate
-    const cartProductIds = [...new Set(cart.items.map((item: any) => item.productId))];
+    const cartProductIds: string[] = Array.from(
+      new Set<string>(
+        cart.items
+          .map((item: any) => item.productId)
+          .filter(
+            (productId: unknown): productId is string =>
+              typeof productId === 'string' && productId.length > 0,
+          ),
+      ),
+    );
     const cartProducts = await prisma.product.findMany({
       where: { id: { in: cartProductIds } },
       select: { id: true, taxRate: true },
@@ -261,8 +270,7 @@ export class OrderService {
     const [items, total] = await Promise.all([
       prisma.order.findMany({
         where,
-        skip: query.skip,
-        take: query.limit,
+        ...query.prismaPagination,
         orderBy: { createdAt: 'desc' },
         include: ORDER_INCLUDE,
       }),
@@ -271,12 +279,7 @@ export class OrderService {
 
     return {
       items,
-      meta: {
-        total,
-        page: query.page,
-        limit: query.limit,
-        totalPages: Math.ceil(total / (query.limit || 20)),
-      },
+      meta: query.buildMeta(total),
     };
   }
 

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Pencil, Plus, Search } from "lucide-react";
 import { AdminDrawer } from "@/components/admin/admin-drawer";
+import { AdminPagination } from "@/components/admin/admin-pagination";
 import { ProductEditor } from "@/components/admin/product-editor";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { ResponsiveDataTable } from "@/components/admin/responsive-data-table";
@@ -14,6 +15,7 @@ import { Switch } from "@/components/ui/switch";
 import { useCurrentStore } from "@/hooks/use-current-store";
 import { useCategories } from "@/hooks/use-categories";
 import { type Product, useProducts, useUpdateProduct } from "@/hooks/use-products";
+import type { AdminPageSize } from "@/lib/pagination";
 import { formatCurrency } from "@/lib/utils";
 
 export default function ProductsPage() {
@@ -21,12 +23,13 @@ export default function ProductsPage() {
   const [search, setSearch] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<AdminPageSize>(10);
   const [editingProductId, setEditingProductId] = useState<string | "new" | null>(null);
 
   const { data: categories = [] } = useCategories(activeStoreId ?? "");
   const { data, isLoading, isError } = useProducts(activeStoreId ?? "", {
     page,
-    pageSize: 12,
+    pageSize,
     categoryId: categoryId || undefined,
     search: search || undefined,
   });
@@ -263,31 +266,16 @@ export default function ProductsPage() {
                 )}
               />
 
-              {meta && meta.totalPages > 1 && (
-                <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-sm text-muted-foreground">
-                    Toplam {meta.total} urun, sayfa {meta.page} / {meta.totalPages}
-                  </p>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={page <= 1}
-                      onClick={() => setPage((current) => current - 1)}
-                    >
-                      Onceki
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={page >= meta.totalPages}
-                      onClick={() => setPage((current) => current + 1)}
-                    >
-                      Sonraki
-                    </Button>
-                  </div>
-                </div>
-              )}
+              <AdminPagination
+                meta={meta}
+                itemLabel="urun"
+                pageSize={pageSize}
+                onPageChange={setPage}
+                onPageSizeChange={(nextPageSize) => {
+                  setPageSize(nextPageSize);
+                  setPage(1);
+                }}
+              />
             </>
           )}
         </CardContent>

@@ -1,6 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import type { ApiResponse, PaginatedResult } from "@/lib/api-response";
+import {
+  appendPaginationParams,
+  buildPaginationMeta,
+  type AdminPageSize,
+} from "@/lib/pagination";
 
 export type OrderStatus =
   | "DRAFT"
@@ -86,7 +91,7 @@ interface OrderApiRecord {
 
 interface OrderFilters {
   page?: number;
-  pageSize?: number;
+  pageSize?: AdminPageSize;
   status?: OrderStatus;
 }
 
@@ -137,11 +142,8 @@ function mapOrder(record: OrderApiRecord): Order {
 }
 
 export function useOrders(storeId: string, filters: OrderFilters = {}) {
-  const { page = 1, pageSize = 20, status } = filters;
-  const params = new URLSearchParams({
-    page: String(page),
-    limit: String(pageSize),
-  });
+  const { page = 1, pageSize = 10, status } = filters;
+  const params = appendPaginationParams(new URLSearchParams(), page, pageSize);
 
   if (status) {
     params.set("status", status);
@@ -156,12 +158,12 @@ export function useOrders(storeId: string, filters: OrderFilters = {}) {
         )
         .then((response) => ({
           data: (response.data.data ?? []).map(mapOrder),
-          meta: response.data.meta ?? {
-            total: response.data.data?.length ?? 0,
+          meta: buildPaginationMeta(
+            response.data.meta,
+            response.data.data?.length ?? 0,
             page,
-            limit: pageSize,
-            totalPages: 1,
-          },
+            pageSize
+          ),
         }) satisfies PaginatedResult<Order>),
     enabled: !!storeId,
   });

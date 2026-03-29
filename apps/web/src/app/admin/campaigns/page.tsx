@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Calendar,
   Clock,
@@ -12,6 +12,7 @@ import {
   Tag,
 } from "lucide-react";
 import { AdminDrawer } from "@/components/admin/admin-drawer";
+import { AdminPagination } from "@/components/admin/admin-pagination";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,6 +28,7 @@ import {
   useCreateCampaign,
   useUpdateCampaign,
 } from "@/hooks/use-campaigns";
+import type { AdminPageSize } from "@/lib/pagination";
 
 const typeConfig: Record<
   CampaignType,
@@ -140,6 +142,8 @@ function buildFormFromCampaign(campaign: Campaign): CampaignFormState {
 export default function CampaignsPage() {
   const { activeStore, activeStoreId } = useCurrentStore();
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<AdminPageSize>(10);
   const [showForm, setShowForm] = useState(false);
   const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
   const [form, setForm] = useState<CampaignFormState>(emptyForm);
@@ -152,7 +156,8 @@ export default function CampaignsPage() {
     error,
     refetch,
   } = useCampaigns(activeStoreId ?? "", {
-    pageSize: 100,
+    page,
+    pageSize,
     search: search.trim() || undefined,
   });
   const { data: categories = [] } = useCategories(activeStoreId ?? "");
@@ -161,6 +166,10 @@ export default function CampaignsPage() {
   });
   const createCampaign = useCreateCampaign();
   const updateCampaign = useUpdateCampaign();
+
+  useEffect(() => {
+    setPage(1);
+  }, [activeStoreId, search]);
 
   const campaigns = campaignResult?.data ?? [];
   const products = productResult?.data ?? [];
@@ -340,7 +349,7 @@ export default function CampaignsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{campaigns.length}</div>
+            <div className="text-2xl font-bold">{campaignResult?.meta?.total ?? campaigns.length}</div>
           </CardContent>
         </Card>
         <Card className="border-border/80 bg-card/85 shadow-[var(--card-shadow)]">
@@ -717,7 +726,8 @@ export default function CampaignsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {campaigns.length === 0 ? (
             <Card className="md:col-span-2 xl:col-span-3">
               <CardContent className="py-12 text-center text-sm text-muted-foreground">
@@ -839,6 +849,17 @@ export default function CampaignsPage() {
               );
             })
           )}
+          </div>
+          <AdminPagination
+            meta={campaignResult?.meta}
+            itemLabel="kampanya"
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={(nextPageSize) => {
+              setPageSize(nextPageSize);
+              setPage(1);
+            }}
+          />
         </div>
       )}
     </div>

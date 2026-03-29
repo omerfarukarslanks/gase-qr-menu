@@ -5,6 +5,7 @@ import { randomUUID } from 'crypto';
 import { CreateMenuDto, UpdateMenuDto, ToggleMenuCategoryDto, ToggleMenuProductDto } from './dto/menu.dto';
 import { PublicMenuFiltersDto } from './dto/public-menu-filters.dto';
 import { getStoreOperatingStatus } from '../../common/utils/store-availability.util';
+import { PaginationQueryDto } from '../../common/dto/pagination.dto';
 
 @Injectable()
 export class MenuService {
@@ -178,14 +179,35 @@ export class MenuService {
     });
   }
 
-  async findAll(storeId: string) {
-    return prisma.menu.findMany({
-      where: { storeId },
-      include: {
-        menuCategories: { include: { category: true }, orderBy: { sortOrder: 'asc' } },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+  async findAll(storeId: string, query: PaginationQueryDto) {
+    const where = {
+      storeId,
+      ...(query.search
+        ? {
+            OR: [
+              { name: { contains: query.search, mode: 'insensitive' as const } },
+              { description: { contains: query.search, mode: 'insensitive' as const } },
+            ],
+          }
+        : {}),
+    };
+
+    const [items, total] = await Promise.all([
+      prisma.menu.findMany({
+        where,
+        ...query.prismaPagination,
+        include: {
+          menuCategories: { include: { category: true }, orderBy: { sortOrder: 'asc' } },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.menu.count({ where }),
+    ]);
+
+    return {
+      items,
+      meta: query.buildMeta(total),
+    };
   }
 
   async findOne(id: string) {

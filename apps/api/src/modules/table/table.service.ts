@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { TableStatus, UserRole, prisma } from '@gase/database';
 import { EventsGateway } from '../../gateway/events.gateway';
-import { CreateTableDto, UpdateTableDto } from './dto/table.dto';
+import { CreateTableDto, TableListQueryDto, UpdateTableDto } from './dto/table.dto';
 
 type CurrentUser = {
   id: string;
@@ -31,32 +31,54 @@ export class TableService {
     });
   }
 
-  async findAll(storeId: string) {
-    return prisma.restaurantTable.findMany({
-      where: { storeId },
-      orderBy: [{ section: 'asc' }, { number: 'asc' }],
-      include: {
-        sessions: {
-          where: { status: 'ACTIVE' },
-          take: 1,
-          orderBy: { openedAt: 'desc' },
-          include: {
-            assignedStaff: {
-              select: {
-                id: true,
-                name: true,
+  async findAll(storeId: string, query: TableListQueryDto) {
+    const where = {
+      storeId,
+      ...(query.section ? { section: query.section } : {}),
+      ...(query.search
+        ? {
+            OR: [
+              { name: { contains: query.search, mode: 'insensitive' as const } },
+              { section: { contains: query.search, mode: 'insensitive' as const } },
+            ],
+          }
+        : {}),
+    };
+
+    const [items, total] = await Promise.all([
+      prisma.restaurantTable.findMany({
+        where,
+        ...query.prismaPagination,
+        orderBy: [{ section: 'asc' }, { number: 'asc' }],
+        include: {
+          sessions: {
+            where: { status: 'ACTIVE' },
+            take: 1,
+            orderBy: { openedAt: 'desc' },
+            include: {
+              assignedStaff: {
+                select: {
+                  id: true,
+                  name: true,
+                },
               },
-            },
-            orders: {
-              where: {
-                status: { in: ['PENDING', 'CONFIRMED', 'PREPARING', 'READY'] },
+              orders: {
+                where: {
+                  status: { in: ['PENDING', 'CONFIRMED', 'PREPARING', 'READY'] },
+                },
+                select: { id: true },
               },
-              select: { id: true },
             },
           },
         },
-      },
-    });
+      }),
+      prisma.restaurantTable.count({ where }),
+    ]);
+
+    return {
+      items,
+      meta: query.buildMeta(total),
+    };
   }
 
   async findOne(id: string) {

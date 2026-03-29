@@ -206,9 +206,9 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const pageTitle = getAdminPageTitle(pathname);
 
   return (
-    <div className="min-h-screen bg-background lg:flex lg:items-stretch">
+    <div className="flex h-screen overflow-hidden bg-background">
       <aside
-        className={`hidden shrink-0 self-stretch border-r border-border bg-card lg:flex ${
+        className={`hidden h-screen shrink-0 self-stretch border-r border-border bg-card lg:flex ${
           isDesktopCollapsed ? "w-[5.5rem]" : "w-80"
         }`}
       >
@@ -221,7 +221,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         </SheetContent>
       </Sheet>
 
-      <div className="theme-app-gradient flex min-w-0 flex-1 flex-col">
+      <div className="theme-app-gradient flex min-w-0 flex-1 flex-col overflow-hidden">
         <AdminTopbar
           title={pageTitle}
           stores={stores}
@@ -232,8 +232,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
         />
 
-        <main className="flex-1">
-          <div className="mx-auto min-h-[calc(100vh-9rem)] max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+        <main className="min-h-0 flex-1 overflow-y-auto">
+          <div className="mx-auto min-h-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
             {children}
           </div>
         </main>

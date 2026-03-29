@@ -1,6 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import type { ApiResponse, PaginatedResult } from "@/lib/api-response";
+import {
+  appendPaginationParams,
+  buildPaginationMeta,
+  type AdminPageSize,
+} from "@/lib/pagination";
 
 export interface Ingredient {
   id: string;
@@ -18,7 +23,7 @@ export interface Ingredient {
 
 interface IngredientFilters {
   page?: number;
-  pageSize?: number;
+  pageSize?: AdminPageSize;
   type?: string;
   search?: string;
 }
@@ -73,11 +78,8 @@ function mapIngredient(item: IngredientApiRecord): Ingredient {
 }
 
 export function useIngredients(storeId: string, filters: IngredientFilters = {}) {
-  const { page = 1, pageSize = 20, type, search } = filters;
-  const params = new URLSearchParams({
-    page: String(page),
-    limit: String(pageSize),
-  });
+  const { page = 1, pageSize = 10, type, search } = filters;
+  const params = appendPaginationParams(new URLSearchParams(), page, pageSize);
 
   if (search) {
     params.set("search", search);
@@ -99,12 +101,12 @@ export function useIngredients(storeId: string, filters: IngredientFilters = {})
 
           return {
             data: filtered,
-            meta: response.data.meta ?? {
-              total: filtered.length,
+            meta: buildPaginationMeta(
+              response.data.meta,
+              filtered.length,
               page,
-              limit: pageSize,
-              totalPages: 1,
-            },
+              pageSize
+            ),
           } satisfies PaginatedResult<Ingredient>;
         }),
     enabled: !!storeId,

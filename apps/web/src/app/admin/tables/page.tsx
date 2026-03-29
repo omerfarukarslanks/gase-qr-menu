@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ChefHat,
   Clock,
@@ -11,6 +11,7 @@ import {
   Users,
 } from "lucide-react";
 import { AdminDrawer } from "@/components/admin/admin-drawer";
+import { AdminPagination } from "@/components/admin/admin-pagination";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { MenuQrCard } from "@/components/admin/menu-qr-card";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,10 @@ import {
   useUpdateTable,
 } from "@/hooks/use-tables";
 import { useCurrentStore } from "@/hooks/use-current-store";
+import {
+  buildClientPaginationMeta,
+  type AdminPageSize,
+} from "@/lib/pagination";
 
 type Section = "ALL" | "IC_MEKAN" | "DIS_MEKAN" | "TERAS" | "VIP";
 
@@ -130,6 +135,8 @@ export default function TablesPage() {
   const closeTableSession = useCloseTableSession();
 
   const [activeFilter, setActiveFilter] = useState<Section>("ALL");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<AdminPageSize>(10);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<TableFormData>(emptyForm);
@@ -167,6 +174,19 @@ export default function TablesPage() {
         : tables.filter((table) => (table.section ?? "") === activeFilter),
     [activeFilter, tables]
   );
+  const totalPages =
+    pageSize === "all"
+      ? filteredTables.length > 0
+        ? 1
+        : 0
+      : Math.ceil(filteredTables.length / pageSize);
+  const paginatedTables = useMemo(() => {
+    if (pageSize === "all") {
+      return filteredTables;
+    }
+    const start = (page - 1) * pageSize;
+    return filteredTables.slice(start, start + pageSize);
+  }, [filteredTables, page, pageSize]);
 
   const filterTabs: { key: Section; label: string }[] = [
     { key: "ALL", label: "Tumu" },
@@ -175,6 +195,16 @@ export default function TablesPage() {
     { key: "TERAS", label: "Teras" },
     { key: "VIP", label: "VIP" },
   ];
+
+  useEffect(() => {
+    if (page > 1 && totalPages > 0 && page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [activeFilter, activeStoreId, pageSize]);
 
   const resetForm = () => {
     setShowForm(false);
@@ -544,8 +574,9 @@ export default function TablesPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-          {filteredTables.map((table) => {
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+            {paginatedTables.map((table) => {
             const status = statusConfig[table.status];
             const sessionMinutes = table.currentSession
               ? getElapsedMinutes(table.currentSession.openedAt)
@@ -553,130 +584,141 @@ export default function TablesPage() {
             const sectionKey =
               (table.section as Exclude<Section, "ALL"> | null) ?? "IC_MEKAN";
 
-            return (
-              <Card
-                key={table.id}
-                className={`relative overflow-hidden border-2 ${status.border}`}
-              >
-                <div className={`absolute left-0 right-0 top-0 h-1 ${status.bg}`} />
-                <CardContent className="space-y-3 p-4">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="text-lg font-bold">Masa {table.number}</div>
-                      <div className="text-sm text-muted-foreground">{table.name}</div>
-                    </div>
-                    <span
-                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${status.bg} ${status.color}`}
-                    >
-                      {status.label}
-                    </span>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <Users className="h-3.5 w-3.5" />
-                      {table.capacity} Kisi
-                    </span>
-                    <span
-                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${sectionColors[sectionKey]}`}
-                    >
-                      {sectionLabels[sectionKey]}
-                    </span>
-                  </div>
-
-                  {table.currentSession && (
-                    <div className="space-y-1 rounded-md bg-muted/50 p-2">
-                      <div className="text-sm font-medium">
-                        {table.currentSession.customerName || "Aktif masa oturumu"}
+              return (
+                <Card
+                  key={table.id}
+                  className={`relative overflow-hidden border-2 ${status.border}`}
+                >
+                  <div className={`absolute left-0 right-0 top-0 h-1 ${status.bg}`} />
+                  <CardContent className="space-y-3 p-4">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="text-lg font-bold">Masa {table.number}</div>
+                        <div className="text-sm text-muted-foreground">{table.name}</div>
                       </div>
-                      <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {sessionMinutes} dk
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <ChefHat className="h-3 w-3" />
-                          {table.currentSession.orderCount} aktif siparis
-                        </span>
-                        {table.currentSession.assignedStaff?.name ? (
-                          <span>{table.currentSession.assignedStaff.name}</span>
-                        ) : null}
-                      </div>
+                      <span
+                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${status.bg} ${status.color}`}
+                      >
+                        {status.label}
+                      </span>
                     </div>
-                  )}
 
-                  <div className="flex flex-col gap-3 pt-1">
-                    {table.currentSession ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={closeTableSession.isPending}
-                        onClick={() =>
-                          closeTableSession.mutate({
-                            sessionId: table.currentSession!.id,
-                          })
-                        }
+                    <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <Users className="h-3.5 w-3.5" />
+                        {table.capacity} Kisi
+                      </span>
+                      <span
+                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${sectionColors[sectionKey]}`}
                       >
-                        Oturumu kapat
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={
-                          openTableSession.isPending || table.status === "OUT_OF_SERVICE"
-                        }
-                        onClick={() => handleOpenSessionDrawer(table)}
-                      >
-                        Masa ac
-                      </Button>
+                        {sectionLabels[sectionKey]}
+                      </span>
+                    </div>
+
+                    {table.currentSession && (
+                      <div className="space-y-1 rounded-md bg-muted/50 p-2">
+                        <div className="text-sm font-medium">
+                          {table.currentSession.customerName || "Aktif masa oturumu"}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {sessionMinutes} dk
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <ChefHat className="h-3 w-3" />
+                            {table.currentSession.orderCount} aktif siparis
+                          </span>
+                          {table.currentSession.assignedStaff?.name ? (
+                            <span>{table.currentSession.assignedStaff.name}</span>
+                          ) : null}
+                        </div>
+                      </div>
                     )}
 
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <Switch
-                          checked={table.status !== "OUT_OF_SERVICE"}
+                    <div className="flex flex-col gap-3 pt-1">
+                      {table.currentSession ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={closeTableSession.isPending}
+                          onClick={() =>
+                            closeTableSession.mutate({
+                              sessionId: table.currentSession!.id,
+                            })
+                          }
+                        >
+                          Oturumu kapat
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
                           disabled={
-                            updateTable.isPending ||
-                            Boolean(table.currentSession) ||
-                            table.status === "OCCUPIED" ||
-                            table.status === "RESERVED"
+                            openTableSession.isPending || table.status === "OUT_OF_SERVICE"
                           }
-                          onCheckedChange={() => handleToggleTableActive(table)}
-                          aria-label={`${table.name} durumunu degistir`}
-                        />
-                      </div>
+                          onClick={() => handleOpenSessionDrawer(table)}
+                        >
+                          Masa ac
+                        </Button>
+                      )}
 
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          title={
-                            activeMenus.length > 0
-                              ? "Bu masa icin QR olustur"
-                              : "Once aktif bir menu olusturun"
-                          }
-                          disabled={activeMenus.length === 0}
-                          onClick={() => handleOpenQrPanel(table)}
-                        >
-                          <QrCode className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => handleEdit(table)}
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <Switch
+                            checked={table.status !== "OUT_OF_SERVICE"}
+                            disabled={
+                              updateTable.isPending ||
+                              Boolean(table.currentSession) ||
+                              table.status === "OCCUPIED" ||
+                              table.status === "RESERVED"
+                            }
+                            onCheckedChange={() => handleToggleTableActive(table)}
+                            aria-label={`${table.name} durumunu degistir`}
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            title={
+                              activeMenus.length > 0
+                                ? "Bu masa icin QR olustur"
+                                : "Once aktif bir menu olusturun"
+                            }
+                            disabled={activeMenus.length === 0}
+                            onClick={() => handleOpenQrPanel(table)}
+                          >
+                            <QrCode className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => handleEdit(table)}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+          <AdminPagination
+            meta={buildClientPaginationMeta(filteredTables.length, page, pageSize)}
+            itemLabel="masa"
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={(nextPageSize) => {
+              setPageSize(nextPageSize);
+              setPage(1);
+            }}
+          />
         </div>
       )}
     </div>

@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AlertCircle, Loader2, Pencil, Plus, UserCog } from "lucide-react";
 import { AdminDrawer } from "@/components/admin/admin-drawer";
+import { AdminPagination } from "@/components/admin/admin-pagination";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { ResponsiveDataTable } from "@/components/admin/responsive-data-table";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,10 @@ import {
   useToggleStaffStatus,
   useUpdateStaff,
 } from "@/hooks/use-staff";
+import {
+  buildClientPaginationMeta,
+  type AdminPageSize,
+} from "@/lib/pagination";
 
 const ROLES: { value: StaffRole; label: string }[] = [
   { value: "MANAGER", label: "Mudur" },
@@ -78,6 +83,8 @@ export default function StaffPage() {
   const updateStaff = useUpdateStaff();
   const toggleStaffStatus = useToggleStaffStatus();
 
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<AdminPageSize>(10);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<StaffForm>(emptyForm);
@@ -90,6 +97,25 @@ export default function StaffPage() {
   );
   const busy =
     createStaff.isPending || updateStaff.isPending || toggleStaffStatus.isPending;
+  const totalPages =
+    pageSize === "all" ? (staff.length > 0 ? 1 : 0) : Math.ceil(staff.length / pageSize);
+  const paginatedStaff = useMemo(() => {
+    if (pageSize === "all") {
+      return staff;
+    }
+    const start = (page - 1) * pageSize;
+    return staff.slice(start, start + pageSize);
+  }, [page, pageSize, staff]);
+
+  useEffect(() => {
+    if (page > 1 && totalPages > 0 && page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [activeStoreId, pageSize]);
 
   function handleOpenCreate() {
     setEditingId(null);
@@ -362,8 +388,9 @@ export default function StaffPage() {
               Henuz personel eklenmemis. "Yeni Personel" butonuna tiklayarak baslayabilirsiniz.
             </p>
           ) : (
-            <ResponsiveDataTable
-              data={staff}
+            <>
+              <ResponsiveDataTable
+                data={paginatedStaff}
               getKey={(member) => member.id}
               columns={[
                 {
@@ -468,7 +495,18 @@ export default function StaffPage() {
                   </div>
                 </div>
               )}
-            />
+              />
+              <AdminPagination
+                meta={buildClientPaginationMeta(staff.length, page, pageSize)}
+                itemLabel="personel"
+                pageSize={pageSize}
+                onPageChange={setPage}
+                onPageSizeChange={(nextPageSize) => {
+                  setPageSize(nextPageSize);
+                  setPage(1);
+                }}
+              />
+            </>
           )}
         </CardContent>
       </Card>

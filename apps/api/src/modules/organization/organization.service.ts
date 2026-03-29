@@ -34,8 +34,7 @@ export class OrganizationService {
     const [items, total] = await Promise.all([
       prisma.organization.findMany({
         where,
-        skip: query.skip,
-        take: query.limit,
+        ...query.prismaPagination,
         orderBy: { [query.sortBy || 'createdAt']: query.sortOrder || 'desc' },
       }),
       prisma.organization.count({ where }),
@@ -43,12 +42,7 @@ export class OrganizationService {
 
     return {
       items,
-      meta: {
-        total,
-        page: query.page,
-        limit: query.limit,
-        totalPages: Math.ceil(total / (query.limit || 20)),
-      },
+      meta: query.buildMeta(total),
     };
   }
 

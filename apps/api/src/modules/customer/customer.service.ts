@@ -53,8 +53,7 @@ export class CustomerService {
     const [items, total] = await Promise.all([
       prisma.customerVisit.findMany({
         where: { storeId },
-        skip: query.skip,
-        take: query.limit,
+        ...query.prismaPagination,
         orderBy: { visitDate: 'desc' },
         include: {
           customer: { select: { id: true, name: true, email: true, phone: true } },
@@ -65,12 +64,7 @@ export class CustomerService {
 
     return {
       items,
-      meta: {
-        total,
-        page: query.page,
-        limit: query.limit,
-        totalPages: Math.ceil(total / (query.limit || 20)),
-      },
+      meta: query.buildMeta(total),
     };
   }
 

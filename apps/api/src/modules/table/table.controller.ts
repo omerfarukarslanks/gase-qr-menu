@@ -6,11 +6,12 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { TableService } from './table.service';
-import { CreateTableDto, UpdateTableDto, OpenSessionDto } from './dto/table.dto';
+import { CreateTableDto, UpdateTableDto, OpenSessionDto, TableListQueryDto } from './dto/table.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -30,8 +31,8 @@ export class TableController {
 
   @Get('store/:storeId')
   @ApiOperation({ summary: 'List tables for a store' })
-  findAll(@Param('storeId') storeId: string) {
-    return this.tableService.findAll(storeId);
+  findAll(@Param('storeId') storeId: string, @Query() query: TableListQueryDto) {
+    return this.tableService.findAll(storeId, query);
   }
 
   @Get(':id')

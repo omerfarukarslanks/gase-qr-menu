@@ -5,6 +5,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Put,
   UseGuards,
 } from '@nestjs/common';
@@ -15,6 +16,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { CreateStaffDto, UpdateStaffDto, UpdateStaffStatusDto } from './dto/staff.dto';
 import { StaffService } from './staff.service';
+import { PaginationQueryDto } from '../../common/dto/pagination.dto';
 
 @ApiTags('staff')
 @ApiBearerAuth()
@@ -28,6 +30,7 @@ export class StaffController {
   @ApiOperation({ summary: 'List staff for a store' })
   findAll(
     @Param('storeId') storeId: string,
+    @Query() query: PaginationQueryDto,
     @CurrentUser()
     currentUser: {
       id: string;
@@ -36,7 +39,7 @@ export class StaffController {
       userStores?: Array<{ storeId: string; role: string; isActive: boolean }>;
     },
   ) {
-    return this.staffService.findAll(storeId, currentUser);
+    return this.staffService.findAll(storeId, currentUser, query);
   }
 
   @Post()

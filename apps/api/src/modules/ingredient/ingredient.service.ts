@@ -30,8 +30,7 @@ export class IngredientService {
     const [items, total] = await Promise.all([
       prisma.ingredient.findMany({
         where,
-        skip: query.skip,
-        take: query.limit,
+        ...query.prismaPagination,
         orderBy: { [query.sortBy || 'name']: query.sortOrder || 'asc' },
         include: { unit: true },
       }),
@@ -40,12 +39,7 @@ export class IngredientService {
 
     return {
       items,
-      meta: {
-        total,
-        page: query.page,
-        limit: query.limit,
-        totalPages: Math.ceil(total / (query.limit || 20)),
-      },
+      meta: query.buildMeta(total),
     };
   }
 

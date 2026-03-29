@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Pencil, Plus } from "lucide-react";
 import { AdminDrawer } from "@/components/admin/admin-drawer";
+import { AdminPagination } from "@/components/admin/admin-pagination";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { ResponsiveDataTable } from "@/components/admin/responsive-data-table";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,10 @@ import {
   useUpdateCategory,
 } from "@/hooks/use-categories";
 import { useCurrentStore } from "@/hooks/use-current-store";
+import {
+  buildClientPaginationMeta,
+  type AdminPageSize,
+} from "@/lib/pagination";
 
 interface CategoryFormState {
   name: string;
@@ -82,6 +87,8 @@ export default function CategoriesPage() {
   const createCategory = useCreateCategory();
   const updateCategory = useUpdateCategory();
 
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<AdminPageSize>(10);
   const [showForm, setShowForm] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [form, setForm] = useState<CategoryFormState>(emptyForm);
@@ -91,6 +98,25 @@ export default function CategoriesPage() {
     () => flattenCategories(categoryTree),
     [categoryTree]
   );
+  const totalPages =
+    pageSize === "all" ? (flatCategories.length > 0 ? 1 : 0) : Math.ceil(flatCategories.length / pageSize);
+  const paginatedCategories = useMemo(() => {
+    if (pageSize === "all") {
+      return flatCategories;
+    }
+    const start = (page - 1) * pageSize;
+    return flatCategories.slice(start, start + pageSize);
+  }, [flatCategories, page, pageSize]);
+
+  useEffect(() => {
+    if (page > 1 && totalPages > 0 && page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [activeStoreId, pageSize]);
 
   const resetForm = () => {
     setForm(emptyForm);
@@ -327,8 +353,9 @@ export default function CategoriesPage() {
               Henuz kategori yok. Ilk kategoriyi olusturarak baslayabilirsiniz.
             </p>
           ) : (
-            <ResponsiveDataTable
-              data={flatCategories}
+            <>
+              <ResponsiveDataTable
+                data={paginatedCategories}
               getKey={(category) => category.id}
               columns={[
                 {
@@ -425,7 +452,18 @@ export default function CategoriesPage() {
                   </div>
                 </div>
               )}
-            />
+              />
+              <AdminPagination
+                meta={buildClientPaginationMeta(flatCategories.length, page, pageSize)}
+                itemLabel="kategori"
+                pageSize={pageSize}
+                onPageChange={setPage}
+                onPageSizeChange={(nextPageSize) => {
+                  setPageSize(nextPageSize);
+                  setPage(1);
+                }}
+              />
+            </>
           )}
         </CardContent>
       </Card>

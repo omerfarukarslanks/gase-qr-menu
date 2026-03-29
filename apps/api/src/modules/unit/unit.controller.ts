@@ -13,6 +13,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { UnitService } from './unit.service';
 import { CreateUnitDto, UpdateUnitDto } from './dto/unit.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { PaginationQueryDto } from '../../common/dto/pagination.dto';
 
 @ApiTags('units')
 @ApiBearerAuth()
@@ -29,8 +30,8 @@ export class UnitController {
 
   @Get('store/:storeId')
   @ApiOperation({ summary: 'List units for a store' })
-  findAll(@Param('storeId') storeId: string) {
-    return this.unitService.findAll(storeId);
+  findAll(@Param('storeId') storeId: string, @Query() query: PaginationQueryDto) {
+    return this.unitService.findAll(storeId, query);
   }
 
   @Get(':id')

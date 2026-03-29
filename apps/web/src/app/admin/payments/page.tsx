@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeftRight,
   Banknote,
@@ -12,6 +12,7 @@ import {
   Search,
   XCircle,
 } from "lucide-react";
+import { AdminPagination } from "@/components/admin/admin-pagination";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { ResponsiveDataTable } from "@/components/admin/responsive-data-table";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,7 @@ import {
   usePayments,
   useRefundPayment,
 } from "@/hooks/use-payments";
+import type { AdminPageSize } from "@/lib/pagination";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 type FilterStatus = "ALL" | PaymentStatus;
@@ -71,6 +73,8 @@ export default function PaymentsPage() {
   const { activeStore, activeStoreId } = useCurrentStore();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FilterStatus>("ALL");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<AdminPageSize>(10);
   const refundPayment = useRefundPayment();
 
   const {
@@ -80,24 +84,17 @@ export default function PaymentsPage() {
     error,
     refetch,
   } = usePayments(activeStoreId ?? "", {
-    pageSize: 100,
+    page,
+    pageSize,
+    search: search.trim() || undefined,
+    status: filter === "ALL" ? undefined : filter,
   });
 
-  const allPayments = paymentResult?.data ?? [];
-  const payments = useMemo(
-    () =>
-      allPayments.filter((payment) => {
-        const matchesFilter = filter === "ALL" || payment.status === filter;
-        const normalizedSearch = search.trim().toLowerCase();
-        const matchesSearch =
-          !normalizedSearch ||
-          payment.tableName.toLowerCase().includes(normalizedSearch) ||
-          String(payment.orderNumber ?? "").includes(normalizedSearch);
+  const payments = paymentResult?.data ?? [];
 
-        return matchesFilter && matchesSearch;
-      }),
-    [allPayments, filter, search]
-  );
+  useEffect(() => {
+    setPage(1);
+  }, [activeStoreId, filter, search]);
 
   const totalCompleted = useMemo(
     () =>
@@ -130,23 +127,11 @@ export default function PaymentsPage() {
   );
 
   const filterTabs: { key: FilterStatus; label: string }[] = [
-    { key: "ALL", label: `Tumu (${allPayments.length})` },
-    {
-      key: "COMPLETED",
-      label: `Tamamlanan (${allPayments.filter((item) => item.status === "COMPLETED").length})`,
-    },
-    {
-      key: "PENDING",
-      label: `Bekleyen (${allPayments.filter((item) => item.status === "PENDING").length})`,
-    },
-    {
-      key: "FAILED",
-      label: `Basarisiz (${allPayments.filter((item) => item.status === "FAILED").length})`,
-    },
-    {
-      key: "REFUNDED",
-      label: `Iade (${allPayments.filter((item) => item.status === "REFUNDED").length})`,
-    },
+    { key: "ALL", label: "Tumu" },
+    { key: "COMPLETED", label: "Tamamlanan" },
+    { key: "PENDING", label: "Bekleyen" },
+    { key: "FAILED", label: "Basarisiz" },
+    { key: "REFUNDED", label: "Iade" },
   ];
 
   const handleRefund = async (paymentId: string) => {
@@ -419,6 +404,16 @@ export default function PaymentsPage() {
                       </div>
                     </div>
                   );
+                }}
+              />
+              <AdminPagination
+                meta={paymentResult?.meta}
+                itemLabel="odeme"
+                pageSize={pageSize}
+                onPageChange={setPage}
+                onPageSizeChange={(nextPageSize) => {
+                  setPageSize(nextPageSize);
+                  setPage(1);
                 }}
               />
             </div>

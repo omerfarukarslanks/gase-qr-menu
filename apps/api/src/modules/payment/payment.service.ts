@@ -268,8 +268,7 @@ export class PaymentService {
     const [items, total] = await Promise.all([
       prisma.payment.findMany({
         where,
-        skip: query.skip,
-        take: query.limit,
+        ...query.prismaPagination,
         orderBy: { createdAt: 'desc' },
         include: {
           order: {
@@ -296,12 +295,7 @@ export class PaymentService {
 
     return {
       items,
-      meta: {
-        total,
-        page: query.page,
-        limit: query.limit,
-        totalPages: Math.ceil(total / (query.limit || 20)),
-      },
+      meta: query.buildMeta(total),
     };
   }
 

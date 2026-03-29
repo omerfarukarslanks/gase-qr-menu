@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Pencil, Plus, Search } from "lucide-react";
 import { AdminDrawer } from "@/components/admin/admin-drawer";
+import { AdminPagination } from "@/components/admin/admin-pagination";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { ResponsiveDataTable } from "@/components/admin/responsive-data-table";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,7 @@ import {
 } from "@/hooks/use-ingredients";
 import { useCurrentStore } from "@/hooks/use-current-store";
 import { useUnits } from "@/hooks/use-units";
+import type { AdminPageSize } from "@/lib/pagination";
 
 const INGREDIENT_TYPES = [
   { value: "", label: "Tumu" },
@@ -59,9 +61,11 @@ export default function IngredientsPage() {
   const [typeFilter, setTypeFilter] = useState("");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<AdminPageSize>(10);
 
   const { data, isLoading } = useIngredients(activeStoreId ?? "", {
     page,
+    pageSize,
     type: typeFilter || undefined,
     search: search || undefined,
   });
@@ -450,31 +454,16 @@ export default function IngredientsPage() {
                 }}
               />
 
-              {meta && meta.totalPages > 1 && (
-                <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-sm text-muted-foreground">
-                    Toplam {meta.total} malzeme, Sayfa {meta.page} / {meta.totalPages}
-                  </p>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={page <= 1}
-                      onClick={() => setPage(page - 1)}
-                    >
-                      Onceki
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={page >= meta.totalPages}
-                      onClick={() => setPage(page + 1)}
-                    >
-                      Sonraki
-                    </Button>
-                  </div>
-                </div>
-              )}
+              <AdminPagination
+                meta={meta}
+                itemLabel="malzeme"
+                pageSize={pageSize}
+                onPageChange={setPage}
+                onPageSizeChange={(nextPageSize) => {
+                  setPageSize(nextPageSize);
+                  setPage(1);
+                }}
+              />
             </>
           )}
         </CardContent>

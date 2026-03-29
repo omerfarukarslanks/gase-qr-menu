@@ -1,6 +1,7 @@
 import { IsString, IsOptional, IsInt, Min, IsEnum } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { TableStatus } from '@gase/database';
+import { PaginationQueryDto } from '../../../common/dto/pagination.dto';
 
 export class CreateTableDto {
   @ApiProperty({ example: 'Table 1' })
@@ -66,4 +67,11 @@ export class OpenSessionDto {
   @IsOptional()
   @IsString()
   assignedStaffUserId?: string;
+}
+
+export class TableListQueryDto extends PaginationQueryDto {
+  @ApiPropertyOptional({ example: 'IC_MEKAN' })
+  @IsOptional()
+  @IsString()
+  section?: string;
 }

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { CreditCard, Eye, Search, Star, Users, X } from "lucide-react";
+import { AdminPagination } from "@/components/admin/admin-pagination";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { ResponsiveDataTable } from "@/components/admin/responsive-data-table";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useCustomers, useCustomerDetails } from "@/hooks/use-customers";
+import type { AdminPageSize } from "@/lib/pagination";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { useCurrentStore } from "@/hooks/use-current-store";
 
@@ -21,10 +23,12 @@ export default function CustomersPage() {
   const { activeStoreId, activeStore } = useCurrentStore();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<AdminPageSize>(10);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
 
   const { data, isLoading } = useCustomers(activeStoreId ?? "", {
     page,
+    pageSize,
     search: search || undefined,
   });
   const { data: customerDetail, isLoading: detailLoading } = useCustomerDetails(
@@ -174,31 +178,16 @@ export default function CustomersPage() {
                     )}
                   />
 
-                  {meta && meta.totalPages > 1 && (
-                    <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:items-center sm:justify-between">
-                      <p className="text-sm text-muted-foreground">
-                        Toplam {meta.total} musteri, Sayfa {meta.page} / {meta.totalPages}
-                      </p>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={page <= 1}
-                          onClick={() => setPage(page - 1)}
-                        >
-                          Onceki
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={page >= meta.totalPages}
-                          onClick={() => setPage(page + 1)}
-                        >
-                          Sonraki
-                        </Button>
-                      </div>
-                    </div>
-                  )}
+                  <AdminPagination
+                    meta={meta}
+                    itemLabel="musteri"
+                    pageSize={pageSize}
+                    onPageChange={setPage}
+                    onPageSizeChange={(nextPageSize) => {
+                      setPageSize(nextPageSize);
+                      setPage(1);
+                    }}
+                  />
                 </>
               )}
             </CardContent>

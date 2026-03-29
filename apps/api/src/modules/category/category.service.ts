@@ -103,8 +103,7 @@ export class CategoryService {
     const [items, total] = await Promise.all([
       prisma.category.findMany({
         where,
-        skip: query.skip,
-        take: query.limit,
+        ...query.prismaPagination,
         orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
         include: {
           translations: {
@@ -128,12 +127,7 @@ export class CategoryService {
 
     return {
       items: items.map((item) => this.formatCategory(item)),
-      meta: {
-        total,
-        page: query.page,
-        limit: query.limit,
-        totalPages: Math.ceil(total / (query.limit || 20)),
-      },
+      meta: query.buildMeta(total),
     };
   }
 

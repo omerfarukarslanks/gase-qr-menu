@@ -9,6 +9,7 @@ import {
   RefreshCw,
   ShoppingBag,
 } from "lucide-react";
+import { AdminPagination } from "@/components/admin/admin-pagination";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -20,6 +21,7 @@ import {
 } from "@/hooks/use-orders";
 import { useSocket } from "@/hooks/use-socket";
 import { useCurrentStore } from "@/hooks/use-current-store";
+import type { AdminPageSize } from "@/lib/pagination";
 
 type FilterStatus = "ALL" | Exclude<OrderStatus, "DRAFT" | "CANCELLED">;
 
@@ -54,6 +56,8 @@ function getOrderTime(createdAt: string) {
 export default function OrdersPage() {
   const { activeStoreId } = useCurrentStore();
   const [activeFilter, setActiveFilter] = useState<FilterStatus>("ALL");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<AdminPageSize>(10);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const { joinStore, onEvent } = useSocket();
   const updateOrderStatus = useUpdateOrderStatus();
@@ -65,7 +69,9 @@ export default function OrdersPage() {
     refetch,
     error,
   } = useOrders(activeStoreId ?? "", {
-    pageSize: 100,
+    page,
+    pageSize,
+    status: activeFilter === "ALL" ? undefined : activeFilter,
   });
 
   useEffect(() => {
@@ -75,6 +81,10 @@ export default function OrdersPage() {
 
     joinStore(activeStoreId);
   }, [activeStoreId, joinStore]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [activeStoreId, activeFilter]);
 
   useEffect(() => {
     const cleanupNew = onEvent("newOrder", () => {
@@ -91,28 +101,22 @@ export default function OrdersPage() {
   }, [onEvent, refetch]);
 
   const orders = orderResult?.data ?? [];
-  const filteredOrders = useMemo(() => {
-    const source =
-      activeFilter === "ALL"
-        ? orders
-        : orders.filter((order) => order.status === activeFilter);
-
-    return [...source].sort(
+  const filteredOrders = useMemo(
+    () =>
+      [...orders].sort(
       (left, right) =>
         new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
-    );
-  }, [activeFilter, orders]);
-
-  const getCount = (status: Exclude<OrderStatus, "DRAFT" | "CANCELLED">) =>
-    orders.filter((order) => order.status === status).length;
+    ),
+    [orders]
+  );
 
   const filterTabs: { key: FilterStatus; label: string }[] = [
-    { key: "ALL", label: `Tumu (${orders.length})` },
-    { key: "PENDING", label: `Bekleyen (${getCount("PENDING")})` },
-    { key: "CONFIRMED", label: `Onaylandi (${getCount("CONFIRMED")})` },
-    { key: "PREPARING", label: `Hazirlaniyor (${getCount("PREPARING")})` },
-    { key: "READY", label: `Hazir (${getCount("READY")})` },
-    { key: "SERVED", label: `Servis Edildi (${getCount("SERVED")})` },
+    { key: "ALL", label: "Tumu" },
+    { key: "PENDING", label: "Bekleyen" },
+    { key: "CONFIRMED", label: "Onaylandi" },
+    { key: "PREPARING", label: "Hazirlaniyor" },
+    { key: "READY", label: "Hazir" },
+    { key: "SERVED", label: "Servis Edildi" },
   ];
 
   const handleStatusChange = (order: Order) => {
@@ -302,6 +306,16 @@ export default function OrdersPage() {
               </Card>
             );
           })}
+          <AdminPagination
+            meta={orderResult?.meta}
+            itemLabel="siparis"
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={(nextPageSize) => {
+              setPageSize(nextPageSize);
+              setPage(1);
+            }}
+          />
         </div>
       )}
     </div>
