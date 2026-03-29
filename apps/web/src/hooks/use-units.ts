@@ -51,7 +51,7 @@ export function useUpdateUnit() {
     mutationFn: ({ id, ...payload }: UpdateUnitPayload) =>
       api.put(`/api/units/${id}`, payload).then((response) => response.data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["units"] });
+      queryClient.invalidateQueries({ queryKey: ["units"], exact: false });
     },
   });
 }
@@ -63,7 +63,7 @@ export function useDeleteUnit() {
     mutationFn: (id: string) =>
       api.delete(`/api/units/${id}`).then((response) => response.data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["units"] });
+      queryClient.invalidateQueries({ queryKey: ["units"], exact: false });
     },
   });
 }

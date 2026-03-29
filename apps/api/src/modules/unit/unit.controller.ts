@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { UnitService } from './unit.service';
+import { CreateUnitDto, UpdateUnitDto } from './dto/unit.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 
 @ApiTags('units')
@@ -22,7 +23,7 @@ export class UnitController {
 
   @Post()
   @ApiOperation({ summary: 'Create a unit' })
-  create(@Body() dto: { name: string; abbreviation: string; storeId: string }) {
+  create(@Body() dto: CreateUnitDto) {
     return this.unitService.create(dto);
   }
 
@@ -40,7 +41,7 @@ export class UnitController {
 
   @Put(':id')
   @ApiOperation({ summary: 'Update unit' })
-  update(@Param('id') id: string, @Body() dto: { name?: string; abbreviation?: string }) {
+  update(@Param('id') id: string, @Body() dto: UpdateUnitDto) {
     return this.unitService.update(id, dto);
   }
 

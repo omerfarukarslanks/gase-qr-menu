@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { prisma } from '@gase/database';
 import { AddToCartDto, UpdateCartItemDto } from './dto/cart.dto';
@@ -8,6 +8,8 @@ import Redis from 'ioredis';
 export class CartService {
   private redis: Redis;
   private readonly CART_TTL = 3600; // 1 hour
+  private readonly logger = new Logger(CartService.name);
+  private isConnected = false;
 
   constructor(private configService: ConfigService) {
     const redisConfig = this.configService.get('redis');
@@ -16,8 +18,33 @@ export class CartService {
       port: redisConfig?.port || 6379,
       password: redisConfig?.password || undefined,
       lazyConnect: true,
+      retryStrategy: (times) => {
+        if (times > 5) {
+          this.logger.error('Redis connection failed after 5 retries');
+          return null;
+        }
+        return Math.min(times * 500, 3000);
+      },
     });
-    this.redis.connect().catch(console.error);
+
+    this.redis.on('connect', () => {
+      this.isConnected = true;
+      this.logger.log('Redis connected for cart service');
+    });
+
+    this.redis.on('error', (err) => {
+      this.isConnected = false;
+      this.logger.error(`Redis connection error: ${err.message}`);
+    });
+
+    this.redis.on('close', () => {
+      this.isConnected = false;
+      this.logger.warn('Redis connection closed');
+    });
+
+    this.redis.connect().catch((err) => {
+      this.logger.error(`Redis initial connection failed: ${err.message}`);
+    });
   }
 
   private cartKey(sessionId: string): string {

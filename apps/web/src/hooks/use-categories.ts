@@ -88,7 +88,7 @@ export function useUpdateCategory() {
     mutationFn: ({ id, ...payload }: UpdateCategoryPayload) =>
       api.put(`/api/categories/${id}`, payload).then((response) => response.data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["categories"] });
+      queryClient.invalidateQueries({ queryKey: ["categories"], exact: false });
     },
   });
 }
@@ -100,7 +100,7 @@ export function useDeleteCategory() {
     mutationFn: (id: string) =>
       api.delete(`/api/categories/${id}`).then((response) => response.data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["categories"] });
+      queryClient.invalidateQueries({ queryKey: ["categories"], exact: false });
     },
   });
 }

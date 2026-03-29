@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Pencil, Plus } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { AdminDrawer } from "@/components/admin/admin-drawer";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { ResponsiveDataTable } from "@/components/admin/responsive-data-table";
@@ -18,6 +18,7 @@ import {
   useUnits,
   useCreateUnit,
   useUpdateUnit,
+  useDeleteUnit,
 } from "@/hooks/use-units";
 import { useCurrentStore } from "@/hooks/use-current-store";
 
@@ -33,6 +34,7 @@ export default function UnitsPage() {
   const { data: units, isLoading } = useUnits(activeStoreId ?? "");
   const createUnit = useCreateUnit();
   const updateUnit = useUpdateUnit();
+  const deleteUnit = useDeleteUnit();
 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -48,6 +50,12 @@ export default function UnitsPage() {
     setEditingId(unit.id);
     setForm({ name: unit.name, abbreviation: unit.abbreviation });
     setShowForm(true);
+  }
+
+  function handleDelete(id: string, name: string) {
+    if (window.confirm(`"${name}" birimini silmek istediginize emin misiniz?`)) {
+      deleteUnit.mutate(id);
+    }
   }
 
   function handleCancel() {
@@ -183,6 +191,9 @@ export default function UnitsPage() {
                       <Button variant="ghost" size="icon" onClick={() => handleEdit(unit)}>
                         <Pencil className="h-4 w-4" />
                       </Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleDelete(unit.id, unit.name)}>
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
                     </div>
                   ),
                 },
@@ -199,6 +210,9 @@ export default function UnitsPage() {
                     <div className="flex gap-1">
                       <Button variant="ghost" size="icon" onClick={() => handleEdit(unit)}>
                         <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleDelete(unit.id, unit.name)}>
+                        <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     </div>
                   </div>

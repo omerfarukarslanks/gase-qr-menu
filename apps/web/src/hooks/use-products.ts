@@ -156,7 +156,7 @@ export function useUpdateProduct() {
     mutationFn: ({ id, ...payload }: UpdateProductPayload) =>
       api.put(`/api/products/${id}`, payload).then((response) => response.data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["products"], exact: false });
     },
   });
 }
@@ -168,7 +168,7 @@ export function useDeleteProduct() {
     mutationFn: (id: string) =>
       api.delete(`/api/products/${id}`).then((response) => response.data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["products"], exact: false });
     },
   });
 }

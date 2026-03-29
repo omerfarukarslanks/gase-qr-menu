@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AllergenService } from './allergen.service';
+import { CreateAllergenDto, UpdateAllergenDto } from './dto/allergen.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { Public } from '../../common/decorators/public.decorator';
 
@@ -22,7 +23,7 @@ export class AllergenController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Create an allergen' })
-  create(@Body() dto: { name: string; icon?: string; translations?: { languageCode: string; name: string }[] }) {
+  create(@Body() dto: CreateAllergenDto) {
     return this.allergenService.create(dto);
   }
 
@@ -45,7 +46,7 @@ export class AllergenController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Update allergen' })
-  update(@Param('id') id: string, @Body() dto: any) {
+  update(@Param('id') id: string, @Body() dto: UpdateAllergenDto) {
     return this.allergenService.update(id, dto);
   }
 

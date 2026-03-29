@@ -395,6 +395,8 @@ model Product {
   campaignProducts CampaignProduct[]
 
   @@unique([storeId, slug])
+  @@index([storeId, categoryId])
+  @@index([storeId, isActive])
   @@map("products")
 }
 
@@ -564,6 +566,7 @@ model TableSession {
   orders         Order[]
   payments       Payment[]
 
+  @@index([tableId, status])
   @@map("table_sessions")
 }
 
@@ -596,6 +599,9 @@ model Order {
   items        OrderItem[]
   payments     Payment[]
 
+  @@index([storeId, status])
+  @@index([storeId, createdAt])
+  @@index([tableSessionId])
   @@map("orders")
 }
 
@@ -615,6 +621,8 @@ model OrderItem {
   order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id])
 
+  @@index([orderId])
+  @@index([productId])
   @@map("order_items")
 }
 
@@ -644,6 +652,8 @@ model Payment {
   tableSession TableSession? @relation(fields: [tableSessionId], references: [id])
   store        Store         @relation(fields: [storeId], references: [id])
 
+  @@index([storeId, status])
+  @@index([orderId])
   @@map("payments")
 }
 
@@ -666,6 +676,8 @@ model Notification {
   table  RestaurantTable? @relation(fields: [tableId], references: [id])
   readBy User?            @relation("NotificationReader", fields: [readById], references: [id])
 
+  @@index([storeId, isRead])
+  @@index([storeId, type])
   @@map("notifications")
 }
 
@@ -685,6 +697,8 @@ model CustomerVisit {
   store    Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
   customer User  @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
+  @@index([storeId, customerId])
+  @@index([storeId, visitDate])
   @@map("customer_visits")
 }
 
@@ -738,6 +752,7 @@ model Campaign {
   campaignCategories CampaignCategory[]
   orders             Order[]
 
+  @@index([storeId, isActive])
   @@map("campaigns")
 }
 
@@ -789,6 +804,8 @@ model StockMovement {
   unit       Unit?      @relation(fields: [unitId], references: [id])
   createdBy  User?      @relation(fields: [createdById], references: [id])
 
+  @@index([storeId, createdAt])
+  @@index([ingredientId])
   @@map("stock_movements")
 }
 

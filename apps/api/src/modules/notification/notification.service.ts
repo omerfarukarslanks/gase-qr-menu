@@ -1,17 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { prisma } from '@gase/database';
+import { EventsGateway } from '../../gateway/events.gateway';
 import { CreateNotificationDto } from './dto/notification.dto';
 import { CallWaiterDto } from './dto/call-waiter.dto';
 import { PaginationQueryDto } from '../../common/dto/pagination.dto';
 
 @Injectable()
 export class NotificationService {
-  // Gateway will be set externally to avoid circular deps
-  private gateway: any;
-
-  setGateway(gateway: any) {
-    this.gateway = gateway;
-  }
+  constructor(private readonly eventsGateway: EventsGateway) {}
 
   async create(dto: CreateNotificationDto) {
     const notification = await prisma.notification.create({
@@ -24,8 +20,8 @@ export class NotificationService {
     });
 
     // Emit via WebSocket if gateway is set
-    if (this.gateway) {
-      this.gateway.sendToStore(dto.storeId, 'notification', notification);
+    if (this.eventsGateway) {
+      this.eventsGateway.sendToStore(dto.storeId, 'notification', notification);
     }
 
     return notification;
@@ -46,8 +42,8 @@ export class NotificationService {
     });
 
     // Emit via WebSocket if gateway is set
-    if (this.gateway) {
-      this.gateway.sendToStore(dto.storeId, 'waiterCall', {
+    if (this.eventsGateway) {
+      this.eventsGateway.sendToStore(dto.storeId, 'waiterCall', {
         notificationId: notification.id,
         tableId: dto.tableId,
         tableName: dto.tableName,

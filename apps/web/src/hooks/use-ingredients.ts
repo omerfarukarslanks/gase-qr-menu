@@ -152,7 +152,7 @@ export function useUpdateIngredient() {
         })
         .then((response) => response.data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["ingredients"] });
+      queryClient.invalidateQueries({ queryKey: ["ingredients"], exact: false });
     },
   });
 }
@@ -164,7 +164,7 @@ export function useDeleteIngredient() {
     mutationFn: (id: string) =>
       api.delete(`/api/ingredients/${id}`).then((response) => response.data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["ingredients"] });
+      queryClient.invalidateQueries({ queryKey: ["ingredients"], exact: false });
     },
   });
 }

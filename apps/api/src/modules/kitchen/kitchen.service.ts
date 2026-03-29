@@ -87,7 +87,7 @@ export class KitchenService {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const [activeOrders, completedToday, avgPrepTime] = await Promise.all([
+    const [activeOrders, completedToday, servedOrders] = await Promise.all([
       prisma.order.count({
         where: {
           storeId,
@@ -101,19 +101,32 @@ export class KitchenService {
           createdAt: { gte: today },
         },
       }),
-      prisma.order.count({
+      prisma.order.findMany({
         where: {
           storeId,
           status: 'SERVED',
           createdAt: { gte: today },
         },
+        select: { createdAt: true, updatedAt: true },
       }),
     ]);
+
+    const avgPreparationTime =
+      servedOrders.length > 0
+        ? Math.round(
+            servedOrders.reduce(
+              (sum, o) => sum + (o.updatedAt.getTime() - o.createdAt.getTime()),
+              0,
+            ) /
+              servedOrders.length /
+              60000,
+          )
+        : 0;
 
     return {
       activeOrders,
       completedToday,
-      avgPreparationTime: 0,
+      avgPreparationTime,
     };
   }
 }

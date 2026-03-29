@@ -66,7 +66,7 @@ export function useUpdateStaff() {
     mutationFn: ({ id, ...payload }: UpdateStaffPayload) =>
       api.put<ApiResponse<StaffMember>>(`/api/staff/${id}`, payload).then((response) => response.data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["staff"] });
+      queryClient.invalidateQueries({ queryKey: ["staff"], exact: false });
     },
   });
 }
@@ -80,7 +80,7 @@ export function useToggleStaffStatus() {
         .patch<ApiResponse<StaffMember>>(`/api/staff/${id}/status`, { isActive })
         .then((response) => response.data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["staff"] });
+      queryClient.invalidateQueries({ queryKey: ["staff"], exact: false });
       queryClient.invalidateQueries({ queryKey: ["stores"] });
     },
   });
