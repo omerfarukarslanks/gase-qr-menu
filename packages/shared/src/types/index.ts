@@ -53,6 +53,16 @@ export interface JwtPayload {
   storeId?: string;
 }
 
+export interface StoreSummary {
+  id: string;
+  name: string;
+  slug: string;
+  isActive: boolean;
+  currency?: string;
+  timezone?: string;
+  role?: string | null;
+}
+
 // ============================================================
 // Menu Filter Types
 // ============================================================
@@ -155,6 +165,56 @@ export interface WsStockAlert {
   currentQuantity: number;
   minLevel: number;
   storeId: string;
+}
+
+// ============================================================
+// Mobile Types
+// ============================================================
+
+export type MobilePlatform = "ios" | "android" | "web";
+
+export type StaffAppRole =
+  | "SUPER_ADMIN"
+  | "OWNER"
+  | "MANAGER"
+  | "STAFF"
+  | "WAITER"
+  | "KITCHEN";
+
+export interface MobilePushRegistration {
+  deviceId: string;
+  expoPushToken: string;
+  platform: MobilePlatform;
+  storeId?: string | null;
+  appVersion?: string | null;
+  buildNumber?: string | null;
+}
+
+export interface MobilePushPayload {
+  title: string;
+  body: string;
+  storeId?: string;
+  sound?: "default" | null;
+  data?: Record<string, unknown>;
+}
+
+export interface StoreOperatingStatus {
+  isStoreActive: boolean;
+  isPubliclyVisible: boolean;
+  hasSchedule: boolean;
+  isOpenNow: boolean;
+  acceptingOrders: boolean;
+  currentDay: string;
+  currentDayLabel: string;
+  openTime?: string | null;
+  closeTime?: string | null;
+  timezone: string;
+  message: string;
+}
+
+export interface MobileMenuLink {
+  qrToken: string;
+  tableId?: string | null;
 }
 
 // ============================================================

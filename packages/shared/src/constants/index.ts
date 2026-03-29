@@ -97,3 +97,61 @@ export const NOTIFICATION_SOUNDS = {
   ORDER_READY: "order-ready",
   LOW_STOCK: "low-stock",
 } as const;
+
+export const MOBILE_THEME = {
+  radius: {
+    sm: 12,
+    md: 16,
+    lg: 20,
+    xl: 28,
+    pill: 999,
+  },
+  fonts: {
+    sans: "PlusJakartaSans_500Medium",
+    display: "Fraunces_600SemiBold",
+  },
+  colors: {
+    light: {
+      background: "#fcfcff",
+      foreground: "#101828",
+      card: "#ffffff",
+      primary: "#4f46e5",
+      primaryHover: "#4338ca",
+      primaryForeground: "#ffffff",
+      secondary: "#eef2ff",
+      secondaryForeground: "#4338ca",
+      muted: "#f4f7ff",
+      mutedForeground: "#667085",
+      border: "#d9def8",
+      success: "#15803d",
+      successSurface: "#e8f7ed",
+      warm: "#c2410c",
+      warmSurface: "#fff2e8",
+    },
+    dark: {
+      background: "#0b1020",
+      foreground: "#f5f7ff",
+      card: "#141b31",
+      primary: "#a5b4fc",
+      primaryHover: "#818cf8",
+      primaryForeground: "#0b1020",
+      secondary: "#1e2743",
+      secondaryForeground: "#f5f7ff",
+      muted: "#1b2440",
+      mutedForeground: "#b8c1e0",
+      border: "#2a3455",
+      success: "#4ade80",
+      successSurface: "#0f2417",
+      warm: "#f59e0b",
+      warmSurface: "#2d1b07",
+    },
+  },
+} as const;
+
+export const STAFF_MOBILE_TABS = [
+  "home",
+  "orders",
+  "tables",
+  "kitchen",
+  "more",
+] as const;

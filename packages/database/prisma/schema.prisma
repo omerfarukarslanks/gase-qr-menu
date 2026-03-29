@@ -176,6 +176,7 @@ model Store {
   payments       Payment[]
   loyaltyPoints  LoyaltyPoints[]
   reports        Report[]
+  mobileDevices  MobileDevice[]
 
   @@map("stores")
 }
@@ -207,6 +208,7 @@ model User {
   stockMovements    StockMovement[]
   purchaseReceipts  PurchaseReceipt[]
   loyaltyPoints     LoyaltyPoints[]
+  mobileDevices     MobileDevice[]
 
   @@map("users")
 }
@@ -679,6 +681,28 @@ model Notification {
   @@index([storeId, isRead])
   @@index([storeId, type])
   @@map("notifications")
+}
+
+model MobileDevice {
+  id            String   @id @default(cuid())
+  userId        String   @map("user_id")
+  storeId       String?  @map("store_id")
+  deviceId      String   @map("device_id")
+  expoPushToken String   @map("expo_push_token")
+  platform      String
+  appVersion    String?  @map("app_version")
+  buildNumber   String?  @map("build_number")
+  isActive      Boolean  @default(true) @map("is_active")
+  lastSeenAt    DateTime @default(now()) @map("last_seen_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  store Store? @relation(fields: [storeId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, deviceId])
+  @@index([storeId, isActive])
+  @@map("mobile_devices")
 }
 
 // ============================================================

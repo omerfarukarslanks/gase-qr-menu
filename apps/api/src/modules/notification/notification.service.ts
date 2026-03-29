@@ -4,10 +4,14 @@ import { EventsGateway } from '../../gateway/events.gateway';
 import { CreateNotificationDto } from './dto/notification.dto';
 import { CallWaiterDto } from './dto/call-waiter.dto';
 import { PaginationQueryDto } from '../../common/dto/pagination.dto';
+import { MobileDeviceService } from '../mobile-device/mobile-device.service';
 
 @Injectable()
 export class NotificationService {
-  constructor(private readonly eventsGateway: EventsGateway) {}
+  constructor(
+    private readonly eventsGateway: EventsGateway,
+    private readonly mobileDeviceService: MobileDeviceService,
+  ) {}
 
   async create(dto: CreateNotificationDto) {
     const notification = await prisma.notification.create({
@@ -51,6 +55,10 @@ export class NotificationService {
         timestamp: new Date().toISOString(),
       });
     }
+
+    void this.mobileDeviceService
+      .notifyWaiterCall(dto.storeId, dto.tableName)
+      .catch(() => undefined);
 
     return notification;
   }

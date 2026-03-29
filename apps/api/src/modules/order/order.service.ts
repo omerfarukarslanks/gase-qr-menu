@@ -7,6 +7,7 @@ import { CartService } from '../cart/cart.service';
 import { CampaignService } from '../campaign/campaign.service';
 import { StockService } from '../stock/stock.service';
 import { CustomerService } from '../customer/customer.service';
+import { MobileDeviceService } from '../mobile-device/mobile-device.service';
 import { getStoreOperatingStatus } from '../../common/utils/store-availability.util';
 
 const STATUS_FLOW: Record<OrderStatus, OrderStatus[]> = {
@@ -51,6 +52,7 @@ export class OrderService {
     private readonly campaignService: CampaignService,
     private readonly stockService: StockService,
     private readonly customerService: CustomerService,
+    private readonly mobileDeviceService: MobileDeviceService,
   ) {}
 
   async create(dto: CreateOrderDto) {
@@ -144,6 +146,13 @@ export class OrderService {
     }
 
     this.eventsGateway.emitNewOrder(dto.storeId, order);
+    void this.mobileDeviceService
+      .notifyNewOrder(
+        dto.storeId,
+        order.orderNumber,
+        order.tableSession?.tableRef?.name ?? 'Masa',
+      )
+      .catch(() => undefined);
     return order;
   }
 
@@ -257,6 +266,13 @@ export class OrderService {
     }
 
     this.eventsGateway.emitNewOrder(dto.storeId, order);
+    void this.mobileDeviceService
+      .notifyNewOrder(
+        dto.storeId,
+        order.orderNumber,
+        order.tableSession?.tableRef?.name ?? 'Masa',
+      )
+      .catch(() => undefined);
     return order;
   }
 
@@ -310,6 +326,15 @@ export class OrderService {
     });
 
     this.eventsGateway.emitOrderStatusUpdate(order.storeId, updatedOrder);
+    if (nextStatus === 'READY') {
+      void this.mobileDeviceService
+        .notifyOrderReady(
+          order.storeId,
+          updatedOrder.orderNumber,
+          updatedOrder.tableSession?.tableRef?.name ?? 'Masa',
+        )
+        .catch(() => undefined);
+    }
 
     // Auto-deduct stock when order is CONFIRMED
     if (nextStatus === 'CONFIRMED') {
