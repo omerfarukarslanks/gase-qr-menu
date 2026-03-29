@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { prisma } from '@gase/database';
 import * as QRCode from 'qrcode';
 import { randomUUID } from 'crypto';
-import { CreateMenuDto, UpdateMenuDto } from './dto/menu.dto';
+import { CreateMenuDto, UpdateMenuDto, ToggleMenuCategoryDto, ToggleMenuProductDto } from './dto/menu.dto';
 import { PublicMenuFiltersDto } from './dto/public-menu-filters.dto';
 import { getStoreOperatingStatus } from '../../common/utils/store-availability.util';
 
@@ -552,6 +552,40 @@ export class MenuService {
       },
       include: {
         menuCategories: { include: { category: true }, orderBy: { sortOrder: 'asc' } },
+      },
+    });
+  }
+
+  async toggleMenuCategory(menuId: string, categoryId: string, dto: ToggleMenuCategoryDto) {
+    const menuCategory = await prisma.menuCategory.findUnique({
+      where: { menuId_categoryId: { menuId, categoryId } },
+    });
+
+    if (!menuCategory) {
+      throw new NotFoundException('Menu category not found');
+    }
+
+    return prisma.menuCategory.update({
+      where: { menuId_categoryId: { menuId, categoryId } },
+      data: { isActive: dto.isActive },
+      include: { category: true },
+    });
+  }
+
+  async toggleMenuProduct(menuId: string, productId: string, dto: ToggleMenuProductDto) {
+    const menuProduct = await prisma.menuProduct.findUnique({
+      where: { menuId_productId: { menuId, productId } },
+    });
+
+    if (!menuProduct) {
+      throw new NotFoundException('Menu product not found');
+    }
+
+    return prisma.menuProduct.update({
+      where: { menuId_productId: { menuId, productId } },
+      data: {
+        isActive: dto.isActive,
+        customPrice: dto.customPrice,
       },
     });
   }

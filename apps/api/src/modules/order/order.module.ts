@@ -4,9 +4,10 @@ import { OrderService } from './order.service';
 import { CartModule } from '../cart/cart.module';
 import { CampaignModule } from '../campaign/campaign.module';
 import { StockModule } from '../stock/stock.module';
+import { CustomerModule } from '../customer/customer.module';
 
 @Module({
-  imports: [CartModule, CampaignModule, StockModule],
+  imports: [CartModule, CampaignModule, StockModule, CustomerModule],
   controllers: [OrderController],
   providers: [OrderService],
   exports: [OrderService],

@@ -16,8 +16,10 @@ import { Button } from "@/components/ui/button";
 import {
   type Order,
   type OrderStatus,
+  type OrderItemStatus,
   useKitchenOrders,
   useUpdateOrderStatus,
+  useUpdateOrderItemStatus,
 } from "@/hooks/use-orders";
 import { useSocket } from "@/hooks/use-socket";
 import { useCurrentStore } from "@/hooks/use-current-store";
@@ -49,6 +51,19 @@ function getElapsedMinutes(dateString: string) {
   return Math.floor((Date.now() - new Date(dateString).getTime()) / 60000);
 }
 
+const itemStatusConfig: Record<string, { label: string; className: string }> = {
+  PENDING: { label: "Bekliyor", className: "bg-yellow-100 text-yellow-800" },
+  PREPARING: { label: "Hazirlaniyor", className: "bg-orange-100 text-orange-800" },
+  READY: { label: "Hazir", className: "bg-green-100 text-green-800" },
+  SERVED: { label: "Servis", className: "bg-blue-100 text-blue-800" },
+};
+
+function nextItemStatus(status?: OrderItemStatus): OrderItemStatus | null {
+  if (status === "PENDING") return "PREPARING";
+  if (status === "PREPARING") return "READY";
+  return null;
+}
+
 function nextKitchenAction(status: OrderStatus) {
   if (status === "PENDING") return { next: "CONFIRMED" as const, label: "Onayla" };
   if (status === "CONFIRMED") return { next: "PREPARING" as const, label: "Hazirlamaya basla" };
@@ -60,9 +75,11 @@ function nextKitchenAction(status: OrderStatus) {
 function OrderCard({
   order,
   onAction,
+  onItemStatusChange,
 }: {
   order: Order;
   onAction: () => void;
+  onItemStatusChange: (itemId: string, status: OrderItemStatus) => void;
 }) {
   const elapsed = getElapsedMinutes(order.createdAt);
   const isUrgent = elapsed > 15;
@@ -87,18 +104,33 @@ function OrderCard({
       </CardHeader>
       <CardContent className="p-3 pt-1">
         <ul className="mb-3 space-y-1.5">
-          {order.items.map((item) => (
-            <li key={item.id} className="text-sm">
-              <span className="font-medium">
-                {item.quantity}x {item.productName}
-              </span>
-              {item.notes && (
-                <span className="ml-4 block text-xs italic text-muted-foreground">
-                  {item.notes}
+          {order.items.map((item) => {
+            const statusInfo = itemStatusConfig[item.status ?? "PENDING"];
+            const next = nextItemStatus(item.status as OrderItemStatus | undefined);
+
+            return (
+              <li key={item.id} className="flex items-center gap-2 text-sm">
+                <span className={`font-medium ${item.status === "READY" ? "line-through opacity-60" : ""}`}>
+                  {item.quantity}x {item.productName}
                 </span>
-              )}
-            </li>
-          ))}
+                {statusInfo && (
+                  <button
+                    type="button"
+                    disabled={!next}
+                    onClick={() => next && onItemStatusChange(item.id, next)}
+                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold transition-opacity ${statusInfo.className} ${next ? "cursor-pointer hover:opacity-80" : "cursor-default"}`}
+                  >
+                    {statusInfo.label}
+                  </button>
+                )}
+                {item.notes && (
+                  <span className="ml-auto text-xs italic text-muted-foreground">
+                    {item.notes}
+                  </span>
+                )}
+              </li>
+            );
+          })}
         </ul>
         {action && (
           <Button onClick={onAction} className="w-full" size="sm">
@@ -116,6 +148,7 @@ export default function KitchenDisplayPage() {
   const { joinStore, joinKitchen, onEvent } = useSocket();
   const { data, isLoading, isError, error, refetch } = useKitchenOrders(activeStoreId ?? "");
   const updateOrderStatus = useUpdateOrderStatus();
+  const updateItemStatus = useUpdateOrderItemStatus();
 
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -138,7 +171,20 @@ export default function KitchenDisplayPage() {
       if (soundEnabled) {
         try {
           const audio = new Audio("/notification.mp3");
-          void audio.play().catch(() => {});
+          void audio.play().catch(() => {
+            // Fallback: Web Audio API beep
+            try {
+              const ctx = new AudioContext();
+              const osc = ctx.createOscillator();
+              const gain = ctx.createGain();
+              osc.connect(gain);
+              gain.connect(ctx.destination);
+              osc.frequency.value = 880;
+              gain.gain.value = 0.3;
+              osc.start();
+              osc.stop(ctx.currentTime + 0.2);
+            } catch {}
+          });
         } catch {}
       }
     });
@@ -217,6 +263,9 @@ export default function KitchenDisplayPage() {
                   const action = nextKitchenAction(order.status);
                   if (!action) return;
                   updateOrderStatus.mutate({ id: order.id, status: action.next });
+                }}
+                onItemStatusChange={(itemId, status) => {
+                  updateItemStatus.mutate({ orderItemId: itemId, status });
                 }}
               />
             ))

@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Delete,
   Body,
   Param,
@@ -11,7 +12,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { MenuService } from './menu.service';
-import { CreateMenuDto, UpdateMenuDto } from './dto/menu.dto';
+import { CreateMenuDto, UpdateMenuDto, ToggleMenuCategoryDto, ToggleMenuProductDto } from './dto/menu.dto';
 import { PublicMenuFiltersDto } from './dto/public-menu-filters.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { Public } from '../../common/decorators/public.decorator';
@@ -86,6 +87,30 @@ export class MenuController {
   @ApiOperation({ summary: 'Update menu' })
   update(@Param('id') id: string, @Body() dto: UpdateMenuDto) {
     return this.menuService.update(id, dto);
+  }
+
+  @Patch(':menuId/categories/:categoryId')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Toggle menu category activation' })
+  toggleMenuCategory(
+    @Param('menuId') menuId: string,
+    @Param('categoryId') categoryId: string,
+    @Body() dto: ToggleMenuCategoryDto,
+  ) {
+    return this.menuService.toggleMenuCategory(menuId, categoryId, dto);
+  }
+
+  @Patch(':menuId/products/:productId')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Toggle menu product activation' })
+  toggleMenuProduct(
+    @Param('menuId') menuId: string,
+    @Param('productId') productId: string,
+    @Body() dto: ToggleMenuProductDto,
+  ) {
+    return this.menuService.toggleMenuProduct(menuId, productId, dto);
   }
 
   @Delete(':id')

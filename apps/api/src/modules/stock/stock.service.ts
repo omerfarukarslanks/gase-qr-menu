@@ -182,6 +182,76 @@ export class StockService {
     }
   }
 
+  async restoreStockForOrder(order: { id: string; storeId: string; orderNumber: number }) {
+    const orderWithItems = await prisma.order.findUnique({
+      where: { id: order.id },
+      include: {
+        items: {
+          include: {
+            product: {
+              include: {
+                ingredients: {
+                  include: { ingredient: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!orderWithItems) return;
+
+    for (const item of orderWithItems.items) {
+      for (const productIngredient of item.product.ingredients) {
+        if (!productIngredient.quantity) continue;
+
+        const restoreQty = productIngredient.quantity * item.quantity;
+
+        try {
+          const updatedIngredient = await prisma.ingredient.update({
+            where: { id: productIngredient.ingredientId },
+            data: { currentStock: { increment: restoreQty } },
+            include: { unit: true },
+          });
+
+          const movement = await prisma.stockMovement.create({
+            data: {
+              ingredientId: productIngredient.ingredientId,
+              storeId: orderWithItems.storeId,
+              type: StockMovementType.IN,
+              quantity: restoreQty,
+              notes: `Siparis iptali #${orderWithItems.orderNumber} - ${item.product.slug}`,
+              reason: 'Siparis iptali',
+              referenceId: orderWithItems.id,
+              unitId: updatedIngredient.stockUnitId,
+              resultingStock: updatedIngredient.currentStock,
+            },
+            include: {
+              ingredient: {
+                include: {
+                  unit: true,
+                },
+              },
+              createdBy: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            },
+          });
+
+          this.emitStockEvents(orderWithItems.storeId, updatedIngredient, movement);
+        } catch (error) {
+          this.logger.error(
+            `Failed to restore stock for ingredient ${productIngredient.ingredientId}: ${error}`,
+          );
+        }
+      }
+    }
+  }
+
   async getMovements(
     storeId: string,
     query: StockMovementQueryDto,

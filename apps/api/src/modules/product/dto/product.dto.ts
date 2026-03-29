@@ -36,6 +36,11 @@ export class ProductIngredientDto {
   @IsOptional()
   @IsNumber()
   quantity?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  isRemovable?: boolean;
 }
 
 export class CreateProductDto {

@@ -189,6 +189,7 @@ export class ProductService {
                 data: ingredients.map((ingredient) => ({
                   ingredientId: ingredient.ingredientId,
                   quantity: ingredient.quantity || 1,
+                  isRemovable: ingredient.isRemovable ?? false,
                 })),
               },
             }
@@ -457,6 +458,7 @@ export class ProductService {
                 data: ingredients.map((ingredient) => ({
                   ingredientId: ingredient.ingredientId,
                   quantity: ingredient.quantity || 1,
+                  isRemovable: ingredient.isRemovable ?? false,
                 })),
               },
             }

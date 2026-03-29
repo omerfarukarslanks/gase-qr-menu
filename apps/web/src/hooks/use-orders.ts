@@ -11,6 +11,13 @@ export type OrderStatus =
   | "SERVED"
   | "CANCELLED";
 
+export type OrderItemStatus =
+  | "PENDING"
+  | "PREPARING"
+  | "READY"
+  | "SERVED"
+  | "CANCELLED";
+
 export interface OrderItem {
   id: string;
   productId: string;
@@ -19,6 +26,7 @@ export interface OrderItem {
   unitPrice: number;
   totalPrice: number;
   notes?: string;
+  status?: OrderItemStatus;
 }
 
 export interface Order {
@@ -117,6 +125,7 @@ function mapOrder(record: OrderApiRecord): Order {
         unitPrice: item.unitPrice,
         totalPrice: item.totalPrice,
         notes: item.notes ?? undefined,
+        status: (item as any).status as OrderItemStatus | undefined,
       })) ?? [],
     totalAmount: record.totalAmount,
     finalAmount: record.finalAmount,
@@ -199,6 +208,23 @@ export function useUpdateOrderStatus() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       queryClient.invalidateQueries({ queryKey: ["kitchen-orders"] });
+    },
+  });
+}
+
+export function useUpdateOrderItemStatus() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: { orderItemId: string; status: OrderItemStatus }) =>
+      api
+        .put(`/api/kitchen/items/${payload.orderItemId}/status`, {
+          status: payload.status,
+        })
+        .then((r) => r.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["kitchen-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
     },
   });
 }

@@ -36,24 +36,23 @@ async function main() {
 
   // Seed EU 14 Allergens
   const allergenData = [
-    { code: "gluten", tr: "Gluten", en: "Gluten" },
-    { code: "crustaceans", tr: "Kabuklular", en: "Crustaceans" },
-    { code: "eggs", tr: "Yumurta", en: "Eggs" },
-    { code: "fish", tr: "Balık", en: "Fish" },
-    { code: "peanuts", tr: "Yer Fıstığı", en: "Peanuts" },
-    { code: "soybeans", tr: "Soya", en: "Soybeans" },
-    { code: "milk", tr: "Süt", en: "Milk" },
-    { code: "nuts", tr: "Kabuklu Yemişler", en: "Tree Nuts" },
-    { code: "celery", tr: "Kereviz", en: "Celery" },
-    { code: "mustard", tr: "Hardal", en: "Mustard" },
-    { code: "sesame", tr: "Susam", en: "Sesame" },
-    { code: "sulphites", tr: "Sülfitler", en: "Sulphites" },
-    { code: "lupin", tr: "Acı Bakla", en: "Lupin" },
-    { code: "molluscs", tr: "Yumuşakçalar", en: "Molluscs" },
+    { code: "gluten", tr: "Gluten", en: "Gluten", ar: "الغلوتين", de: "Gluten", ru: "Глютен" },
+    { code: "crustaceans", tr: "Kabuklular", en: "Crustaceans", ar: "القشريات", de: "Krebstiere", ru: "Ракообразные" },
+    { code: "eggs", tr: "Yumurta", en: "Eggs", ar: "البيض", de: "Eier", ru: "Яйца" },
+    { code: "fish", tr: "Balık", en: "Fish", ar: "السمك", de: "Fisch", ru: "Рыба" },
+    { code: "peanuts", tr: "Yer Fıstığı", en: "Peanuts", ar: "الفول السوداني", de: "Erdnüsse", ru: "Арахис" },
+    { code: "soybeans", tr: "Soya", en: "Soybeans", ar: "فول الصويا", de: "Soja", ru: "Соя" },
+    { code: "milk", tr: "Süt", en: "Milk", ar: "الحليب", de: "Milch", ru: "Молоко" },
+    { code: "nuts", tr: "Kabuklu Yemişler", en: "Tree Nuts", ar: "المكسرات", de: "Schalenfrüchte", ru: "Орехи" },
+    { code: "celery", tr: "Kereviz", en: "Celery", ar: "الكرفس", de: "Sellerie", ru: "Сельдерей" },
+    { code: "mustard", tr: "Hardal", en: "Mustard", ar: "الخردل", de: "Senf", ru: "Горчица" },
+    { code: "sesame", tr: "Susam", en: "Sesame", ar: "السمسم", de: "Sesam", ru: "Кунжут" },
+    { code: "sulphites", tr: "Sülfitler", en: "Sulphites", ar: "الكبريتات", de: "Sulfite", ru: "Сульфиты" },
+    { code: "lupin", tr: "Acı Bakla", en: "Lupin", ar: "الترمس", de: "Lupinen", ru: "Люпин" },
+    { code: "molluscs", tr: "Yumuşakçalar", en: "Molluscs", ar: "الرخويات", de: "Weichtiere", ru: "Моллюски" },
   ];
 
-  const trLang = languages[0];
-  const enLang = languages[1];
+  const [trLang, enLang, arLang, deLang, ruLang] = languages;
 
   for (const data of allergenData) {
     const allergen = await prisma.allergen.upsert({
@@ -65,35 +64,30 @@ async function main() {
       },
     });
 
-    await prisma.allergenTranslation.upsert({
-      where: {
-        allergenId_languageId: {
-          allergenId: allergen.id,
-          languageId: trLang.id,
-        },
-      },
-      update: {},
-      create: {
-        allergenId: allergen.id,
-        languageId: trLang.id,
-        name: data.tr,
-      },
-    });
+    const translationEntries = [
+      { lang: trLang, name: data.tr },
+      { lang: enLang, name: data.en },
+      { lang: arLang, name: data.ar },
+      { lang: deLang, name: data.de },
+      { lang: ruLang, name: data.ru },
+    ];
 
-    await prisma.allergenTranslation.upsert({
-      where: {
-        allergenId_languageId: {
-          allergenId: allergen.id,
-          languageId: enLang.id,
+    for (const entry of translationEntries) {
+      await prisma.allergenTranslation.upsert({
+        where: {
+          allergenId_languageId: {
+            allergenId: allergen.id,
+            languageId: entry.lang.id,
+          },
         },
-      },
-      update: {},
-      create: {
-        allergenId: allergen.id,
-        languageId: enLang.id,
-        name: data.en,
-      },
-    });
+        update: {},
+        create: {
+          allergenId: allergen.id,
+          languageId: entry.lang.id,
+          name: entry.name,
+        },
+      });
+    }
   }
 
   console.log(`Seeded ${allergenData.length} allergens with translations`);

@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsBoolean, IsArray } from 'class-validator';
+import { IsString, IsOptional, IsBoolean, IsArray, IsNumber, Min } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateMenuDto {
@@ -43,4 +43,22 @@ export class UpdateMenuDto {
   @IsArray()
   @IsString({ each: true })
   categoryIds?: string[];
+}
+
+export class ToggleMenuCategoryDto {
+  @ApiProperty()
+  @IsBoolean()
+  isActive: boolean;
+}
+
+export class ToggleMenuProductDto {
+  @ApiProperty()
+  @IsBoolean()
+  isActive: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  customPrice?: number;
 }

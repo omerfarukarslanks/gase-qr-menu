@@ -9,6 +9,7 @@ import {
   ConnectedSocket,
 } from '@nestjs/websockets';
 import { Logger } from '@nestjs/common';
+import { Server, Socket } from 'socket.io';
 
 @WebSocketGateway({
   cors: {
@@ -20,7 +21,7 @@ export class EventsGateway
   implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
 {
   @WebSocketServer()
-  server: any;
+  server: Server;
 
   private logger = new Logger('EventsGateway');
 
@@ -28,18 +29,18 @@ export class EventsGateway
     this.logger.log('WebSocket Gateway initialized');
   }
 
-  handleConnection(client: any) {
+  handleConnection(client: Socket) {
     this.logger.log(`Client connected: ${client.id}`);
   }
 
-  handleDisconnect(client: any) {
+  handleDisconnect(client: Socket) {
     this.logger.log(`Client disconnected: ${client.id}`);
   }
 
   // Join a store room (for staff dashboard, kitchen display, etc.)
   @SubscribeMessage('joinStore')
   handleJoinStore(
-    @ConnectedSocket() client: any,
+    @ConnectedSocket() client: Socket,
     @MessageBody() data: { storeId: string },
   ) {
     client.join(`store:${data.storeId}`);
@@ -50,7 +51,7 @@ export class EventsGateway
   // Leave a store room
   @SubscribeMessage('leaveStore')
   handleLeaveStore(
-    @ConnectedSocket() client: any,
+    @ConnectedSocket() client: Socket,
     @MessageBody() data: { storeId: string },
   ) {
     client.leave(`store:${data.storeId}`);
@@ -60,7 +61,7 @@ export class EventsGateway
   // Join kitchen room
   @SubscribeMessage('joinKitchen')
   handleJoinKitchen(
-    @ConnectedSocket() client: any,
+    @ConnectedSocket() client: Socket,
     @MessageBody() data: { storeId: string },
   ) {
     client.join(`kitchen:${data.storeId}`);
@@ -71,7 +72,7 @@ export class EventsGateway
   // Join a table session (for customers at a specific table)
   @SubscribeMessage('joinTable')
   handleJoinTable(
-    @ConnectedSocket() client: any,
+    @ConnectedSocket() client: Socket,
     @MessageBody() data: { tableId: string; sessionId: string },
   ) {
     client.join(`table:${data.tableId}`);
@@ -81,7 +82,7 @@ export class EventsGateway
   // Waiter call from customer
   @SubscribeMessage('callWaiter')
   handleCallWaiter(
-    @ConnectedSocket() client: any,
+    @ConnectedSocket() client: Socket,
     @MessageBody() data: { storeId: string; tableId: string; tableName: string },
   ) {
     this.server.to(`store:${data.storeId}`).emit('waiterCall', {
@@ -95,7 +96,7 @@ export class EventsGateway
   // Request bill from customer
   @SubscribeMessage('requestBill')
   handleRequestBill(
-    @ConnectedSocket() client: any,
+    @ConnectedSocket() client: Socket,
     @MessageBody() data: { storeId: string; tableId: string; tableName: string },
   ) {
     this.server.to(`store:${data.storeId}`).emit('billRequest', {

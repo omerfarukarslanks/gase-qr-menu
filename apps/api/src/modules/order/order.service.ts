@@ -6,6 +6,7 @@ import { EventsGateway } from '../../gateway/events.gateway';
 import { CartService } from '../cart/cart.service';
 import { CampaignService } from '../campaign/campaign.service';
 import { StockService } from '../stock/stock.service';
+import { CustomerService } from '../customer/customer.service';
 import { getStoreOperatingStatus } from '../../common/utils/store-availability.util';
 
 const STATUS_FLOW: Record<OrderStatus, OrderStatus[]> = {
@@ -49,6 +50,7 @@ export class OrderService {
     private readonly cartService: CartService,
     private readonly campaignService: CampaignService,
     private readonly stockService: StockService,
+    private readonly customerService: CustomerService,
   ) {}
 
   async create(dto: CreateOrderDto) {
@@ -69,6 +71,18 @@ export class OrderService {
     const orderNumber = (lastOrder?.orderNumber || 0) + 1;
     const totalAmount = items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
 
+    // Calculate tax from product taxRate
+    const productIds = [...new Set(items.map((item) => item.productId))];
+    const products = await prisma.product.findMany({
+      where: { id: { in: productIds } },
+      select: { id: true, taxRate: true },
+    });
+    const taxRateMap = new Map(products.map((p) => [p.id, p.taxRate]));
+    const taxAmount = items.reduce((sum, item) => {
+      const rate = taxRateMap.get(item.productId) ?? 0;
+      return sum + item.unitPrice * item.quantity * rate / 100;
+    }, 0);
+
     // Calculate campaign discount
     let discountAmount = 0;
     let campaignId: string | undefined;
@@ -88,7 +102,7 @@ export class OrderService {
       }
     } catch {}
 
-    const finalAmount = Math.max(0, totalAmount - discountAmount);
+    const finalAmount = Math.max(0, totalAmount + taxAmount - discountAmount);
     const takenByUserId = await this.resolveTakenByUserId(
       dto.storeId,
       dto.tableSessionId,
@@ -104,7 +118,7 @@ export class OrderService {
         orderNumber,
         status: 'PENDING',
         totalAmount,
-        taxAmount: 0,
+        taxAmount,
         discountAmount,
         finalAmount,
         campaignId,
@@ -158,6 +172,18 @@ export class OrderService {
       0,
     );
 
+    // Calculate tax from product taxRate
+    const cartProductIds = [...new Set(cart.items.map((item: any) => item.productId))];
+    const cartProducts = await prisma.product.findMany({
+      where: { id: { in: cartProductIds } },
+      select: { id: true, taxRate: true },
+    });
+    const cartTaxRateMap = new Map(cartProducts.map((p) => [p.id, p.taxRate]));
+    const taxAmount = cart.items.reduce((sum: number, item: any) => {
+      const rate = cartTaxRateMap.get(item.productId) ?? 0;
+      return sum + item.unitPrice * item.quantity * rate / 100;
+    }, 0);
+
     // Calculate campaign discount
     let discountAmount = 0;
     let campaignId: string | undefined;
@@ -179,7 +205,7 @@ export class OrderService {
       }
     } catch {}
 
-    const finalAmount = Math.max(0, totalAmount - discountAmount);
+    const finalAmount = Math.max(0, totalAmount + taxAmount - discountAmount);
     const takenByUserId = await this.resolveTakenByUserId(
       dto.storeId,
       dto.tableSessionId,
@@ -195,7 +221,7 @@ export class OrderService {
         orderNumber,
         status: 'PENDING',
         totalAmount,
-        taxAmount: 0,
+        taxAmount,
         discountAmount,
         finalAmount,
         campaignId,
@@ -285,6 +311,25 @@ export class OrderService {
     // Auto-deduct stock when order is CONFIRMED
     if (nextStatus === 'CONFIRMED') {
       await this.stockService.deductStockForOrder(updatedOrder);
+    }
+
+    // Restore stock when order is CANCELLED (if stock was already deducted)
+    if (
+      nextStatus === 'CANCELLED' &&
+      ['CONFIRMED', 'PREPARING', 'READY'].includes(order.status)
+    ) {
+      await this.stockService.restoreStockForOrder(updatedOrder);
+    }
+
+    // Track customer visit when order is SERVED
+    if (nextStatus === 'SERVED' && updatedOrder.tableSession?.customerId) {
+      try {
+        await this.customerService.trackVisit({
+          storeId: order.storeId,
+          customerId: updatedOrder.tableSession.customerId,
+          totalSpent: updatedOrder.finalAmount,
+        });
+      } catch {}
     }
 
     return updatedOrder;
