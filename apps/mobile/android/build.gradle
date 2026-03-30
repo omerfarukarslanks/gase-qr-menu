@@ -1,0 +1,104 @@
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
+
+def resolveNodeExecutable() {
+    def explicitCandidates = [
+        System.getenv("NODE_BINARY"),
+        System.getenv("NODEJS_BINARY"),
+        System.getProperty("node.binary")
+    ].findAll { it }
+
+    explicitCandidates.each { candidate ->
+        def file = new File(candidate)
+        if (file.exists()) {
+            return file.absolutePath
+        }
+    }
+
+    [
+        "/opt/homebrew/bin/node",
+        "/usr/local/bin/node",
+        "${System.properties['user.home']}/.volta/bin/node"
+    ].each { candidate ->
+        def file = new File(candidate)
+        if (file.exists()) {
+            return file.absolutePath
+        }
+    }
+
+    def nvmRoot = new File(System.properties['user.home'], ".nvm/versions/node")
+    if (nvmRoot.exists()) {
+        def nodeBinaries = []
+        nvmRoot.eachDir { versionDir ->
+            def nodeFile = new File(versionDir, "bin/node")
+            if (nodeFile.exists()) {
+                nodeBinaries << nodeFile
+            }
+        }
+
+        if (!nodeBinaries.isEmpty()) {
+            return nodeBinaries.sort { left, right ->
+                right.parentFile.parentFile.name <=> left.parentFile.parentFile.name
+            }.first().absolutePath
+        }
+    }
+
+    try {
+        def process = ["/bin/zsh", "-lc", "command -v node"].execute(null, rootDir)
+        process.waitFor()
+        def resolved = process.in.text.trim()
+        if (resolved) {
+            return resolved
+        }
+    } catch (ignored) {
+    }
+
+    throw new GradleException("Node.js executable bulunamadi.")
+}
+
+def nodeExecutable = resolveNodeExecutable()
+def nodeCommand = { List<String> args -> [nodeExecutable] + args }
+System.setProperty("node.binary", nodeExecutable)
+ext.REACT_NATIVE_NODE_MODULES_DIR = new File(nodeCommand([
+    "--print",
+    "require.resolve('react-native/package.json')"
+]).execute(null, rootDir).text.trim()).getParentFile().absolutePath
+
+buildscript {
+    ext {
+        buildToolsVersion = findProperty('android.buildToolsVersion') ?: '35.0.0'
+        minSdkVersion = Integer.parseInt(findProperty('android.minSdkVersion') ?: '24')
+        compileSdkVersion = Integer.parseInt(findProperty('android.compileSdkVersion') ?: '35')
+        targetSdkVersion = Integer.parseInt(findProperty('android.targetSdkVersion') ?: '34')
+        kotlinVersion = findProperty('android.kotlinVersion') ?: '1.9.25'
+
+        ndkVersion = "26.1.10909125"
+    }
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath('com.android.tools.build:gradle')
+        classpath('com.facebook.react:react-native-gradle-plugin')
+        classpath('org.jetbrains.kotlin:kotlin-gradle-plugin')
+    }
+}
+
+apply plugin: "com.facebook.react.rootproject"
+
+allprojects {
+    repositories {
+        maven {
+            // All of React Native (JS, Obj-C sources, Android binaries) is installed from npm
+            url(new File(nodeCommand(['--print', "require.resolve('react-native/package.json')"]).execute(null, rootDir).text.trim(), '../android'))
+        }
+        maven {
+            // Android JSC is installed from npm
+            url(new File(nodeCommand(['--print', "require.resolve('jsc-android/package.json', { paths: [require.resolve('react-native/package.json')] })"]).execute(null, rootDir).text.trim(), '../dist'))
+        }
+
+        google()
+        mavenCentral()
+        maven { url 'https://www.jitpack.io' }
+    }
+}

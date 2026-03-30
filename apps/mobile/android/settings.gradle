@@ -1,0 +1,170 @@
+pluginManagement {
+    def resolveNodeExecutable = {
+        def explicitCandidates = [
+            System.getenv("NODE_BINARY"),
+            System.getenv("NODEJS_BINARY"),
+            System.getProperty("node.binary")
+        ].findAll { it }
+
+        explicitCandidates.each { candidate ->
+            def file = new File(candidate)
+            if (file.exists()) {
+                return file.absolutePath
+            }
+        }
+
+        [
+            "/opt/homebrew/bin/node",
+            "/usr/local/bin/node",
+            "${System.properties['user.home']}/.volta/bin/node"
+        ].each { candidate ->
+            def file = new File(candidate)
+            if (file.exists()) {
+                return file.absolutePath
+            }
+        }
+
+        def nvmRoot = new File(System.properties['user.home'], ".nvm/versions/node")
+        if (nvmRoot.exists()) {
+            def nodeBinaries = []
+            nvmRoot.eachDir { versionDir ->
+                def nodeFile = new File(versionDir, "bin/node")
+                if (nodeFile.exists()) {
+                    nodeBinaries << nodeFile
+                }
+            }
+
+            if (!nodeBinaries.isEmpty()) {
+                return nodeBinaries.sort { left, right ->
+                    right.parentFile.parentFile.name <=> left.parentFile.parentFile.name
+                }.first().absolutePath
+            }
+        }
+
+        try {
+            def process = ["/bin/zsh", "-lc", "command -v node"].execute(null, rootDir)
+            process.waitFor()
+            def resolved = process.in.text.trim()
+            if (resolved) {
+                return resolved
+            }
+        } catch (ignored) {
+        }
+
+        throw new GradleException(
+            "Node.js executable bulunamadi. Android Studio PATH icinde 'node' bulamiyor. " +
+            "NODE_BINARY env degiskeni ayarlayin veya node'u /opt/homebrew/bin/node gibi global bir konuma ekleyin."
+        )
+    }
+
+    def nodeExecutable = resolveNodeExecutable()
+    def nodeCommand = { List<String> args -> [nodeExecutable] + args }
+
+    includeBuild(new File(nodeCommand([
+        "--print",
+        "require.resolve('@react-native/gradle-plugin/package.json', { paths: [require.resolve('react-native/package.json')] })"
+    ]).execute(null, rootDir).text.trim()).getParentFile().toString())
+}
+
+plugins { id("com.facebook.react.settings") }
+
+def resolveNodeExecutable() {
+    def explicitCandidates = [
+        System.getenv("NODE_BINARY"),
+        System.getenv("NODEJS_BINARY"),
+        System.getProperty("node.binary")
+    ].findAll { it }
+
+    explicitCandidates.each { candidate ->
+        def file = new File(candidate)
+        if (file.exists()) {
+            return file.absolutePath
+        }
+    }
+
+    [
+        "/opt/homebrew/bin/node",
+        "/usr/local/bin/node",
+        "${System.properties['user.home']}/.volta/bin/node"
+    ].each { candidate ->
+        def file = new File(candidate)
+        if (file.exists()) {
+            return file.absolutePath
+        }
+    }
+
+    def nvmRoot = new File(System.properties['user.home'], ".nvm/versions/node")
+    if (nvmRoot.exists()) {
+        def nodeBinaries = []
+        nvmRoot.eachDir { versionDir ->
+            def nodeFile = new File(versionDir, "bin/node")
+            if (nodeFile.exists()) {
+                nodeBinaries << nodeFile
+            }
+        }
+
+        if (!nodeBinaries.isEmpty()) {
+            return nodeBinaries.sort { left, right ->
+                right.parentFile.parentFile.name <=> left.parentFile.parentFile.name
+            }.first().absolutePath
+        }
+    }
+
+    try {
+        def process = ["/bin/zsh", "-lc", "command -v node"].execute(null, rootDir)
+        process.waitFor()
+        def resolved = process.in.text.trim()
+        if (resolved) {
+            return resolved
+        }
+    } catch (ignored) {
+    }
+
+    throw new GradleException(
+        "Node.js executable bulunamadi. Android Studio PATH icinde 'node' bulamiyor. " +
+        "NODE_BINARY env degiskeni ayarlayin veya node'u /opt/homebrew/bin/node gibi global bir konuma ekleyin."
+    )
+}
+
+def nodeExecutable = resolveNodeExecutable()
+def nodeCommand = { List<String> args -> [nodeExecutable] + args }
+System.setProperty("node.binary", nodeExecutable)
+
+extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
+    if (System.getenv('EXPO_USE_COMMUNITY_AUTOLINKING') == '1') {
+        ex.autolinkLibrariesFromCommand()
+    } else {
+        def command = nodeCommand([
+            '--no-warnings',
+            '--eval',
+            'require(require.resolve(\'expo-modules-autolinking\', { paths: [require.resolve(\'expo/package.json\')] }))(process.argv.slice(1))',
+            'react-native-config',
+            '--json',
+            '--platform',
+            'android'
+        ].toList())
+        ex.autolinkLibrariesFromCommand(command)
+    }
+}
+
+rootProject.name = 'GASE Mobile'
+
+dependencyResolutionManagement {
+    versionCatalogs {
+        reactAndroidLibs {
+            from(files("gradle/libs.versions.toml"))
+        }
+    }
+}
+
+apply from: new File(nodeCommand([
+    "--print",
+    "require.resolve('expo-modules-autolinking/package.json', { paths: [require.resolve('expo/package.json')] })"
+]).execute(null, rootDir).text.trim(), "../scripts/android/autolinking_implementation.gradle")
+useExpoModules()
+
+include ':app'
+includeBuild(new File(nodeCommand([
+    "--print",
+    "require.resolve('@react-native/gradle-plugin/package.json', { paths: [require.resolve('react-native/package.json')] })"
+]).execute(null, rootDir).text.trim()).getParentFile())

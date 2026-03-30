@@ -1,5 +1,3 @@
-import '../global.css';
-
 import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import * as Notifications from 'expo-notifications';

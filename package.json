@@ -6,6 +6,7 @@
   "scripts": {
     "setup:dev": "sh ./scripts/setup-dev.sh",
     "predev": "pnpm --filter @gase/database build",
+    "postinstall": "node ./scripts/patch-mobile-android-deps.js",
     "dev": "turbo run dev",
     "mobile:dev": "pnpm --filter @gase/mobile start",
     "mobile:android": "pnpm --filter @gase/mobile android",
