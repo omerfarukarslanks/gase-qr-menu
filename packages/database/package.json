@@ -5,8 +5,8 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "db:generate": "prisma generate",
+    "build": "node ../../scripts/sync-database-prisma-client.js && tsc -p tsconfig.json",
+    "db:generate": "prisma generate && node ../../scripts/sync-database-prisma-client.js",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
